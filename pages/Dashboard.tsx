@@ -6,8 +6,11 @@ import { BottomNav } from '../components/BottomNav';
 import { useApp } from '../context/AppContext';
 
 const Dashboard: React.FC = () => {
-  const { childrenData, currentUser, transactions, isOwnerAccount, setActingRole, deleteChild } = useApp();
+  const { childrenData, currentUser, transactions, isOwnerAccount, userRole, setActingRole, deleteChild } = useApp();
   const navigate = useNavigate();
+
+  const isStudent = userRole === 'university_student';
+  const entityType = isStudent ? "Institution" : "School";
 
   const totalNextDue = childrenData.reduce((acc, child) => {
       if (child.status === 'Completed') return acc;
@@ -30,7 +33,11 @@ const Dashboard: React.FC = () => {
   };
 
   const handleDeleteChild = (childId: string, childName: string) => {
-      if (window.confirm(`Are you sure you want to remove the plan for ${childName}? This will delete their payment history.`)) {
+      const msg = isStudent 
+        ? `Are you sure you want to remove your tuition plan? This will delete your payment history.`
+        : `Are you sure you want to remove the plan for ${childName}? This will delete their payment history.`;
+      
+      if (window.confirm(msg)) {
           deleteChild(childId);
       }
   };
@@ -40,7 +47,9 @@ const Dashboard: React.FC = () => {
   return (
     <Layout showBottomNav>
       <div className="sticky top-0 z-10 flex items-center justify-between bg-white dark:bg-background-dark p-6 pb-2 border-b border-gray-100 dark:border-gray-800">
-        <h1 className="text-2xl font-bold tracking-tight text-text-primary-light dark:text-text-primary-dark">Dashboard</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-text-primary-light dark:text-text-primary-dark">
+            {isStudent ? 'My Tuition' : 'Dashboard'}
+        </h1>
         <div className="flex items-center gap-3">
              <button 
                 onClick={() => navigate('/calendar')}
@@ -63,37 +72,45 @@ const Dashboard: React.FC = () => {
             <div className="flex flex-col items-center justify-center py-10 text-center animate-fade-in-up">
                 <div className="w-48 h-48 bg-gray-50 dark:bg-white/5 rounded-full flex items-center justify-center mb-6 relative overflow-hidden">
                      <div className="absolute inset-0 bg-primary/10 rounded-full animate-pulse"></div>
-                     <span className="material-symbols-outlined text-8xl text-primary opacity-80">family_restroom</span>
+                     <span className="material-symbols-outlined text-8xl text-primary opacity-80">
+                        {isStudent ? 'school' : 'family_restroom'}
+                     </span>
                 </div>
                 <h2 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark mb-2">
                     Welcome, {currentUser?.name.split(' ')[0]}!
                 </h2>
                 <p className="text-text-secondary-light dark:text-text-secondary-dark max-w-xs mb-8">
-                    Your dashboard is empty. Add a child and set up a payment plan to get started.
+                    {isStudent 
+                        ? "You haven't set up any tuition plans yet. Split your semester or session fees into installments."
+                        : "Your dashboard is empty. Add a child and set up a payment plan to get started."}
                 </p>
                 <button 
                     onClick={() => navigate('/add-child')}
                     className="flex items-center gap-2 px-8 py-4 bg-primary text-white rounded-xl font-bold shadow-lg shadow-primary/30 hover:scale-105 transition-transform"
                 >
                     <span className="material-symbols-outlined">add_circle</span>
-                    Start a New Plan
+                    {isStudent ? 'Setup Tuition Plan' : 'Start a New Plan'}
                 </button>
             </div>
         ) : (
             <>
                 <div className="flex flex-col items-stretch justify-start rounded-2xl bg-slate-900 text-white p-6 shadow-xl relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-primary/20 rounded-full blur-3xl -mr-10 -mt-10"></div>
-                    <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">Upcoming Collections</p>
+                    <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">
+                        {isStudent ? 'Upcoming Payments' : 'Upcoming Collections'}
+                    </p>
                     <p className="text-4xl font-extrabold tracking-tight mb-2">₦{totalNextDue.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
                     <div className="flex items-center gap-2 mt-2">
                          <div className="size-2 rounded-full bg-accent animate-pulse"></div>
-                         <p className="text-white/70 text-[10px] font-bold uppercase tracking-wider">Next Settlement: Oct 15</p>
+                         <p className="text-white/70 text-[10px] font-bold uppercase tracking-wider">Direct Settlement Active</p>
                     </div>
                 </div>
 
                 <div className="flex flex-col gap-4">
                 <div className="flex items-center justify-between">
-                    <h2 className="text-sm font-bold text-text-secondary-light uppercase tracking-wider">Plan Status</h2>
+                    <h2 className="text-sm font-bold text-text-secondary-light uppercase tracking-wider">
+                        {isStudent ? 'Active Academic Plans' : 'Plan Status'}
+                    </h2>
                 </div>
 
                 {childrenData.map((child) => {
@@ -103,14 +120,15 @@ const Dashboard: React.FC = () => {
                     const isOverdue = child.status === 'Overdue';
                     const isPending = transactions.some(t => t.childId === child.id && t.status === 'Pending');
                     
-                    // Specific check for activation deposit
                     const isActivating = child.paidAmount === 0 && isPending;
+                    const isFullyInactive = child.paidAmount === 0 && !isPending;
 
                     let statusColor = 'bg-secondary/10 text-secondary';
                     if (isDueSoon) statusColor = 'bg-warning/10 text-warning';
                     if (isOverdue) statusColor = 'bg-danger/10 text-danger';
                     if (isCompleted) statusColor = 'bg-success/10 text-success';
                     if (isPending && !isCompleted) statusColor = 'bg-primary/10 text-primary';
+                    if (isFullyInactive) statusColor = 'bg-gray-100 text-gray-500';
 
                     let progressColor = 'bg-secondary';
                     if (isDueSoon) progressColor = 'bg-warning';
@@ -130,13 +148,15 @@ const Dashboard: React.FC = () => {
                                 )}
                             </div>
                             <div>
-                                <p className="font-bold text-text-primary-light dark:text-text-primary-dark">{child.name}</p>
+                                <p className="font-bold text-text-primary-light dark:text-text-primary-dark">
+                                    {child.grade}
+                                </p>
                                 <p className="text-[10px] text-text-secondary-light dark:text-text-secondary-dark uppercase font-bold">{child.school}</p>
                             </div>
                         </div>
                         <div className="flex items-center gap-2">
                             <div className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${statusColor}`}>
-                                {isActivating ? 'Activating' : isCompleted ? 'Completed' : isPending ? 'Processing' : child.status}
+                                {isActivating ? 'Verifying Activation' : isFullyInactive ? 'Not Active' : isCompleted ? 'Completed' : isPending ? 'Processing' : child.status}
                             </div>
                             <button 
                                 onClick={() => handleDeleteChild(child.id, child.name)}
@@ -149,7 +169,9 @@ const Dashboard: React.FC = () => {
 
                         <div className="px-4 py-2">
                             <div className="flex justify-between items-end mb-1.5">
-                                <span className="text-[10px] text-text-secondary-light font-bold uppercase">Tuition Paid</span>
+                                <span className="text-[10px] text-text-secondary-light font-bold uppercase">
+                                    Installments Paid
+                                </span>
                                 <span className="text-xs font-bold dark:text-white">
                                     <span className={isCompleted ? 'text-success' : 'text-primary'}>₦{child.paidAmount.toLocaleString()}</span> <span className="text-text-secondary-light font-normal text-[10px]">/ ₦{child.totalFee.toLocaleString()}</span>
                                 </span>
@@ -166,24 +188,41 @@ const Dashboard: React.FC = () => {
                             {isCompleted ? (
                                 <div className="w-full flex items-center justify-center text-success font-bold gap-2 text-sm">
                                     <span className="material-symbols-outlined filled text-lg">verified</span>
-                                    <span>Plan Fully Paid</span>
+                                    <span>Tuition Fully Settled</span>
                                 </div>
                             ) : isPending ? (
                                 <div className="w-full flex items-center justify-center text-primary font-bold gap-2 text-sm">
                                     <span className="size-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin"></span>
-                                    <span>{isActivating ? 'Verifying Activation Deposit...' : 'Verifying Installment...'}</span>
+                                    <span>{isActivating ? 'Verifying Activation...' : 'Awaiting Confirmation...'}</span>
                                 </div>
                             ) : (
                                 <>
                                     <div>
-                                        <p className="text-[10px] text-text-secondary-light dark:text-text-secondary-dark uppercase font-bold">Next Installment</p>
-                                        <p className="font-bold text-sm text-text-primary-light dark:text-text-primary-dark">₦{child.nextInstallmentAmount.toLocaleString()} <span className="text-[10px] font-normal opacity-70 ml-1">due {child.nextDueDate}</span></p>
+                                        <p className="text-[10px] text-text-secondary-light dark:text-text-secondary-dark uppercase font-bold">
+                                            {child.paidAmount === 0 ? 'Activation Required' : 'Next Payment'}
+                                        </p>
+                                        <p className="font-bold text-sm text-text-primary-light dark:text-text-primary-dark">
+                                            ₦{child.nextInstallmentAmount.toLocaleString()} 
+                                            <span className="text-[10px] font-normal opacity-70 ml-1">
+                                                {child.paidAmount === 0 ? 'Plan Lock' : `due ${child.nextDueDate}`}
+                                            </span>
+                                        </p>
                                     </div>
                                     <button 
                                         onClick={() => handleQuickPay(child.id, child.nextInstallmentAmount)}
-                                        className="bg-primary text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow-md shadow-primary/20 active:scale-95 transition-all hover:opacity-90"
+                                        className={`${child.paidAmount === 0 ? 'bg-primary' : 'bg-success'} text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow-md shadow-primary/20 active:scale-95 transition-all hover:opacity-90 flex items-center gap-2`}
                                     >
-                                        Pay Now
+                                        {child.paidAmount === 0 ? (
+                                            <>
+                                                <span className="material-symbols-outlined text-sm">lock_open</span>
+                                                Pay Activation
+                                            </>
+                                        ) : (
+                                            <>
+                                                <span className="material-symbols-outlined text-sm">account_balance</span>
+                                                Pay {entityType}
+                                            </>
+                                        )}
                                     </button>
                                 </>
                             )}
@@ -196,7 +235,6 @@ const Dashboard: React.FC = () => {
         )}
       </main>
 
-      {/* FABs */}
       <div className="fixed bottom-24 right-4 z-20 flex flex-col gap-3">
           <button 
             onClick={() => navigate('/support')}
@@ -212,7 +250,6 @@ const Dashboard: React.FC = () => {
             </button>
       </div>
       
-      {/* Return to Admin Floating Button (Only for Admins in Simulation) */}
       {isOwnerAccount && (
         <button
           onClick={handleReturnToAdmin}

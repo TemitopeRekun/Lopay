@@ -1,12 +1,12 @@
 
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { Layout } from '../components/Layout';
 
 const AuthScreen: React.FC = () => {
   const [mode, setMode] = useState<'login' | 'signup'>('signup');
-  const [roleSelection, setRoleSelection] = useState<'parent' | 'school_owner'>('parent');
+  const [roleSelection, setRoleSelection] = useState<'parent' | 'school_owner' | 'university_student'>('parent');
   const [selectedSchoolId, setSelectedSchoolId] = useState('');
   
   const [email, setEmail] = useState('');
@@ -14,6 +14,11 @@ const AuthScreen: React.FC = () => {
   const [fullName, setFullName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+
+  // Bank details for school owners
+  const [bankName, setBankName] = useState('');
+  const [accountName, setAccountName] = useState('');
+  const [accountNumber, setAccountNumber] = useState('');
   
   const { login, signup, schools } = useApp();
   const navigate = useNavigate();
@@ -22,9 +27,15 @@ const AuthScreen: React.FC = () => {
     e.preventDefault();
     setError('');
     
-    if (mode === 'signup' && roleSelection === 'school_owner' && !selectedSchoolId) {
-        setError('Please select the school you own.');
-        return;
+    if (mode === 'signup' && roleSelection === 'school_owner') {
+        if (!selectedSchoolId) {
+            setError('Please select the school you own.');
+            return;
+        }
+        if (!bankName || !accountName || !accountNumber) {
+            setError('Please provide complete banking details for settlements.');
+            return;
+        }
     }
     
     setTimeout(() => {
@@ -42,7 +53,8 @@ const AuthScreen: React.FC = () => {
                 setError('Invalid email or password. Please try again.');
             }
         } else {
-            const success = signup(fullName, email, password, roleSelection, selectedSchoolId);
+            const bankDetails = roleSelection === 'school_owner' ? { bankName, accountName, accountNumber } : undefined;
+            const success = signup(fullName, email, password, roleSelection, selectedSchoolId, bankDetails);
             if (success) {
                 if (roleSelection === 'school_owner') {
                     navigate('/school-owner-dashboard');
@@ -56,18 +68,13 @@ const AuthScreen: React.FC = () => {
     }, 500);
   };
 
-  const handleSocialLogin = (provider: string) => {
-      const user = login('demo@lopay.app', 'demo');
-      if (user) navigate('/dashboard');
-  };
-
   return (
     <Layout>
       <div className="flex flex-col grow px-4 py-8 sm:px-6 md:px-8">
         <div className="flex flex-col items-center justify-center pt-8">
-          <div className={`flex items-center justify-center h-16 w-16 rounded-full mb-4 shadow-lg transition-colors ${roleSelection === 'school_owner' ? 'bg-secondary' : 'bg-primary'} shadow-primary/30`}>
+          <div className={`flex items-center justify-center h-16 w-16 rounded-full mb-4 shadow-lg transition-colors ${roleSelection === 'school_owner' ? 'bg-secondary' : roleSelection === 'university_student' ? 'bg-purple-500' : 'bg-primary'} shadow-primary/30`}>
             <span className="material-symbols-outlined text-white" style={{ fontSize: '36px' }}>
-                {roleSelection === 'school_owner' ? 'school' : 'family_restroom'}
+                {roleSelection === 'school_owner' ? 'school' : roleSelection === 'university_student' ? 'school' : 'family_restroom'}
             </span>
           </div>
           <h1 className="text-text-primary-light dark:text-text-primary-dark text-3xl font-bold tracking-tight text-center">LOPAY</h1>
@@ -106,20 +113,27 @@ const AuthScreen: React.FC = () => {
         {mode === 'signup' && (
              <div className="flex flex-col gap-2 px-4 pt-4">
                 <p className="text-xs font-bold text-text-secondary-light uppercase tracking-widest text-center mb-1">Select your account type</p>
-                <div className="flex gap-2">
+                <div className="grid grid-cols-3 gap-2">
                     <button 
                         onClick={() => setRoleSelection('parent')}
-                        className={`flex-1 py-3 rounded-xl border-2 font-bold text-xs transition-all flex items-center justify-center gap-2 ${roleSelection === 'parent' ? 'bg-primary/10 border-primary text-primary' : 'bg-transparent border-gray-100 dark:border-gray-800 text-text-secondary-light'}`}
+                        className={`py-3 rounded-xl border-2 font-bold text-[10px] transition-all flex flex-col items-center justify-center gap-1 ${roleSelection === 'parent' ? 'bg-primary/10 border-primary text-primary' : 'bg-transparent border-gray-100 dark:border-gray-800 text-text-secondary-light'}`}
                     >
-                        <span className="material-symbols-outlined text-base">family_restroom</span>
+                        <span className="material-symbols-outlined text-lg">family_restroom</span>
                         Parent
                     </button>
                     <button 
-                        onClick={() => setRoleSelection('school_owner')}
-                        className={`flex-1 py-3 rounded-xl border-2 font-bold text-xs transition-all flex items-center justify-center gap-2 ${roleSelection === 'school_owner' ? 'bg-secondary/10 border-secondary text-secondary' : 'bg-transparent border-gray-100 dark:border-gray-800 text-text-secondary-light'}`}
+                        onClick={() => setRoleSelection('university_student')}
+                        className={`py-3 rounded-xl border-2 font-bold text-[10px] transition-all flex flex-col items-center justify-center gap-1 ${roleSelection === 'university_student' ? 'bg-purple-500/10 border-purple-500 text-purple-600' : 'bg-transparent border-gray-100 dark:border-gray-800 text-text-secondary-light'}`}
                     >
-                        <span className="material-symbols-outlined text-base">school</span>
-                        School Owner
+                        <span className="material-symbols-outlined text-lg">school</span>
+                        Student
+                    </button>
+                    <button 
+                        onClick={() => setRoleSelection('school_owner')}
+                        className={`py-3 rounded-xl border-2 font-bold text-[10px] transition-all flex flex-col items-center justify-center gap-1 ${roleSelection === 'school_owner' ? 'bg-secondary/10 border-secondary text-secondary' : 'bg-transparent border-gray-100 dark:border-gray-800 text-text-secondary-light'}`}
+                    >
+                        <span className="material-symbols-outlined text-lg">account_balance</span>
+                        Owner
                     </button>
                 </div>
              </div>
@@ -140,22 +154,71 @@ const AuthScreen: React.FC = () => {
             </div>
           )}
 
-          {/* School Selection for School Owners */}
-          {mode === 'signup' && roleSelection === 'school_owner' && (
-            <div className="flex flex-col w-full gap-2 animate-fade-in-up">
-                <label className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">Select Your School</label>
-                <select 
-                    required
-                    value={selectedSchoolId}
-                    onChange={(e) => setSelectedSchoolId(e.target.value)}
-                    className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-background-light dark:bg-background-dark p-4 text-base focus:border-secondary outline-none appearance-none"
-                >
-                    <option value="" disabled>Choose a school from list...</option>
-                    {schools.map(s => (
-                        <option key={s.id} value={s.id}>{s.name}</option>
-                    ))}
-                </select>
-            </div>
+          {/* School Selection for School Owners or University Students */}
+          {mode === 'signup' && (roleSelection === 'school_owner' || roleSelection === 'university_student') && (
+            <>
+              <div className="flex flex-col w-full gap-2 animate-fade-in-up">
+                  <label className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">Select Your Institution</label>
+                  <select 
+                      required
+                      value={selectedSchoolId}
+                      onChange={(e) => setSelectedSchoolId(e.target.value)}
+                      className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-background-light dark:bg-background-dark p-4 text-base focus:border-secondary outline-none appearance-none"
+                  >
+                      <option value="" disabled>Choose institution...</option>
+                      {schools.map(s => (
+                          <option key={s.id} value={s.id}>{s.name}</option>
+                      ))}
+                  </select>
+              </div>
+
+              {/* Banking Details Section (Only for School Owners) */}
+              {roleSelection === 'school_owner' && (
+                <div className="flex flex-col w-full gap-4 p-4 mt-2 bg-secondary/5 border border-secondary/10 rounded-2xl animate-fade-in-up">
+                    <p className="text-xs font-bold text-secondary uppercase tracking-widest flex items-center gap-2">
+                        <span className="material-symbols-outlined text-sm">account_balance</span>
+                        Settlement Account Details
+                    </p>
+                    
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-bold text-text-secondary-light uppercase">Bank Name</label>
+                        <input
+                        type="text"
+                        required
+                        value={bankName}
+                        onChange={(e) => setBankName(e.target.value)}
+                        placeholder="e.g. Opay, Zenith Bank"
+                        className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-background-light dark:bg-background-dark p-3 text-sm focus:border-secondary outline-none transition-all"
+                        />
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-bold text-text-secondary-light uppercase">Account Name</label>
+                        <input
+                        type="text"
+                        required
+                        value={accountName}
+                        onChange={(e) => setAccountName(e.target.value)}
+                        placeholder="Full Name on Bank Account"
+                        className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-background-light dark:bg-background-dark p-3 text-sm focus:border-secondary outline-none transition-all"
+                        />
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-bold text-text-secondary-light uppercase">Account Number</label>
+                        <input
+                        type="text"
+                        required
+                        maxLength={10}
+                        value={accountNumber}
+                        onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, ''))}
+                        placeholder="10-digit Account Number"
+                        className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-background-light dark:bg-background-dark p-3 text-sm focus:border-secondary outline-none transition-all"
+                        />
+                    </div>
+                </div>
+              )}
+            </>
           )}
           
           <div className="flex flex-col w-full gap-2">
@@ -202,7 +265,9 @@ const AuthScreen: React.FC = () => {
           <button
             type="submit"
             className={`mt-4 flex h-14 w-full items-center justify-center rounded-xl text-white text-lg font-bold shadow-lg transition-all ${
-                roleSelection === 'school_owner' ? 'bg-secondary hover:bg-secondary/90 shadow-secondary/20' : 'bg-primary hover:bg-primary/90 shadow-primary/20'
+                roleSelection === 'school_owner' ? 'bg-secondary hover:bg-secondary/90 shadow-secondary/20' : 
+                roleSelection === 'university_student' ? 'bg-purple-600 hover:bg-purple-700 shadow-purple-500/20' : 
+                'bg-primary hover:bg-primary/90 shadow-primary/20'
             }`}
           >
             {mode === 'signup' ? 'Create Account' : 'Login'}
@@ -210,7 +275,7 @@ const AuthScreen: React.FC = () => {
         </form>
 
         <p className="px-4 text-center text-xs text-text-secondary-light dark:text-text-secondary-dark mt-2">
-          By continuing, you agree to our <a href="#" className="font-bold text-primary">Terms</a> and <a href="#" className="font-bold text-primary">Privacy Policy</a>.
+          By continuing, you agree to our <Link to="/terms" className="font-bold text-primary">Terms</Link> and <Link to="/privacy" className="font-bold text-primary">Privacy Policy</Link>.
         </p>
 
         {/* Demo Accounts Tip */}

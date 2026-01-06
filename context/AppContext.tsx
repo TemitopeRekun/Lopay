@@ -25,15 +25,16 @@ interface AppContextType {
   
   isAuthenticated: boolean;
   currentUser: User | null;
-  userRole: 'parent' | 'owner' | 'school_owner';
-  activeSchoolId: string | null; // For simulating specific school owner views
+  userRole: 'parent' | 'owner' | 'school_owner' | 'university_student';
+  activeSchoolId: string | null; 
   isOwnerAccount: boolean;
   isSchoolOwner: boolean;
+  isUniversityStudent: boolean;
   login: (email: string, password?: string) => User | false;
-  signup: (name: string, email: string, password?: string, role?: 'parent' | 'school_owner', schoolId?: string) => boolean;
+  signup: (name: string, email: string, password?: string, role?: 'parent' | 'school_owner' | 'university_student', schoolId?: string, bankDetails?: { bankName: string, accountName: string, accountNumber: string }) => boolean;
   logout: () => void;
   switchRole: () => void;
-  setActingRole: (role: 'parent' | 'owner' | 'school_owner', schoolId?: string) => void;
+  setActingRole: (role: 'parent' | 'owner' | 'school_owner' | 'university_student', schoolId?: string) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -54,7 +55,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   });
 
   const isAuthenticated = !!currentUser;
-  const [userRole, setUserRole] = useState<'parent' | 'owner' | 'school_owner'>(() => {
+  const [userRole, setUserRole] = useState<'parent' | 'owner' | 'school_owner' | 'university_student'>(() => {
      return currentUser?.role || 'parent';
   });
 
@@ -64,13 +65,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const isOwnerAccount = currentUser?.role === 'owner';
   const isSchoolOwner = currentUser?.role === 'school_owner';
+  const isUniversityStudent = currentUser?.role === 'university_student';
 
   useEffect(() => {
     API.auth.setCurrentUserId(currentUser ? currentUser.id : null);
-    if (currentUser && !isOwnerAccount && !isSchoolOwner && userRole === 'owner') {
+    if (currentUser && !isOwnerAccount && !isSchoolOwner && !isUniversityStudent && userRole === 'owner') {
         setUserRole('parent');
     }
-  }, [currentUser, isOwnerAccount, isSchoolOwner, userRole]);
+  }, [currentUser, isOwnerAccount, isSchoolOwner, isUniversityStudent, userRole]);
 
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
@@ -91,6 +93,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const school = schools.find(s => s.id === sId);
       return allChildren.filter(c => c.school === school?.name);
     }
+    // University students track their own tuition plans (linked by parentId)
     return allChildren.filter(c => c.parentId === currentUser?.id);
   }, [allChildren, currentUser, userRole, schools, activeSchoolId]);
 
@@ -121,7 +124,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return false;
   };
 
-  const signup = (name: string, email: string, password?: string, role: 'parent' | 'school_owner' = 'parent', schoolId?: string) => {
+  const signup = (name: string, email: string, password?: string, role: 'parent' | 'school_owner' | 'university_student' = 'parent', schoolId?: string, bankDetails?: { bankName: string, accountName: string, accountNumber: string }) => {
     const users = API.users.list();
     if (users.some(u => u.email.toLowerCase() === email.toLowerCase())) return false;
     const newUser: User = {
@@ -131,6 +134,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         password,
         role,
         schoolId,
+        ...bankDetails,
         createdAt: new Date().toISOString()
     };
     const updatedUsers = API.users.create(newUser);
@@ -156,8 +160,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
-  const setActingRole = (role: 'parent' | 'owner' | 'school_owner', schoolId?: string) => {
-      if (currentUser?.role !== 'owner') return; // Only super admin can jump roles freely
+  const setActingRole = (role: 'parent' | 'owner' | 'school_owner' | 'university_student', schoolId?: string) => {
+      if (currentUser?.role !== 'owner') return; 
       setUserRole(role);
       if (schoolId) setActiveSchoolId(schoolId);
       else if (role === 'school_owner' && !activeSchoolId && schools.length > 0) {
@@ -358,6 +362,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         activeSchoolId,
         isOwnerAccount,
         isSchoolOwner,
+        isUniversityStudent,
         login,
         signup,
         logout,

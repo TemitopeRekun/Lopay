@@ -24,6 +24,8 @@ import SettingsScreen from './pages/SettingsScreen';
 import SupportScreen from './pages/SupportScreen';
 import UsersListScreen from './pages/admin/UsersListScreen';
 import ManagePaymentMethods from './pages/ManagePaymentMethods';
+import TermsOfService from './pages/TermsOfService';
+import PrivacyPolicy from './pages/PrivacyPolicy';
 
 const ProtectedRoute = ({ children }: React.PropsWithChildren) => {
   const { isAuthenticated } = useApp();
@@ -51,6 +53,8 @@ const AppRoutes = () => {
     <Routes>
       <Route path="/" element={<AuthScreen />} />
       <Route path="/welcome" element={<WelcomeScreen />} />
+      <Route path="/terms" element={<TermsOfService />} />
+      <Route path="/privacy" element={<PrivacyPolicy />} />
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       
       {/* Admin Routes */}

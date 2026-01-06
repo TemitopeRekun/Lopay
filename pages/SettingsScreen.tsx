@@ -1,9 +1,11 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { Header } from '../components/Header';
 
 const SettingsScreen: React.FC = () => {
+  const navigate = useNavigate();
   const [darkMode, setDarkMode] = useState(() => {
     return document.documentElement.classList.contains('dark');
   });
@@ -22,7 +24,11 @@ const SettingsScreen: React.FC = () => {
   };
 
   const handleTerms = () => {
-      alert("Terms of Service placeholder.");
+      navigate('/terms');
+  };
+
+  const handlePrivacy = () => {
+      navigate('/privacy');
   };
 
   return (
@@ -92,9 +98,16 @@ const SettingsScreen: React.FC = () => {
                    </div>
                    <div 
                     onClick={handleTerms}
-                    className="p-4 flex justify-between items-center cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+                    className="p-4 flex justify-between items-center cursor-pointer border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
                    >
                        <span className="text-text-primary-light dark:text-text-primary-dark">Terms of Service</span>
+                       <span className="material-symbols-outlined text-text-secondary-light">chevron_right</span>
+                   </div>
+                   <div 
+                    onClick={handlePrivacy}
+                    className="p-4 flex justify-between items-center cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+                   >
+                       <span className="text-text-primary-light dark:text-text-primary-dark">Privacy Policy</span>
                        <span className="material-symbols-outlined text-text-secondary-light">chevron_right</span>
                    </div>
               </div>

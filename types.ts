@@ -4,8 +4,11 @@ export interface User {
   name: string;
   email: string;
   password?: string;
-  role: 'parent' | 'owner' | 'school_owner';
-  schoolId?: string; // Link for school owners to their designated school
+  role: 'parent' | 'owner' | 'school_owner' | 'university_student';
+  schoolId?: string; // Link for school owners or university students to their school
+  bankName?: string;
+  accountName?: string;
+  accountNumber?: string;
   createdAt: string;
 }
 
