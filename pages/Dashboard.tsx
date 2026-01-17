@@ -6,11 +6,14 @@ import { BottomNav } from '../components/BottomNav';
 import { useApp } from '../context/AppContext';
 
 const Dashboard: React.FC = () => {
-  const { childrenData, currentUser, transactions, isOwnerAccount, userRole, setActingRole, deleteChild } = useApp();
+  const { childrenData, currentUser, transactions, isOwnerAccount, userRole, setActingRole, deleteChild, actingUserId, allUsers } = useApp();
   const navigate = useNavigate();
 
   const isStudent = userRole === 'university_student';
   const entityType = isStudent ? "Institution" : "School";
+
+  // If acting as someone, find who they are for the banner
+  const actingAs = actingUserId ? allUsers.find(u => u.id === actingUserId) : null;
 
   const totalNextDue = childrenData.reduce((acc, child) => {
       if (child.status === 'Completed') return acc;
@@ -46,7 +49,25 @@ const Dashboard: React.FC = () => {
 
   return (
     <Layout showBottomNav>
-      <div className="sticky top-0 z-10 flex items-center justify-between bg-white dark:bg-background-dark p-6 pb-2 border-b border-gray-100 dark:border-gray-800">
+      {/* Impersonation Banner */}
+      {actingUserId && isOwnerAccount && (
+        <div className="bg-purple-600 text-white px-6 py-2.5 flex items-center justify-between shadow-lg sticky top-0 z-50">
+           <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-sm">visibility</span>
+                <p className="text-[10px] font-black uppercase tracking-widest">
+                    Acting as {actingAs?.name || 'User'}
+                </p>
+           </div>
+           <button 
+                onClick={handleReturnToAdmin}
+                className="bg-white text-purple-600 px-3 py-1 rounded-full text-[9px] font-black uppercase shadow-sm active:scale-95"
+           >
+               Exit Proxy
+           </button>
+        </div>
+      )}
+
+      <div className={`sticky top-0 z-10 flex items-center justify-between bg-white dark:bg-background-dark p-6 pb-2 border-b border-gray-100 dark:border-gray-800 ${actingUserId ? 'top-[42px]' : ''}`}>
         <h1 className="text-2xl font-bold tracking-tight text-text-primary-light dark:text-text-primary-dark">
             {isStudent ? 'My Tuition' : 'Dashboard'}
         </h1>
@@ -59,7 +80,7 @@ const Dashboard: React.FC = () => {
             </button>
             <button onClick={() => navigate('/profile')} className="size-10 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 border-2 border-white dark:border-gray-600 shadow-sm">
                <img 
-                 src={`https://ui-avatars.com/api/?name=${currentUser?.name || 'User'}&background=random`} 
+                 src={`https://ui-avatars.com/api/?name=${(actingAs?.name || currentUser?.name || 'User')}&background=random`} 
                  alt="Profile" 
                  className="w-full h-full object-cover" 
                />
@@ -77,7 +98,7 @@ const Dashboard: React.FC = () => {
                      </span>
                 </div>
                 <h2 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark mb-2">
-                    Welcome, {currentUser?.name.split(' ')[0]}!
+                    Welcome, {(actingAs?.name || currentUser?.name || 'User').split(' ')[0]}!
                 </h2>
                 <p className="text-text-secondary-light dark:text-text-secondary-dark max-w-xs mb-8">
                     {isStudent 
@@ -250,7 +271,7 @@ const Dashboard: React.FC = () => {
             </button>
       </div>
       
-      {isOwnerAccount && (
+      {isOwnerAccount && !actingUserId && (
         <button
           onClick={handleReturnToAdmin}
           className="fixed bottom-24 left-4 z-50 bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-5 py-3 rounded-full shadow-xl font-bold flex items-center gap-2 hover:scale-105 transition-transform"

@@ -7,7 +7,7 @@ import { useApp } from '../../context/AppContext';
 
 const SchoolListScreen: React.FC = () => {
   const navigate = useNavigate();
-  const { schools, deleteSchool, updateSchool, deleteAllSchools } = useApp();
+  const { schools, deleteSchool, updateSchool, deleteAllSchools, setActingRole } = useApp();
   const [searchQuery, setSearchQuery] = useState('');
 
   const filteredSchools = schools.filter(school => 
@@ -17,7 +17,6 @@ const SchoolListScreen: React.FC = () => {
 
   const handleDelete = (e: React.MouseEvent, id: string, name: string) => {
     e.stopPropagation();
-    e.preventDefault();
     if (window.confirm(`Delete ${name}?\n\nWARNING: This will permanently remove all students and payment records linked to this school.`)) {
       deleteSchool(id);
     }
@@ -33,7 +32,6 @@ const SchoolListScreen: React.FC = () => {
 
   const handleEditCount = (e: React.MouseEvent, school: any) => {
       e.stopPropagation();
-      e.preventDefault();
       const newCountStr = window.prompt(`Update student count for ${school.name}:`, school.studentCount?.toString());
       if (newCountStr !== null) {
           const newCount = parseInt(newCountStr);
@@ -43,6 +41,11 @@ const SchoolListScreen: React.FC = () => {
               alert("Please enter a valid number.");
           }
       }
+  };
+
+  const handleManageSchool = (schoolId: string) => {
+      setActingRole('school_owner', schoolId);
+      navigate('/school-owner-dashboard');
   };
 
   return (
@@ -128,7 +131,6 @@ const SchoolListScreen: React.FC = () => {
                                     title="Delete School"
                                 >
                                     <span className="material-symbols-outlined text-lg">delete</span>
-                                    <span className="text-sm font-bold">Delete</span>
                                 </button>
                             </div>
                         </div>
@@ -138,9 +140,13 @@ const SchoolListScreen: React.FC = () => {
                                 <p className="text-[10px] text-text-secondary-light uppercase font-bold">Contact Email</p>
                                 <p className="text-sm truncate">{school.contactEmail}</p>
                             </div>
-                            <div>
-                                <p className="text-[10px] text-text-secondary-light uppercase font-bold">Students (Manual Count)</p>
-                                <p className="text-sm font-semibold">{school.studentCount} Registered</p>
+                            <div className="text-right">
+                                <button 
+                                    onClick={() => handleManageSchool(school.id)}
+                                    className="text-[10px] font-black uppercase text-primary bg-primary/10 px-3 py-2 rounded-lg hover:bg-primary/20 transition-all"
+                                >
+                                    Manage Dashboard
+                                </button>
                             </div>
                         </div>
                     </div>

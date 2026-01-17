@@ -20,13 +20,11 @@ const SchoolOwnerDashboard: React.FC = () => {
     { label: 'Senior Sec', classes: ['SS 1', 'SS 2', 'SS 3'] },
   ];
 
-  // Find the designated school for this owner
   const mySchool = useMemo(() => {
     const sId = activeSchoolId || currentUser?.schoolId;
     return schools.find(s => s.id === sId);
   }, [schools, currentUser, activeSchoolId]);
 
-  // Calculations scoped to this school only
   const schoolStudents = useMemo(() => {
     return childrenData.filter(c => c.school === mySchool?.name);
   }, [childrenData, mySchool]);
@@ -67,7 +65,25 @@ const SchoolOwnerDashboard: React.FC = () => {
 
   return (
     <Layout showBottomNav>
-      <div className="sticky top-0 z-10 bg-white dark:bg-background-dark p-6 pb-2 border-b border-gray-100 dark:border-gray-800">
+      {/* Impersonation Banner for Super Admin */}
+      {activeSchoolId && isOwnerAccount && (
+        <div className="bg-secondary text-white px-6 py-2.5 flex items-center justify-between shadow-lg sticky top-0 z-50">
+           <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-sm">visibility</span>
+                <p className="text-[10px] font-black uppercase tracking-widest">
+                    Managing {mySchool?.name || 'School'}
+                </p>
+           </div>
+           <button 
+                onClick={handleReturnToAdmin}
+                className="bg-white text-secondary px-3 py-1 rounded-full text-[9px] font-black uppercase shadow-sm active:scale-95"
+           >
+               Exit School
+           </button>
+        </div>
+      )}
+
+      <div className={`sticky top-0 z-10 bg-white dark:bg-background-dark p-6 pb-2 border-b border-gray-100 dark:border-gray-800 ${activeSchoolId && isOwnerAccount ? 'top-[42px]' : ''}`}>
         <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
                 <div className="size-10 rounded-2xl bg-secondary/10 flex items-center justify-center text-secondary shadow-sm">
@@ -88,7 +104,6 @@ const SchoolOwnerDashboard: React.FC = () => {
             </button>
         </div>
 
-        {/* Enhanced Sliding Classroom Scroller */}
         <div className="flex flex-col gap-2 relative">
             <div className="flex items-center justify-between px-1">
                 <p className="text-[9px] font-bold text-text-secondary-light uppercase tracking-widest">Select Class to View Ledger</p>
@@ -98,7 +113,6 @@ const SchoolOwnerDashboard: React.FC = () => {
             </div>
             
             <div className="relative">
-                {/* Edge masks for better "sliding" visual */}
                 <div className="absolute left-0 top-0 bottom-4 w-6 bg-gradient-to-r from-white dark:from-background-dark to-transparent z-10 pointer-events-none"></div>
                 <div className="absolute right-0 top-0 bottom-4 w-6 bg-gradient-to-l from-white dark:from-background-dark to-transparent z-10 pointer-events-none"></div>
 
@@ -119,7 +133,6 @@ const SchoolOwnerDashboard: React.FC = () => {
                         
                         {CLASS_GROUPS.map((group) => (
                             <div key={group.label} className="flex gap-2 items-center">
-                                {/* Visual separator group label */}
                                 <div className="h-8 px-2 flex flex-col justify-center border-l-2 border-gray-100 dark:border-gray-800 ml-2">
                                     <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest whitespace-nowrap">{group.label}</span>
                                 </div>
@@ -142,7 +155,6 @@ const SchoolOwnerDashboard: React.FC = () => {
       </div>
 
       <main className="flex flex-col gap-6 p-6 pb-32">
-        {/* Statistics Overview */}
         <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2 bg-slate-900 text-white p-6 rounded-[32px] shadow-2xl relative overflow-hidden group">
                 <div className="absolute right-0 top-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
@@ -182,7 +194,6 @@ const SchoolOwnerDashboard: React.FC = () => {
             </div>
         </div>
 
-        {/* Student List Section */}
         <div className="space-y-4">
             <div className="flex items-center justify-between px-1">
                 <h3 className="text-xs font-black text-text-primary-light dark:text-text-primary-dark uppercase tracking-[0.15em] flex items-center gap-2">
@@ -258,7 +269,6 @@ const SchoolOwnerDashboard: React.FC = () => {
             </div>
         </div>
 
-        {/* Improved Report Section */}
         <div className="bg-slate-50 dark:bg-white/5 p-6 rounded-[32px] border border-gray-100 dark:border-gray-800 space-y-5">
             <div className="flex items-center gap-3">
                 <div className="size-10 rounded-xl bg-white dark:bg-card-dark shadow-xl flex items-center justify-center text-primary">
