@@ -1,6 +1,6 @@
 
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { Layout } from '../components/Layout';
 
@@ -20,8 +20,18 @@ const AuthScreen: React.FC = () => {
   const [accountName, setAccountName] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
   
-  const { login, signup, schools } = useApp();
+  const { login, signup, schools, isAuthenticated, userRole } = useApp();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // If already authenticated, redirect away from Auth screen immediately
+  useEffect(() => {
+    if (isAuthenticated) {
+        if (userRole === 'owner') navigate('/owner-dashboard', { replace: true });
+        else if (userRole === 'school_owner') navigate('/school-owner-dashboard', { replace: true });
+        else navigate('/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, userRole, navigate]);
 
   const handleAuth = (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,9 +51,9 @@ const AuthScreen: React.FC = () => {
     if (mode === 'login') {
         const user = login(email, password);
         if (user) {
-            if (user.role === 'owner') navigate('/owner-dashboard');
-            else if (user.role === 'school_owner') navigate('/school-owner-dashboard');
-            else navigate('/dashboard');
+            if (user.role === 'owner') navigate('/owner-dashboard', { replace: true });
+            else if (user.role === 'school_owner') navigate('/school-owner-dashboard', { replace: true });
+            else navigate('/dashboard', { replace: true });
         } else {
             setError('Invalid email or password. Please try again.');
         }
@@ -51,8 +61,8 @@ const AuthScreen: React.FC = () => {
         const bankDetails = roleSelection === 'school_owner' ? { bankName, accountName, accountNumber } : undefined;
         const success = signup(fullName, email, password, roleSelection, selectedSchoolId, bankDetails);
         if (success) {
-            if (roleSelection === 'school_owner') navigate('/school-owner-dashboard');
-            else navigate('/dashboard');
+            if (roleSelection === 'school_owner') navigate('/school-owner-dashboard', { replace: true });
+            else navigate('/dashboard', { replace: true });
         } else {
             setError('Email already registered.');
         }

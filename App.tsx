@@ -1,6 +1,6 @@
 
 import React, { useEffect } from 'react';
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AppProvider, useApp } from './context/AppContext';
 import AuthScreen from './pages/AuthScreen';
 import WelcomeScreen from './pages/WelcomeScreen';
@@ -27,12 +27,38 @@ import TermsOfService from './pages/TermsOfService';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import PaymentApprovalsScreen from './pages/admin/PaymentApprovalsScreen';
 
-const ProtectedRoute = ({ children }: React.PropsWithChildren) => {
-  const { isAuthenticated } = useApp();
+// Fixed ProtectedRoute: Added optionality to children to resolve TypeScript "Property 'children' is missing" errors 
+// when the component is used as a JSX wrapper in React 18+ environments.
+const ProtectedRoute = ({ children, allowedRoles }: { children?: React.ReactNode, allowedRoles?: string[] }) => {
+  const { isAuthenticated, userRole } = useApp();
+  const location = useLocation();
+
   if (!isAuthenticated) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/" state={{ from: location }} replace />;
   }
+
+  if (allowedRoles && !allowedRoles.includes(userRole)) {
+    // If user is logged in but trying to access a restricted role page, redirect to their home
+    return <Navigate to="/home" replace />;
+  }
+
   return <>{children}</>;
+};
+
+const HomeRedirect = () => {
+    const { isAuthenticated, userRole } = useApp();
+    
+    if (!isAuthenticated) return <AuthScreen />;
+    
+    switch(userRole) {
+        case 'owner': return <Navigate to="/owner-dashboard" replace />;
+        case 'school_owner': return <Navigate to="/school-owner-dashboard" replace />;
+        case 'university_student':
+        case 'parent':
+            return <Navigate to="/dashboard" replace />;
+        default:
+            return <Navigate to="/dashboard" replace />;
+    }
 };
 
 const ThemeInitializer = () => {
@@ -51,21 +77,38 @@ const AppRoutes = () => {
     <>
     <ThemeInitializer />
     <Routes>
-      <Route path="/" element={<AuthScreen />} />
+      <Route path="/" element={<HomeRedirect />} />
+      <Route path="/home" element={<HomeRedirect />} />
       <Route path="/welcome" element={<WelcomeScreen />} />
       <Route path="/terms" element={<TermsOfService />} />
       <Route path="/privacy" element={<PrivacyPolicy />} />
-      <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+      
+      {/* Consumer Routes */}
+      <Route path="/dashboard" element={
+        <ProtectedRoute allowedRoles={['parent', 'university_student', 'owner']}>
+            <Dashboard />
+        </ProtectedRoute>
+      } />
       
       {/* Admin Routes */}
-      <Route path="/owner-dashboard" element={<ProtectedRoute><OwnerDashboard /></ProtectedRoute>} />
-      <Route path="/school-owner-dashboard" element={<ProtectedRoute><SchoolOwnerDashboard /></ProtectedRoute>} />
-      <Route path="/admin/add-school" element={<ProtectedRoute><AddSchoolScreen /></ProtectedRoute>} />
-      <Route path="/admin/schools" element={<ProtectedRoute><SchoolListScreen /></ProtectedRoute>} />
-      <Route path="/admin/broadcast" element={<ProtectedRoute><BroadcastScreen /></ProtectedRoute>} />
-      <Route path="/admin/defaulters" element={<ProtectedRoute><DefaultersScreen /></ProtectedRoute>} />
-      <Route path="/admin/users" element={<ProtectedRoute><UsersListScreen /></ProtectedRoute>} />
-      <Route path="/admin/approvals" element={<ProtectedRoute><PaymentApprovalsScreen /></ProtectedRoute>} />
+      <Route path="/owner-dashboard" element={
+        <ProtectedRoute allowedRoles={['owner']}>
+            <OwnerDashboard />
+        </ProtectedRoute>
+      } />
+      
+      <Route path="/school-owner-dashboard" element={
+        <ProtectedRoute allowedRoles={['school_owner', 'owner']}>
+            <SchoolOwnerDashboard />
+        </ProtectedRoute>
+      } />
+
+      <Route path="/admin/add-school" element={<ProtectedRoute allowedRoles={['owner']}><AddSchoolScreen /></ProtectedRoute>} />
+      <Route path="/admin/schools" element={<ProtectedRoute allowedRoles={['owner']}><SchoolListScreen /></ProtectedRoute>} />
+      <Route path="/admin/broadcast" element={<ProtectedRoute allowedRoles={['owner']}><BroadcastScreen /></ProtectedRoute>} />
+      <Route path="/admin/defaulters" element={<ProtectedRoute allowedRoles={['owner', 'school_owner']}><DefaultersScreen /></ProtectedRoute>} />
+      <Route path="/admin/users" element={<ProtectedRoute allowedRoles={['owner']}><UsersListScreen /></ProtectedRoute>} />
+      <Route path="/admin/approvals" element={<ProtectedRoute allowedRoles={['owner']}><PaymentApprovalsScreen /></ProtectedRoute>} />
 
       <Route path="/add-child" element={<ProtectedRoute><AddChildScreen /></ProtectedRoute>} />
       <Route path="/calculator" element={<ProtectedRoute><CalculatorScreen /></ProtectedRoute>} />
