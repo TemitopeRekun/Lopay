@@ -10,6 +10,7 @@ const AuthScreen: React.FC = () => {
   const [selectedSchoolId, setSelectedSchoolId] = useState('');
   
   const [email, setEmail] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -37,14 +38,20 @@ const AuthScreen: React.FC = () => {
     e.preventDefault();
     setError('');
     
-    if (mode === 'signup' && roleSelection === 'school_owner') {
-        if (!selectedSchoolId) {
-            setError('Please select the school you own.');
+    if (mode === 'signup') {
+        if (!phoneNumber) {
+            setError('Phone number is required for contact updates.');
             return;
         }
-        if (!bankName || !accountName || !accountNumber) {
-            setError('Please provide complete banking details for settlements.');
-            return;
+        if (roleSelection === 'school_owner') {
+            if (!selectedSchoolId) {
+                setError('Please select the school you own.');
+                return;
+            }
+            if (!bankName || !accountName || !accountNumber) {
+                setError('Please provide complete banking details for settlements.');
+                return;
+            }
         }
     }
     
@@ -59,7 +66,7 @@ const AuthScreen: React.FC = () => {
         }
     } else {
         const bankDetails = roleSelection === 'school_owner' ? { bankName, accountName, accountNumber } : undefined;
-        const success = signup(fullName, email, password, roleSelection, selectedSchoolId, bankDetails);
+        const success = signup(fullName, email, phoneNumber, password, roleSelection, selectedSchoolId, bankDetails);
         if (success) {
             if (roleSelection === 'school_owner') navigate('/school-owner-dashboard', { replace: true });
             else navigate('/dashboard', { replace: true });
@@ -236,6 +243,20 @@ const AuthScreen: React.FC = () => {
               className="w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-gray-800 rounded-2xl p-4 outline-none focus:ring-2 focus:ring-primary/50 text-base"
             />
           </div>
+
+          {mode === 'signup' && (
+            <div className="space-y-1.5">
+                <label className="text-xs font-bold text-text-secondary-light uppercase px-1">Phone Number</label>
+                <input
+                type="tel"
+                required
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                placeholder="e.g. 09090390581"
+                className="w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-gray-800 rounded-2xl p-4 outline-none focus:ring-2 focus:ring-primary/50 text-base"
+                />
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-text-secondary-light uppercase px-1">Password</label>

@@ -57,12 +57,20 @@ const ProfileScreen: React.FC = () => {
                 </div>
             </div>
             
-            <h2 className="text-xl font-black text-text-primary-light dark:text-text-primary-dark tracking-tight">
+            <h2 className="text-xl font-black text-text-primary-light dark:text-text-primary-dark tracking-tight text-center">
                 {currentUser?.name}
             </h2>
-            <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark font-medium mb-3">
-                {currentUser?.email}
-            </p>
+            <div className="flex flex-col items-center gap-1 mt-1 mb-4">
+                <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark font-medium">
+                    {currentUser?.email}
+                </p>
+                {currentUser?.phoneNumber && (
+                    <p className="text-xs text-text-secondary-light font-bold flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[14px]">call</span>
+                        {currentUser.phoneNumber}
+                    </p>
+                )}
+            </div>
             
             <div className="px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-[10px] font-black text-primary uppercase tracking-[0.2em]">
                 {getRoleLabel()}

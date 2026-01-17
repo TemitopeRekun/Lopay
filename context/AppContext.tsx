@@ -32,7 +32,7 @@ interface AppContextType {
   isSchoolOwner: boolean;
   isUniversityStudent: boolean;
   login: (email: string, password?: string) => User | false;
-  signup: (name: string, email: string, password?: string, role?: 'parent' | 'school_owner' | 'university_student', schoolId?: string, bankDetails?: { bankName: string, accountName: string, accountNumber: string }) => boolean;
+  signup: (name: string, email: string, phoneNumber: string, password?: string, role?: 'parent' | 'school_owner' | 'university_student', schoolId?: string, bankDetails?: { bankName: string, accountName: string, accountNumber: string }) => boolean;
   logout: () => void;
   switchRole: () => void;
   setActingRole: (role: 'parent' | 'owner' | 'school_owner' | 'university_student', schoolId?: string) => void;
@@ -124,13 +124,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return false;
   };
 
-  const signup = (name: string, email: string, password?: string, role: 'parent' | 'school_owner' | 'university_student' = 'parent', schoolId?: string, bankDetails?: { bankName: string, accountName: string, accountNumber: string }) => {
+  const signup = (name: string, email: string, phoneNumber: string, password?: string, role: 'parent' | 'school_owner' | 'university_student' = 'parent', schoolId?: string, bankDetails?: { bankName: string, accountName: string, accountNumber: string }) => {
     const users = API.users.list();
     if (users.some(u => u.email.toLowerCase() === email.toLowerCase())) return false;
     const newUser: User = {
         id: Date.now().toString(),
         name,
         email,
+        phoneNumber,
         password,
         role,
         schoolId,

@@ -4,6 +4,7 @@ export interface User {
   name: string;
   email: string;
   password?: string;
+  phoneNumber?: string;
   role: 'parent' | 'owner' | 'school_owner' | 'university_student';
   schoolId?: string;
   bankName?: string;
