@@ -26,6 +26,7 @@ interface AppContextType {
   isAuthenticated: boolean;
   currentUser: User | null;
   actingUserId: string | null;
+  effectiveUser: User | null;
   userRole: 'parent' | 'owner' | 'school_owner' | 'university_student';
   activeSchoolId: string | null; 
   isOwnerAccount: boolean;
@@ -57,6 +58,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const [actingUserId, setActingUserId] = useState<string | null>(null);
 
+  const effectiveUser = useMemo(() => {
+    if (actingUserId) return allUsers.find(u => u.id === actingUserId) || currentUser;
+    return currentUser;
+  }, [actingUserId, currentUser, allUsers]);
+
   const isAuthenticated = !!currentUser;
   const [userRole, setUserRole] = useState<'parent' | 'owner' | 'school_owner' | 'university_student'>(() => {
      return currentUser?.role || 'parent';
@@ -86,9 +92,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, []);
 
   const childrenData = useMemo(() => {
-    if (userRole === 'owner') return allChildren;
+    if (userRole === 'owner' && !actingUserId) return allChildren;
     
-    // If impersonating a parent/student or viewing as school owner
     const targetUserId = actingUserId || currentUser?.id;
 
     if (userRole === 'school_owner') {
@@ -98,12 +103,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return allChildren.filter(c => c.school === school?.name);
     }
     
-    // Parent or Student view
     return allChildren.filter(c => c.parentId === targetUserId);
   }, [allChildren, currentUser, userRole, schools, activeSchoolId, actingUserId]);
 
   const transactions = useMemo(() => {
-    if (userRole === 'owner') return allTransactions;
+    if (userRole === 'owner' && !actingUserId) return allTransactions;
 
     const targetUserId = actingUserId || currentUser?.id;
 
@@ -118,7 +122,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [allTransactions, currentUser, userRole, schools, activeSchoolId, actingUserId]);
 
   const notifications = useMemo(() => {
-    if (userRole === 'owner') return allNotifications;
+    if (userRole === 'owner' && !actingUserId) return allNotifications;
     const targetUserId = actingUserId || currentUser?.id;
     return allNotifications.filter(n => n.userId === targetUserId || !n.userId);
   }, [allNotifications, currentUser, userRole, actingUserId]);
@@ -362,6 +366,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         isAuthenticated,
         currentUser,
         actingUserId,
+        effectiveUser,
         userRole,
         activeSchoolId,
         isOwnerAccount,

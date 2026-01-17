@@ -25,14 +25,11 @@ const UsersListScreen: React.FC = () => {
   const handleUserImpersonation = (user: any) => {
       if (user.role === 'owner') return; // Don't impersonate self/other admins
       
-      const confirmAction = window.confirm(`Access ${user.name}'s account interface?`);
+      const confirmAction = window.confirm(`Redirecting to ${user.name}'s account view...`);
       if (confirmAction) {
           setActingRole(user.role, user.schoolId, user.id);
-          if (user.role === 'school_owner') {
-              navigate('/school-owner-dashboard');
-          } else {
-              navigate('/dashboard');
-          }
+          // Redirect directly to the user's profile for the "immediately" feel
+          navigate('/profile');
       }
   };
 
@@ -93,7 +90,7 @@ const UsersListScreen: React.FC = () => {
                                             </p>
                                         )}
                                         {isImpersonatable && (
-                                            <p className="text-[8px] text-primary font-black uppercase tracking-widest bg-primary/5 px-1.5 py-0.5 rounded">Click to View Account</p>
+                                            <p className="text-[8px] text-primary font-black uppercase tracking-widest bg-primary/5 px-1.5 py-0.5 rounded">View Account</p>
                                         )}
                                     </div>
                                 </div>

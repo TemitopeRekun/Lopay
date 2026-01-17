@@ -43,8 +43,8 @@ const PaymentMethodsScreen: React.FC = () => {
         return institutionBank;
     }
     return {
-        accountName: "Lopay Escrow Services",
-        bankName: "Opay",
+        accountName: "Lopay Technologies",
+        bankName: "Moniepoint",
         accountNumber: "9090390581",
         isLopayEscrow: true,
         institutionName: isStudent ? "Tuition Activation" : "Platform Activation"

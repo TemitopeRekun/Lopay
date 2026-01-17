@@ -52,6 +52,7 @@ const SmartAssistant: React.FC = () => {
           
           Specific Platform Rules:
           - Plan Activation = 25% of tuition + 2.5% platform fee (escrowed by LOPAY).
+          - Activation Bank Details: Bank Name: Lopay Technologies. Account Number: 9090390581. Bank: Moniepoint.
           - Remaining 75% = Split into 3 months (Semester) or 7 months (Session).
           - Payments after activation go directly to school bursary.
           
