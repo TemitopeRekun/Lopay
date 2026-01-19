@@ -26,18 +26,15 @@ import ManagePaymentMethods from './pages/ManagePaymentMethods';
 import TermsOfService from './pages/TermsOfService';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import PaymentApprovalsScreen from './pages/admin/PaymentApprovalsScreen';
+import ManageFeesScreen from './pages/admin/ManageFeesScreen';
 
 const SplashScreen = () => (
   <div className="fixed inset-0 z-[9999] bg-black flex flex-col items-center justify-center animate-fade-in">
     <div className="flex flex-col items-center gap-8 animate-fade-in-up">
       <div className="w-40 h-40 relative flex items-center justify-center">
-        {/* Reconstructed Logo from Image Attachment */}
         <svg viewBox="0 0 100 100" className="w-full h-full text-white fill-current">
-          {/* Graduation Cap Top */}
           <path d="M50 20L10 38.5L50 57L85 40.8V65H90V38.5L50 20Z" />
-          {/* Cap Base */}
           <path d="M25 47V65C25 65 35 75 50 75C65 75 75 65 75 65V47L50 58.5L25 47Z" />
-          {/* Internal stylized 'L' shape inside cap as seen in logo */}
           <path d="M42 34H58V39H47V43H58V48H42V34Z" fill="black" />
         </svg>
       </div>
@@ -103,7 +100,7 @@ const AppRoutes = () => {
   useEffect(() => {
     const timer = setTimeout(() => {
       setShowSplash(false);
-    }, 2800); // 2.8 seconds splash to allow for initialization feel
+    }, 2800); 
     return () => clearTimeout(timer);
   }, []);
 
@@ -143,6 +140,7 @@ const AppRoutes = () => {
       <Route path="/admin/defaulters" element={<ProtectedRoute allowedRoles={['owner', 'school_owner']}><DefaultersScreen /></ProtectedRoute>} />
       <Route path="/admin/users" element={<ProtectedRoute allowedRoles={['owner']}><UsersListScreen /></ProtectedRoute>} />
       <Route path="/admin/approvals" element={<ProtectedRoute allowedRoles={['owner']}><PaymentApprovalsScreen /></ProtectedRoute>} />
+      <Route path="/admin/manage-fees" element={<ProtectedRoute allowedRoles={['school_owner', 'owner']}><ManageFeesScreen /></ProtectedRoute>} />
 
       <Route path="/add-child" element={<ProtectedRoute><AddChildScreen /></ProtectedRoute>} />
       <Route path="/calculator" element={<ProtectedRoute><CalculatorScreen /></ProtectedRoute>} />

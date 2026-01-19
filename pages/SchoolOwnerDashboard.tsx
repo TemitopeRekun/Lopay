@@ -15,9 +15,9 @@ const SchoolOwnerDashboard: React.FC = () => {
 
   const CLASS_GROUPS = [
     { label: 'Early Years', classes: ['Reception 1', 'Reception 2', 'Nursery 1', 'Nursery 2'] },
-    { label: 'Primary', classes: ['Basic 1', 'Basic 2', 'Basic 3', 'Basic 4', 'Basic 5', 'Basic 6'] },
-    { label: 'Junior Sec', classes: ['JSS 1', 'JSS 2', 'JSS 3'] },
-    { label: 'Senior Sec', classes: ['SS 1', 'SS 2', 'SS 3'] },
+    { label: 'Primary', classes: ['Basic 1', 'Basic 2', 'Basic 3', 'Basic 4', 'Basic 5'] },
+    { label: 'Junior Sec', classes: ['JSS1', 'JSS2', 'JSS3'] },
+    { label: 'Senior Sec', classes: ['SS1', 'SS2', 'SS3'] },
   ];
 
   const mySchool = useMemo(() => {
@@ -65,7 +65,6 @@ const SchoolOwnerDashboard: React.FC = () => {
 
   return (
     <Layout showBottomNav>
-      {/* Impersonation Banner for Super Admin */}
       {activeSchoolId && isOwnerAccount && (
         <div className="bg-secondary text-white px-6 py-2.5 flex items-center justify-between shadow-lg sticky top-0 z-50">
            <div className="flex items-center gap-2">
@@ -155,6 +154,25 @@ const SchoolOwnerDashboard: React.FC = () => {
       </div>
 
       <main className="flex flex-col gap-6 p-6 pb-32">
+        {/* Management Tools */}
+        <div className="grid grid-cols-2 gap-4">
+             <button 
+                onClick={() => navigate('/admin/manage-fees')}
+                className="col-span-2 flex items-center justify-between p-5 bg-secondary/5 border-2 border-secondary/20 rounded-[28px] hover:bg-secondary/10 transition-all group"
+            >
+                <div className="flex items-center gap-4">
+                    <div className="size-12 rounded-2xl bg-secondary flex items-center justify-center text-white shadow-lg shadow-secondary/20">
+                        <span className="material-symbols-outlined text-2xl filled">payments</span>
+                    </div>
+                    <div className="text-left">
+                        <p className="text-sm font-black text-secondary uppercase tracking-widest">Fee Structure</p>
+                        <p className="text-[10px] text-secondary/60 font-bold uppercase">Configure Grade Prices</p>
+                    </div>
+                </div>
+                <span className="material-symbols-outlined text-secondary group-hover:translate-x-1 transition-transform">chevron_right</span>
+            </button>
+        </div>
+
         <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2 bg-slate-900 text-white p-6 rounded-[32px] shadow-2xl relative overflow-hidden group">
                 <div className="absolute right-0 top-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">

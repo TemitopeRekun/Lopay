@@ -49,9 +49,6 @@ export const API = {
                 users.push(user);
                 needsUpdate = true;
             } else {
-                // If it's a demo account, we check if details have changed to keep demo data fresh
-                // But we don't overwrite if the user has manually changed them via Profile screen (which updates the DB)
-                // For this specific request, we will ensure the new details are applied if the current ones match old defaults
                 const current = users[existingIdx];
                 if (current.id === user.id && (current.accountNumber !== user.accountNumber || current.bankName !== user.bankName)) {
                     users[existingIdx] = { ...current, ...user };
@@ -129,21 +126,39 @@ export const API = {
                     name: 'Febison Montessori Groomers School',
                     address: '106, C.A.C Agbeye Junction, Eyita, Ikorodu, Lagos',
                     contactEmail: 'info@febison.edu.ng',
-                    studentCount: 45
+                    studentCount: 45,
+                    feeStructure: {
+                        'Basic 1': 120000,
+                        'Basic 2': 120000,
+                        'Basic 3': 125000,
+                        'Basic 4': 130000,
+                        'JSS1': 180000,
+                        'SS1': 220000
+                    }
                 },
                 {
                     id: 'sch_westhills',
                     name: 'Westhills School',
                     address: 'Westhills avenue, Eyita, Ikorodu, Lagos',
                     contactEmail: 'admin@westhills.edu.ng',
-                    studentCount: 30
+                    studentCount: 30,
+                    feeStructure: {
+                        'Reception 1': 85000,
+                        'Nursery 1': 90000,
+                        'Basic 1': 110000
+                    }
                 },
                 {
                     id: 'sch_inglewood',
                     name: 'Inglewood School',
                     address: 'Oshewa street, Ori-Okuta, Ikorodu, Lagos',
                     contactEmail: 'contact@inglewood.edu.ng',
-                    studentCount: 22
+                    studentCount: 22,
+                    feeStructure: {
+                        'JSS1': 150000,
+                        'JSS2': 155000,
+                        'JSS3': 160000
+                    }
                 }
             ];
             set(KEYS.SCHOOLS, defaultSchools);
