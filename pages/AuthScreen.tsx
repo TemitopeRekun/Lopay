@@ -102,7 +102,16 @@ const AuthScreen: React.FC = () => {
 
   return (
     <Layout>
-      <div className="flex flex-col grow px-6 py-10 animate-fade-in">
+      <div className="flex flex-col grow px-6 py-6 animate-fade-in-up">
+        {/* Navigation Back */}
+        <button 
+          onClick={() => navigate('/welcome')}
+          className="mb-6 flex items-center gap-2 text-text-secondary-light hover:text-primary transition-colors text-sm font-bold"
+        >
+          <span className="material-symbols-outlined">arrow_back</span>
+          <span>Back</span>
+        </button>
+
         <div className="flex flex-col items-center mb-8">
           <div className="flex items-center gap-2 mb-2">
             <span className="material-symbols-outlined text-4xl text-primary filled">account_balance</span>

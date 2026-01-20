@@ -34,7 +34,7 @@ const WelcomeScreen: React.FC = () => {
           </p>
           
           <button 
-            onClick={() => navigate('/')}
+            onClick={() => navigate('/auth')}
             className="flex h-14 w-full items-center justify-center rounded-2xl bg-accent text-white text-lg font-bold shadow-xl shadow-accent/25 hover:scale-[1.02] active:scale-[0.98] transition-all"
           >
             Get Started

@@ -57,7 +57,7 @@ const ProtectedRoute = ({ children, allowedRoles }: { children?: React.ReactNode
   const location = useLocation();
 
   if (!isAuthenticated) {
-    return <Navigate to="/" state={{ from: location }} replace />;
+    return <Navigate to="/welcome" state={{ from: location }} replace />;
   }
 
   if (allowedRoles && !allowedRoles.includes(userRole)) {
@@ -70,7 +70,7 @@ const ProtectedRoute = ({ children, allowedRoles }: { children?: React.ReactNode
 const HomeRedirect = () => {
     const { isAuthenticated, userRole } = useApp();
     
-    if (!isAuthenticated) return <AuthScreen />;
+    if (!isAuthenticated) return <Navigate to="/welcome" replace />;
     
     switch(userRole) {
         case 'owner': return <Navigate to="/owner-dashboard" replace />;
@@ -113,6 +113,7 @@ const AppRoutes = () => {
       <Route path="/" element={<HomeRedirect />} />
       <Route path="/home" element={<HomeRedirect />} />
       <Route path="/welcome" element={<WelcomeScreen />} />
+      <Route path="/auth" element={<AuthScreen />} />
       <Route path="/terms" element={<TermsOfService />} />
       <Route path="/privacy" element={<PrivacyPolicy />} />
       
