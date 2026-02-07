@@ -8,6 +8,11 @@ export const PaymentHistory: React.FC = () => {
   const { transactions } = useApp();
   const [filter, setFilter] = useState<'All' | 'Successful' | 'Pending' | 'Failed'>('All');
 
+  // Debug logging for transaction statuses
+  React.useEffect(() => {
+    console.log("Current Transactions in PaymentHistory:", transactions.map(t => ({ id: t.id, status: t.status })));
+  }, [transactions]);
+
   const filteredTransactions = transactions.filter(t => filter === 'All' || t.status === filter);
 
   return (

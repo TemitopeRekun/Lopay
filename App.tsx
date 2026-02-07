@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AppProvider, useApp } from './context/AppContext';
@@ -140,7 +139,7 @@ const AppRoutes = () => {
       <Route path="/admin/broadcast" element={<ProtectedRoute allowedRoles={['owner']}><BroadcastScreen /></ProtectedRoute>} />
       <Route path="/admin/defaulters" element={<ProtectedRoute allowedRoles={['owner', 'school_owner']}><DefaultersScreen /></ProtectedRoute>} />
       <Route path="/admin/users" element={<ProtectedRoute allowedRoles={['owner']}><UsersListScreen /></ProtectedRoute>} />
-      <Route path="/admin/approvals" element={<ProtectedRoute allowedRoles={['owner']}><PaymentApprovalsScreen /></ProtectedRoute>} />
+      <Route path="/admin/approvals" element={<ProtectedRoute allowedRoles={['owner', 'school_owner']}><PaymentApprovalsScreen /></ProtectedRoute>} />
       <Route path="/admin/manage-fees" element={<ProtectedRoute allowedRoles={['school_owner', 'owner']}><ManageFeesScreen /></ProtectedRoute>} />
 
       <Route path="/add-child" element={<ProtectedRoute><AddChildScreen /></ProtectedRoute>} />

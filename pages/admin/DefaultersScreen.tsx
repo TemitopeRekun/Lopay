@@ -9,7 +9,7 @@ const DefaultersScreen: React.FC = () => {
   const navigate = useNavigate();
   const { childrenData } = useApp();
 
-  const defaulters = childrenData.filter(child => child.status === 'Overdue' || child.status === 'Due Soon');
+  const defaulters = childrenData.filter(child => child.status === 'Defaulted');
 
   const handleRemind = (childName: string) => {
       alert(`Reminder sent to parents of ${childName}`);
@@ -41,7 +41,7 @@ const DefaultersScreen: React.FC = () => {
                                     <p className="text-sm text-text-secondary-light">{child.school}</p>
                                 </div>
                              </div>
-                             <span className={`text-[10px] font-bold px-2 py-1 rounded-md uppercase ${child.status === 'Overdue' ? 'bg-danger/10 text-danger' : 'bg-warning/10 text-warning'}`}>
+                             <span className={`text-[10px] font-bold px-2 py-1 rounded-md uppercase bg-danger/10 text-danger`}>
                                  {child.status}
                              </span>
                         </div>

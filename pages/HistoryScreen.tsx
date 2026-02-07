@@ -8,8 +8,15 @@ import { useApp } from '../context/AppContext';
 const HistoryScreen: React.FC = () => {
   const { transactions, userRole } = useApp();
   const [filter, setFilter] = useState<'All' | 'Successful' | 'Pending' | 'Failed'>('All');
+  const [searchQuery, setSearchQuery] = useState('');
 
-  const filteredTransactions = transactions.filter(t => filter === 'All' ? true : t.status === filter);
+  const filteredTransactions = transactions.filter(t => {
+      const matchesFilter = filter === 'All' ? true : t.status === filter;
+      const matchesSearch = searchQuery.trim() === '' || 
+          t.childName.toLowerCase().includes(searchQuery.toLowerCase()) || 
+          t.schoolName.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesFilter && matchesSearch;
+  });
   const isSchoolOwner = userRole === 'school_owner';
 
   const getStatusColor = (status: string) => {
@@ -34,16 +41,6 @@ const HistoryScreen: React.FC = () => {
     <Layout showBottomNav>
       <Header title={userRole === 'owner' ? "All Platform Transactions" : isSchoolOwner ? "School Collection History" : "Payment History"} />
       <div className="flex flex-col gap-4 px-4 py-4">
-         {/* Search Bar */}
-         <div className="relative">
-             <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">search</span>
-             <input 
-                type="text" 
-                placeholder={isSchoolOwner ? "Search by student name..." : "Search by school..."} 
-                className="w-full bg-gray-100 dark:bg-white/5 rounded-xl py-3 pl-10 pr-4 outline-none focus:ring-2 focus:ring-primary/50 transition-all text-sm"
-             />
-         </div>
-
          {/* Filter Tabs */}
          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide no-scrollbar">
              {['All', 'Successful', 'Pending', 'Failed'].map((f) => (
@@ -66,7 +63,7 @@ const HistoryScreen: React.FC = () => {
              {filteredTransactions.length === 0 ? (
                  <div className="text-center py-20 px-8 bg-gray-50/50 dark:bg-white/5 rounded-[32px] border-2 border-dashed border-gray-100 dark:border-gray-800">
                     <span className="material-symbols-outlined text-4xl text-gray-300 mb-2">receipt_long</span>
-                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">No transactions recorded</p>
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">No matching transactions found</p>
                  </div>
              ) : (
                  filteredTransactions.map((t) => (

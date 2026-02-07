@@ -65,6 +65,17 @@ _The end-user making payments._
   - Make first and installment payments.
   - View payment history and receive notifications.
 
+### 🎓 UNIVERSITY_STUDENT
+
+_A tertiary-level student paying their own tuition._
+
+- **Access:** Public signup.
+- **Capabilities:**
+  - Select their institution.
+  - Set up a tuition plan for their semester or session fees.
+  - Make installment payments for their own tuition.
+  - View payment history.
+
 ---
 
 ## 💳 Financial Integrity & Payment Rules
@@ -100,14 +111,14 @@ All payments follow a strict status lifecycle controlled by backend logic:
 
 ## 🛠 Tech Stack
 
-| Layer              | Technology             |
-| :----------------- | :--------------------- |
-| **Framework**      | NestJS (Node.js)       |
-| **Language**       | TypeScript             |
-| **Database**       | PostgreSQL             |
-| **ORM**            | Prisma                 |
-| **Auth**           | Firebase Auth + JWT    |
-| **Validation**     | class-validator + Joi  |
+| Layer          | Technology            |
+| :------------- | :-------------------- |
+| **Framework**  | NestJS (Node.js)      |
+| **Language**   | TypeScript            |
+| **Database**   | PostgreSQL            |
+| **ORM**        | Prisma                |
+| **Auth**       | Firebase Auth + JWT   |
+| **Validation** | class-validator + Joi |
 
 ---
 
@@ -152,12 +163,13 @@ npm run start:dev
 # production mode
 npm run start:prod
 ```
-| **Framework**      | NestJS                 |
-| **Language**       | TypeScript             |
-| **ORM**            | Prisma                 |
-| **Database**       | PostgreSQL             |
-| **Authentication** | Firebase Admin + JWT   |
-| **Architecture**   | Modular (Domain-based) |
+
+| **Framework** | NestJS |
+| **Language** | TypeScript |
+| **ORM** | Prisma |
+| **Database** | PostgreSQL |
+| **Authentication** | Firebase Admin + JWT |
+| **Architecture** | Modular (Domain-based) |
 
 ---
 

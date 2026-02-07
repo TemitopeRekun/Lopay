@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { Header } from '../components/Header';
@@ -67,13 +67,19 @@ const PaymentMethodsScreen: React.FC = () => {
       setReceiptImage('https://images.unsplash.com/photo-1554224155-169641357599?auto=format&fit=crop&q=80&w=400');
   };
 
-  const handlePaymentSent = () => {
+  const handlePaymentSent = async () => {
       if (state?.childId && paymentAmount > 0) {
           setIsProcessing(true);
-          setTimeout(() => {
-              submitPayment(state.childId!, paymentAmount, receiptImage || undefined);
+          try {
+              await submitPayment(state.childId!, paymentAmount, receiptImage || undefined);
+              alert("Payment submitted successfully! Waiting for school confirmation.");
               navigate('/dashboard');
-          }, 1500);
+          } catch (error) {
+              console.error(error);
+              alert("Failed to submit payment. Please try again.");
+          } finally {
+              setIsProcessing(false);
+          }
       } else {
           alert("Please enter a valid amount.");
       }

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '../components/Layout';
@@ -6,17 +5,28 @@ import { BottomNav } from '../components/BottomNav';
 import { useApp } from '../context/AppContext';
 
 const Dashboard: React.FC = () => {
-  const { childrenData, currentUser, transactions, isOwnerAccount, userRole, setActingRole, deleteChild, actingUserId, allUsers } = useApp();
+  const { childrenData = [], currentUser, transactions = [], isOwnerAccount, userRole, setActingRole, deleteChild, actingUserId, allUsers = [], refreshData } = useApp();
   const navigate = useNavigate();
+
+  // Force refresh on mount to ensure fresh data
+  React.useEffect(() => {
+      refreshData?.();
+  }, [refreshData]);
+
+  // Safety check to prevent crashes if data is corrupted
+  const validChildren = React.useMemo(() => {
+    if (!Array.isArray(childrenData)) return [];
+    return childrenData.filter(c => c && typeof c === 'object' && c.id);
+  }, [childrenData]);
 
   const isStudent = userRole === 'university_student';
   const entityType = isStudent ? "Institution" : "School";
 
   const actingAs = actingUserId ? allUsers.find(u => u.id === actingUserId) : null;
 
-  const totalNextDue = childrenData.reduce((acc, child) => {
+  const totalNextDue = validChildren.reduce((acc, child) => {
       if (child.status === 'Completed') return acc;
-      return acc + child.nextInstallmentAmount;
+      return acc + (child.nextInstallmentAmount || 0);
   }, 0);
 
   const handleQuickPay = (childId: string, amount: number) => {
@@ -35,17 +45,7 @@ const Dashboard: React.FC = () => {
       navigate('/owner-dashboard');
   };
 
-  const handleDeleteChild = (childId: string, childName: string) => {
-      const msg = isStudent 
-        ? `Are you sure you want to remove your tuition plan? This will delete your payment history.`
-        : `Are you sure you want to remove the plan for ${childName}? This will delete their payment history.`;
-      
-      if (window.confirm(msg)) {
-          deleteChild(childId);
-      }
-  };
-
-  const hasPlans = childrenData.length > 0;
+  const hasPlans = validChildren.length > 0;
 
   return (
     <Layout showBottomNav>
@@ -90,6 +90,17 @@ const Dashboard: React.FC = () => {
       <main className="flex flex-col gap-6 p-6">
         {!hasPlans ? (
             <div className="flex flex-col items-center justify-center py-10 text-center animate-fade-in-up">
+                {/* DEBUG SECTION - REMOVE AFTER FIXING */}
+                <div className="w-full bg-red-100 p-4 mb-4 rounded text-left text-xs font-mono overflow-auto max-h-40">
+                    <p><strong>DEBUG INFO:</strong></p>
+                    <p>User ID: {currentUser?.id}</p>
+                    <p>Role: {userRole}</p>
+                    <p>Children Count: {childrenData?.length || 0}</p>
+                    <p>Valid Children: {validChildren.length}</p>
+                    <p>Raw Data: {JSON.stringify(childrenData)}</p>
+                </div>
+                {/* END DEBUG */}
+
                 <div className="w-48 h-48 bg-gray-50 dark:bg-white/5 rounded-full flex items-center justify-center mb-6 relative overflow-hidden">
                      <div className="absolute inset-0 bg-primary/10 rounded-full animate-pulse"></div>
                      <span className="material-symbols-outlined text-8xl text-primary opacity-80">
@@ -133,26 +144,24 @@ const Dashboard: React.FC = () => {
                     </h2>
                 </div>
 
-                {childrenData.map((child) => {
-                    const progress = Math.min((child.paidAmount / child.totalFee) * 100, 100);
-                    const isDueSoon = child.status === 'Due Soon';
+                {validChildren.map((child) => {
+                    const progress = child.totalFee > 0 ? Math.min((child.paidAmount / child.totalFee) * 100, 100) : 0;
                     const isCompleted = child.status === 'Completed';
-                    const isOverdue = child.status === 'Overdue';
-                    const isPending = transactions.some(t => t.childId === child.id && t.status === 'Pending');
+                    const isDefaulted = child.status === 'Defaulted';
+                    const isFailed = child.status === 'Failed';
+                    const isPending = transactions.some(t => t.childId === child.id && t.status === 'Pending') || child.status === 'Pending';
                     
                     const isActivating = child.paidAmount === 0 && isPending;
                     const isFullyInactive = child.paidAmount === 0 && !isPending;
 
                     let statusColor = 'bg-secondary/10 text-secondary';
-                    if (isDueSoon) statusColor = 'bg-warning/10 text-warning';
-                    if (isOverdue) statusColor = 'bg-danger/10 text-danger';
+                    if (isDefaulted || isFailed) statusColor = 'bg-danger/10 text-danger';
                     if (isCompleted) statusColor = 'bg-success/10 text-success';
-                    if (isPending && !isCompleted) statusColor = 'bg-primary/10 text-primary';
+                    if (isPending && !isCompleted && !isDefaulted && !isFailed) statusColor = 'bg-primary/10 text-primary';
                     if (isFullyInactive) statusColor = 'bg-gray-100 text-gray-500';
 
                     let progressColor = 'bg-secondary';
-                    if (isDueSoon) progressColor = 'bg-warning';
-                    if (isOverdue) progressColor = 'bg-danger';
+                    if (isDefaulted || isFailed) progressColor = 'bg-danger';
                     if (isCompleted) progressColor = 'bg-success';
 
                     return (
@@ -169,21 +178,22 @@ const Dashboard: React.FC = () => {
                             </div>
                             <div>
                                 <p className="font-bold text-text-primary-light dark:text-text-primary-dark">
-                                    {child.grade}
+                                    {child.name}
                                 </p>
-                                <p className="text-[10px] text-text-secondary-light dark:text-text-secondary-dark uppercase font-bold">{child.school}</p>
+                                <p className="text-[10px] text-text-secondary-light dark:text-text-secondary-dark uppercase font-bold">
+                                    {child.school}
+                                </p>
                             </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                            <div className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${statusColor}`}>
-                                {isActivating ? 'Verifying Activation' : isFullyInactive ? 'Not Active' : isCompleted ? 'Completed' : isPending ? 'Processing' : child.status}
+                        <div className="flex flex-col items-end gap-1 flex-1">
+                            <span className="text-[10px] font-bold text-text-secondary-light dark:text-white bg-gray-100 dark:bg-white/10 px-2 py-0.5 rounded-md">
+                                {child.grade}
+                            </span>
+                            <div className="flex items-center gap-2 justify-end w-full">
+                                <div className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${statusColor} ml-auto`}>
+                                    {isActivating ? 'Verifying Activation' : isFullyInactive ? 'Not Active' : isCompleted ? 'Completed' : isPending ? 'Processing' : child.status}
+                                </div>
                             </div>
-                            <button 
-                                onClick={() => handleDeleteChild(child.id, child.name)}
-                                className="size-8 flex items-center justify-center rounded-full bg-gray-50 dark:bg-white/5 text-gray-400 hover:text-danger hover:bg-danger/10 transition-colors opacity-0 group-hover:opacity-100"
-                            >
-                                <span className="material-symbols-outlined text-sm">delete</span>
-                            </button>
                         </div>
                         </div>
 

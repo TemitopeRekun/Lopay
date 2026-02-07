@@ -10,27 +10,65 @@ export const ConfirmPlan: React.FC = () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const data = location.state as any;
 
-  const handleConfirm = () => {
-    // Add child to context
-    const newChild: Omit<Child, 'parentId'> = {
-      id: Math.random().toString(36).substr(2, 9),
-      name: data.name || 'New Child',
-      school: data.school || 'Unknown School',
-      grade: data.classGrade,
-      totalFee: data.totalFee,
-      paidAmount: 0,
-      status: 'On Track',
-      nextInstallmentAmount: data.installmentAmount,
-      nextDueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      avatarUrl: `https://ui-avatars.com/api/?name=${(data.name || 'New').replace(' ', '+')}&background=random)`
-    };
-    
-    addChild(newChild);
-    navigate('/dashboard');
-  };
+  // Extract values with fallbacks or mapping from CalculatorScreen state
+  const childName = data.childName || data.name || 'New Child';
+  const schoolName = data.schoolName || data.school || 'Unknown School';
+  const grade = data.grade || data.classGrade;
+  const totalFee = data.totalFee || 0;
+  
+  // New backend fields
+  const totalPayable = data.totalPayable || totalFee;
+  const totalInitialPayment = data.totalInitialPayment || 0;
+  const platformFeeAmount = data.platformFeeAmount || 0;
 
-  const serviceFee = data.installmentAmount * 0.05; // 5% service fee assumption
-  const totalPerPayment = data.installmentAmount + serviceFee;
+  // Plan details from CalculatorScreen
+  const plan = data.plan || {};
+  const breakdown = data.breakdown || {};
+  
+  const planType = plan.type || data.planType || 'Monthly';
+  const numberOfPayments = plan.numberOfPayments || (planType === 'Weekly' ? 12 : 3);
+  
+  // Amounts
+  // If breakdown is present, use it. Otherwise fallback to data.installmentAmount (legacy)
+  const baseInstallment = breakdown.baseAmount ?? data.installmentAmount ?? 0;
+  // Strictly use backend total or base amount. No local service fee calculation.
+  const totalPerPayment = breakdown.totalAmount ?? baseInstallment;
+
+  const schoolId = data.schoolId;
+
+  // Calculate dates dynamically
+  const startDate = new Date();
+  const endDate = new Date(startDate);
+  
+  if (planType === 'Weekly') {
+    endDate.setDate(startDate.getDate() + (numberOfPayments * 7));
+  } else {
+    // Monthly
+    endDate.setMonth(startDate.getMonth() + numberOfPayments);
+  }
+
+  const handleConfirm = async () => {
+    if (!schoolId) {
+      console.error("Missing school ID");
+      // Fallback or error handling could go here
+      return;
+    }
+
+    try {
+      await addChild({
+        childName,
+        schoolId,
+        grade,
+        installmentFrequency: planType,
+        firstPaymentPaid: totalInitialPayment,
+        termStartDate: startDate.toISOString(),
+        termEndDate: endDate.toISOString()
+      });
+      navigate('/dashboard');
+    } catch (err) {
+      console.error("Failed to confirm plan", err);
+    }
+  };
 
   return (
     <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden pb-32 bg-background-light dark:bg-background-dark">
@@ -45,38 +83,38 @@ export const ConfirmPlan: React.FC = () => {
         <div className="flex w-full items-center gap-4">
           <div 
             className="h-16 w-16 shrink-0 rounded-full bg-cover bg-center bg-no-repeat bg-slate-200 dark:bg-slate-800"
-            style={{ backgroundImage: `url(https://ui-avatars.com/api/?name=${(data.name || 'New').replace(' ', '+')}&background=random)` }}
+            style={{ backgroundImage: `url(https://ui-avatars.com/api/?name=${(childName).replace(' ', '+')}&background=random)` }}
           ></div>
           <div className="flex flex-col justify-center">
-            <p className="text-lg font-bold leading-tight tracking-[-0.015em]">{data.name}</p>
-            <p className="text-base font-normal text-secondary">{data.school}</p>
+            <p className="text-lg font-bold leading-tight tracking-[-0.015em]">{childName}</p>
+            <p className="text-base font-normal text-secondary">{schoolName}</p>
           </div>
         </div>
       </div>
 
       <div className="px-4 pt-4 pb-2">
-        <p className="text-center text-base font-normal text-slate-500">Total School Fee</p>
-        <h1 className="text-center text-[40px] font-bold leading-tight tracking-tight">₦{data.totalFee.toLocaleString('en-NG', {minimumFractionDigits: 2})}</h1>
+        <p className="text-center text-base font-normal text-slate-500">Total Payable</p>
+        <h1 className="text-center text-[40px] font-bold leading-tight tracking-tight">₦{totalPayable.toLocaleString('en-NG', {minimumFractionDigits: 2})}</h1>
       </div>
 
       <div className="mx-4 mt-4 rounded-xl bg-card-light dark:bg-card-dark p-5 shadow-sm">
-        <h3 className="text-lg font-bold leading-tight tracking-[-0.015em]">Your {data.planType} Plan</h3>
+        <h3 className="text-lg font-bold leading-tight tracking-[-0.015em]">Your {planType} Plan</h3>
         <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-5">
           <div>
             <p className="text-sm text-slate-500">Installment</p>
-            <p className="mt-1 font-semibold">₦{data.installmentAmount.toLocaleString('en-NG', {minimumFractionDigits: 2})} / {data.planType === 'Weekly' ? 'week' : 'month'}</p>
+            <p className="mt-1 font-semibold">₦{totalPerPayment.toLocaleString('en-NG', {minimumFractionDigits: 2})} / {planType === 'Weekly' ? 'week' : 'month'}</p>
           </div>
           <div>
             <p className="text-sm text-slate-500">No. of Payments</p>
-            <p className="mt-1 font-semibold">{data.planType === 'Weekly' ? '12' : '3'} Payments</p>
+            <p className="mt-1 font-semibold">{numberOfPayments} Payments</p>
           </div>
           <div>
             <p className="text-sm text-slate-500">Start Date</p>
-            <p className="mt-1 font-semibold">{new Date().toLocaleDateString()}</p>
+            <p className="mt-1 font-semibold">{startDate.toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
           </div>
           <div>
             <p className="text-sm text-slate-500">End Date</p>
-            <p className="mt-1 font-semibold">{new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toLocaleDateString()}</p>
+            <p className="mt-1 font-semibold">{endDate.toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
           </div>
         </div>
       </div>
@@ -86,28 +124,36 @@ export const ConfirmPlan: React.FC = () => {
         <div className="mt-3 flex items-center justify-between rounded-xl bg-card-light dark:bg-card-dark p-4 shadow-sm">
           <div className="flex items-center gap-4">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800">
-               <span className="material-symbols-outlined">credit_card</span>
+               <span className="material-symbols-outlined">account_balance</span>
             </div>
-            <p className="font-semibold">Visa •••• 4242</p>
+            <p className="font-semibold">Bank Transfer</p>
           </div>
-          <button className="font-bold text-primary-blue">Change</button>
+          <button className="font-bold text-primary-blue text-sm">Change</button>
         </div>
       </div>
 
       <div className="mx-4 mt-6">
         <h3 className="text-lg font-bold leading-tight tracking-[-0.015em]">Cost Breakdown</h3>
         <div className="mt-3 space-y-3">
+          <div className="flex items-center justify-between text-slate-500">
+            <p>School Fee</p>
+            <p className="font-medium">₦{totalFee.toLocaleString('en-NG', {minimumFractionDigits: 2})}</p>
+          </div>
+          <div className="flex items-center justify-between text-slate-500">
+            <p>Platform Fee</p>
+            <p className="font-medium">₦{platformFeeAmount.toLocaleString('en-NG', {minimumFractionDigits: 2})}</p>
+          </div>
+          <div className="my-2 h-px w-full bg-slate-200 dark:bg-slate-700"></div>
           <div className="flex items-center justify-between">
-            <p className="text-slate-500">Tuition Fee</p>
-            <p className="font-medium">₦{data.installmentAmount.toLocaleString('en-NG', {minimumFractionDigits: 2})}</p>
+            <p className="font-bold">Total Payable</p>
+            <p className="font-bold">₦{totalPayable.toLocaleString('en-NG', {minimumFractionDigits: 2})}</p>
+          </div>
+          <div className="flex items-center justify-between text-slate-500 mt-4 pt-4 border-t border-slate-200 dark:border-slate-800">
+            <p>Initial Payment</p>
+            <p className="font-medium">₦{totalInitialPayment.toLocaleString('en-NG', {minimumFractionDigits: 2})}</p>
           </div>
           <div className="flex items-center justify-between">
-            <p className="text-slate-500">Service Fee (5%)</p>
-            <p className="font-medium">₦{serviceFee.toLocaleString('en-NG', {minimumFractionDigits: 2})}</p>
-          </div>
-          <div className="my-3 h-px w-full bg-slate-200 dark:bg-slate-700"></div>
-          <div className="flex items-center justify-between">
-            <p className="font-bold">Total Per Payment</p>
+            <p className="font-bold">Installment ({numberOfPayments}x)</p>
             <p className="font-bold">₦{totalPerPayment.toLocaleString('en-NG', {minimumFractionDigits: 2})}</p>
           </div>
         </div>

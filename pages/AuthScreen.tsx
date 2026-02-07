@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link, useLocation } from 'react-router-dom';
+import { useNavigate, Link, useLocation, Navigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { Layout } from '../components/Layout';
 
@@ -23,14 +23,11 @@ const AuthScreen: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // If already authenticated, redirect away from Auth screen immediately
-  useEffect(() => {
-    if (isAuthenticated) {
-        if (userRole === 'owner') navigate('/owner-dashboard', { replace: true });
-        else if (userRole === 'school_owner') navigate('/school-owner-dashboard', { replace: true });
-        else navigate('/dashboard', { replace: true });
-    }
-  }, [isAuthenticated, userRole, navigate]);
+  if (isAuthenticated) {
+    if (userRole === 'owner') return <Navigate to="/owner-dashboard" replace />;
+    if (userRole === 'school_owner') return <Navigate to="/school-owner-dashboard" replace />;
+    return <Navigate to="/dashboard" replace />;
+  }
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,23 +49,16 @@ const AuthScreen: React.FC = () => {
     
     if (mode === 'login') {
         try {
-            const user = await login(email, password);
-            if (user) {
-                if (user.role === 'owner') navigate('/owner-dashboard', { replace: true });
-                else if (user.role === 'school_owner') navigate('/school-owner-dashboard', { replace: true });
-                else navigate('/dashboard', { replace: true });
-            } else {
-                setError('Invalid email or password. Please try again.');
-                setIsSubmitting(false);
-            }
-        } catch (err) {
-            setError('An error occurred during login.');
+            await login(email, password);
+            // Navigation handled by useEffect when isAuthenticated becomes true
+        } catch (err: any) {
+            setError(err.message || 'An error occurred during login.');
             setIsSubmitting(false);
         }
     } else {
         try {
             await signup(fullName, email, phoneNumber, password, roleSelection, selectedSchoolId);
-            navigate('/dashboard', { replace: true });
+            // Navigation handled by useEffect
         } catch (err: any) {
              setError(err.message || 'An error occurred during sign up.');
              setIsSubmitting(false);

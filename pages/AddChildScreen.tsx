@@ -1,9 +1,9 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { Header } from '../components/Header';
 import { useApp } from '../context/AppContext';
+import { BackendAPI } from '../services/backend';
 
 const ALL_GRADES = [
   'Reception 1', 'Reception 2', 
@@ -15,15 +15,21 @@ const ALL_GRADES = [
 
 const AddChildScreen: React.FC = () => {
   const navigate = useNavigate();
-  const { schools, userRole, currentUser } = useApp();
+  const { schools, userRole, currentUser, refreshSchools } = useApp();
   const [name, setName] = useState('');
   const [school, setSchool] = useState('');
   const [level, setLevel] = useState('');
   const [feeType, setFeeType] = useState<'Semester' | 'Session'>('Semester');
   const [semester, setSemester] = useState('1st Semester');
   const [fee, setFee] = useState('');
+  const [schoolFees, setSchoolFees] = useState<{className: string, feeAmount: number}[]>([]);
 
   const isStudent = userRole === 'university_student';
+
+  // Auto-refresh schools when entering this screen to ensure latest data
+  useEffect(() => {
+    refreshSchools();
+  }, [refreshSchools]);
 
   useEffect(() => {
     if (isStudent && currentUser) {
@@ -41,19 +47,33 @@ const AddChildScreen: React.FC = () => {
     return schools.find(s => s.name === school);
   }, [schools, school]);
 
+  // Fetch fees when school changes
+  useEffect(() => {
+    if (selectedSchoolObj?.id) {
+        BackendAPI.public.getSchoolFees(selectedSchoolObj.id)
+            .then(setSchoolFees)
+            .catch(err => {
+                console.error("Failed to fetch fees", err);
+                setSchoolFees([]);
+            });
+    } else {
+        setSchoolFees([]);
+    }
+  }, [selectedSchoolObj?.id]);
+
   // Update locked fee whenever level or school changes
   useEffect(() => {
-      if (!isStudent && selectedSchoolObj?.feeStructure && level) {
-          const lockedFee = selectedSchoolObj.feeStructure[level];
-          if (lockedFee) {
-              setFee(lockedFee.toString());
+      if (!isStudent && schoolFees.length > 0 && level) {
+          const matched = schoolFees.find(f => f.className === level);
+          if (matched) {
+              setFee(matched.feeAmount.toString());
           } else {
               setFee('');
           }
       } else if (!isStudent) {
           setFee('');
       }
-  }, [selectedSchoolObj, level, isStudent]);
+  }, [schoolFees, level, isStudent]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,6 +87,7 @@ const AddChildScreen: React.FC = () => {
         state: { 
             childName: name,
             schoolName: school,
+            schoolId: selectedSchoolObj?.id, // Added schoolId
             grade: gradeDisplay,
             totalFee: parseFloat(fee),
             feeType: isStudent ? feeType : 'Semester'
@@ -106,16 +127,21 @@ const AddChildScreen: React.FC = () => {
               <select
                 value={school}
                 onChange={(e) => {
-                    setSchool(e.target.value);
-                    setLevel('');
-                    setFee('');
+                  setSchool(e.target.value);
+                  setLevel("");
+                  setFee("");
                 }}
                 className="input-field w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-background-light dark:bg-background-dark p-4 outline-none focus:ring-2 focus:ring-primary appearance-none"
                 required
               >
                 <option value="" disabled>Select Institution</option>
+                {sortedSchools.length === 0 && (
+                  <option value="" disabled>No schools available</option>
+                )}
                 {sortedSchools.map((s) => (
-                    <option key={s.id} value={s.name}>{s.name}</option>
+                  <option key={s.id} value={s.name}>
+                    {s.name}
+                  </option>
                 ))}
               </select>
             </div>
@@ -141,70 +167,68 @@ const AddChildScreen: React.FC = () => {
                     </div>
                 </div>
             )}
-            
-            <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-2">
-                    <label className="text-sm font-medium text-text-secondary-light">
-                        {isStudent ? 'Current Level' : 'Class/Grade'}
-                    </label>
-                    <select 
-                        value={level}
-                        onChange={(e) => setLevel(e.target.value)}
-                        className="input-field w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-background-light dark:bg-background-dark p-4 outline-none focus:ring-2 focus:ring-primary appearance-none disabled:opacity-50"
-                        required
-                        disabled={!school && !isStudent}
-                    >
-                        <option value="" disabled>{isStudent ? 'Select level' : 'Select grade'}</option>
-                        {isStudent ? (
-                            <>
-                                <option value="100">100 Level</option>
-                                <option value="200">200 Level</option>
-                                <option value="300">300 Level</option>
-                                <option value="400">400 Level</option>
-                                <option value="500">500 Level</option>
-                                <option value="600">600 Level</option>
-                                <option value="Post-Grad">Post-Graduate</option>
-                            </>
-                        ) : (
-                            ALL_GRADES.map(g => <option key={g} value={g}>{g}</option>)
-                        )}
-                    </select>
-                    {!isStudent && school && level && !fee && (
-                        <p className="text-[10px] text-danger font-bold uppercase mt-1">This school has not published a fee for this grade.</p>
+
+            <div className="flex flex-col gap-2">
+                <label className="text-sm font-medium text-text-secondary-light">
+                    {isStudent ? 'Current Level' : 'Class/Grade'}
+                </label>
+                <select 
+                    value={level}
+                    onChange={(e) => setLevel(e.target.value)}
+                    className="input-field w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-background-light dark:bg-background-dark p-4 outline-none focus:ring-2 focus:ring-primary appearance-none disabled:opacity-50"
+                    required
+                    disabled={!school && !isStudent}
+                >
+                    <option value="" disabled>{isStudent ? 'Select level' : 'Select grade'}</option>
+                    {isStudent ? (
+                        <>
+                            <option value="100">100 Level</option>
+                            <option value="200">200 Level</option>
+                            <option value="300">300 Level</option>
+                            <option value="400">400 Level</option>
+                            <option value="500">500 Level</option>
+                            <option value="600">600 Level</option>
+                            <option value="Post-Grad">Post-Graduate</option>
+                        </>
+                    ) : (
+                        ALL_GRADES.map(g => <option key={g} value={g}>{g}</option>)
                     )}
-                </div>
-
-                {isStudent && feeType === 'Semester' && (
-                    <div className="flex flex-col gap-2">
-                        <label className="text-sm font-medium text-text-secondary-light">Semester</label>
-                        <select 
-                            value={semester}
-                            onChange={(e) => setSemester(e.target.value)}
-                            className="input-field w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-background-light dark:bg-background-dark p-4 outline-none focus:ring-2 focus:ring-primary appearance-none"
-                            required
-                        >
-                            <option value="1st Semester">1st Semester</option>
-                            <option value="2nd Semester">2nd Semester</option>
-                        </select>
-                    </div>
-                )}
-
-                {isStudent && feeType === 'Session' && (
-                    <div className="flex flex-col gap-2">
-                        <label className="text-sm font-medium text-text-secondary-light">Coverage</label>
-                        <div className="flex-1 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-gray-800 rounded-xl flex items-center px-4">
-                            <span className="text-sm font-bold text-primary">Full Academic Session</span>
-                        </div>
-                    </div>
+                </select>
+                {!isStudent && school && level && !fee && (
+                    <p className="text-[10px] text-danger font-bold uppercase mt-1">This school has not published a fee for this grade.</p>
                 )}
             </div>
+
+            {isStudent && feeType === 'Semester' && (
+                <div className="flex flex-col gap-2">
+                    <label className="text-sm font-medium text-text-secondary-light">Semester</label>
+                    <select 
+                        value={semester}
+                        onChange={(e) => setSemester(e.target.value)}
+                        className="input-field w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-background-light dark:bg-background-dark p-4 outline-none focus:ring-2 focus:ring-primary appearance-none"
+                        required
+                    >
+                        <option value="1st Semester">1st Semester</option>
+                        <option value="2nd Semester">2nd Semester</option>
+                    </select>
+                </div>
+            )}
+
+            {isStudent && feeType === 'Session' && (
+                <div className="flex flex-col gap-2">
+                    <label className="text-sm font-medium text-text-secondary-light">Coverage</label>
+                    <div className="flex-1 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-gray-800 rounded-xl flex items-center px-4">
+                        <span className="text-sm font-bold text-primary">Full Academic Session</span>
+                    </div>
+                </div>
+            )}
           </div>
         </section>
 
         <section>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold text-text-primary-light dark:text-text-primary-dark">
-                {isStudent ? 'Fee Amount' : 'School Fee Details'}
+              {isStudent ? "Fee Amount" : "School Fee Details"}
             </h2>
             {!isStudent && fee && (
                 <div className="flex items-center gap-1.5 px-3 py-1 bg-success/10 text-success rounded-full">
@@ -214,11 +238,11 @@ const AddChildScreen: React.FC = () => {
             )}
           </div>
           <div className="space-y-4">
-            <div className="flex flex-col gap-2">
+            <div className="relative">
               <label className="text-sm font-medium text-text-secondary-light">
-                {feeType === 'Session' ? 'Total Session Fee' : 'Total Amount'}
+                {feeType === "Session" ? "Total Session Fee" : "Total Amount"}
               </label>
-              <div className="relative">
+              <div className="relative mt-2">
                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">₦</span>
                 <input 
                     type="number"
@@ -231,26 +255,24 @@ const AddChildScreen: React.FC = () => {
                 />
               </div>
               {!isStudent && (
-                  <p className="text-[9px] text-text-secondary-light font-bold uppercase tracking-widest px-1">Fee is locked and verified by the school.</p>
+                  <p className="text-[9px] text-text-secondary-light font-bold uppercase tracking-widest px-1 mt-1">Fee is locked and verified by the school.</p>
               )}
             </div>
             
-            <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 flex justify-between items-center transition-all">
+            <div className="flex items-center justify-between p-4 bg-primary/5 rounded-xl border border-primary/10">
                 <span className="font-medium text-primary-dark dark:text-primary">Plan Duration</span>
                 <span className="font-bold text-primary-dark dark:text-primary">{planDuration}</span>
             </div>
           </div>
         </section>
 
-        <div className="mt-auto pt-4">
-           <button 
-             type="submit"
-             disabled={sortedSchools.length === 0 || !fee || parseFloat(fee) <= 0}
-             className="w-full h-14 bg-primary text-white rounded-xl font-bold text-lg shadow-lg shadow-primary/25 hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
-           >
-             Calculate Installment Plan
-           </button>
-        </div>
+        <button 
+            type="submit"
+            disabled={sortedSchools.length === 0 || !fee || parseFloat(fee) <= 0}
+            className="w-full h-14 bg-primary text-white rounded-xl font-bold text-lg shadow-lg shadow-primary/25 hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+            Calculate Installment Plan
+        </button>
       </form>
     </Layout>
   );

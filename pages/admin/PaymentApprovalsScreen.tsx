@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/Layout';
@@ -10,7 +9,7 @@ const PaymentApprovalsScreen: React.FC = () => {
   const navigate = useNavigate();
   const [selectedReceipt, setSelectedReceipt] = useState<string | null>(null);
 
-  const isSuperAdmin = userRole === 'owner';
+  const canApprove = userRole === 'owner' || userRole === 'school_owner';
   const pendingTransactions = transactions.filter(t => t.status === 'Pending');
 
   const handleApprove = (id: string) => {
@@ -18,12 +17,12 @@ const PaymentApprovalsScreen: React.FC = () => {
   };
 
   const handleDecline = (id: string) => {
-      if (window.confirm("Reject this payment?")) {
+      if (globalThis.confirm("Reject this payment?")) {
           declinePayment(id);
       }
   };
 
-  if (!isSuperAdmin) {
+  if (!canApprove) {
       return (
           <Layout>
             <Header title="Access Denied" />

@@ -14,12 +14,15 @@ interface LocationState {
     plan: PaymentPlan;
     depositAmount: number;
     feeType: 'Semester' | 'Session';
+    schoolId?: string;
+    totalInitialPayment?: number;
+    platformFeeAmount?: number;
 }
 
 const ConfirmPlanScreen: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { addChild, addTransaction, userRole } = useApp();
+  const { addChild, userRole } = useApp();
   const [isProcessing, setIsProcessing] = useState(false);
   const [receiptImage, setReceiptImage] = useState<string | null>(null);
   
@@ -27,15 +30,13 @@ const ConfirmPlanScreen: React.FC = () => {
 
   if (!state) return null;
 
-  const { childName, schoolName, grade, totalFee, plan, depositAmount, feeType } = state;
+  const { childName, schoolName, grade, totalFee, plan, depositAmount, feeType, schoolId } = state;
   const isStudent = userRole === 'university_student';
   const entityType = isStudent ? "Institution" : "School";
   
-  // Platform Fee is 2.5% of the total tuition
-  const platformFee = totalFee * 0.025;
-  
-  // Initial Payment to activate = 25% Deposit + 2.5% Platform Fee
-  const initialActivationPayment = depositAmount + platformFee;
+  // Use backend values or fallback
+  const platformFee = state.platformFeeAmount || (totalFee * 0.025);
+  const initialActivationPayment = state.totalInitialPayment || (depositAmount + platformFee);
   
   // Standard installment amount for later (remaining 75% / plan length)
   const futureInstallmentAmount = (totalFee * 0.75) / plan.numberOfPayments;
@@ -48,7 +49,8 @@ const ConfirmPlanScreen: React.FC = () => {
   };
 
   const handleSnapReceipt = () => {
-      setReceiptImage('https://images.unsplash.com/photo-1554224155-169641357599?auto=format&fit=crop&q=80&w=400');
+      // Using a reliable placeholder image service instead of a potentially broken Unsplash link
+      setReceiptImage('https://dummyimage.com/600x800/e2e8f0/1e293b.png&text=Payment+Receipt');
   };
 
   const handleConfirm = () => {
@@ -56,35 +58,46 @@ const ConfirmPlanScreen: React.FC = () => {
           alert("Please upload a payment receipt to proceed.");
           return;
       }
+      if (!schoolId) {
+          alert("Missing school information. Please restart the process.");
+          return;
+      }
+
       setIsProcessing(true);
-      const childId = Date.now().toString();
+      
+      // Calculate dates
+      const startDate = new Date();
+      const endDate = new Date(startDate);
+      if (plan.type === 'Weekly') {
+        endDate.setDate(startDate.getDate() + (plan.numberOfPayments * 7));
+      } else {
+        endDate.setMonth(startDate.getMonth() + plan.numberOfPayments);
+      }
 
       setTimeout(async () => {
-          await addChild({
-              id: childId,
-              name: childName,
-              school: schoolName,
-              grade: grade,
-              totalFee: totalFee, 
-              paidAmount: 0,
-              nextInstallmentAmount: futureInstallmentAmount,
-              nextDueDate: 'After Activation',
-              status: 'On Track',
-              avatarUrl: `https://ui-avatars.com/api/?name=${childName.replace(' ','+')}&background=random`
-          }, receiptImage);
+          try {
+            await addChild({
+                childName,
+                schoolId,
+                grade,
+                installmentFrequency: plan.type,
+                firstPaymentPaid: initialActivationPayment,
+                termStartDate: startDate.toISOString(),
+                termEndDate: endDate.toISOString()
+            }, receiptImage);
 
-          addTransaction({
-              id: `tx-activation-${Date.now()}`,
-              childId: childId,
-              childName: childName,
-              schoolName: schoolName,
-              amount: initialActivationPayment,
-              date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-              status: 'Pending',
-              receiptUrl: receiptImage
-          });
-
-          navigate('/dashboard');
+            navigate('/dashboard');
+          } catch (err: any) {
+            console.error("Confirmation failed detailed:", err.response?.data || err.message);
+            const backendMessage = err.response?.data?.message;
+            // Handle array of error messages (e.g. class-validator)
+            const errorMessage = Array.isArray(backendMessage) 
+                ? backendMessage.join(', ') 
+                : (backendMessage || err.message || "Failed to confirm enrollment.");
+            
+            alert(`Enrollment Failed: ${errorMessage}`);
+            setIsProcessing(false);
+          }
       }, 2000);
   };
 

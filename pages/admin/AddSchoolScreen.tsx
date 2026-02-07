@@ -3,40 +3,54 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/Layout';
 import { Header } from '../../components/Header';
+import { BackendAPI } from '../../services/backend';
 import { useApp } from '../../context/AppContext';
-import { School } from '../../types';
 
 const AddSchoolScreen: React.FC = () => {
   const navigate = useNavigate();
-  const { addSchool } = useApp();
+  const { refreshSchools } = useApp();
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
   const [email, setEmail] = useState('');
-  const [studentCount, setStudentCount] = useState('0');
+  const [password, setPassword] = useState('');
+  const [ownerName, setOwnerName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [bankName, setBankName] = useState('');
+  const [accountName, setAccountName] = useState('');
+  const [accountNumber, setAccountNumber] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !email) return;
+    if (!name || !email || !password || !ownerName || !bankName || !accountName || !accountNumber) return;
 
     setIsSubmitting(true);
 
-    const newSchool: School = {
-        id: Date.now().toString(),
-        name,
-        address,
-        contactEmail: email,
-        studentCount: parseInt(studentCount, 10) || 0
-    };
+    try {
+        await BackendAPI.admin.onboardSchool({
+            schoolName: name,
+            ownerEmail: email,
+            ownerPassword: password,
+            ownerName: ownerName,
+            address: address,
+            phone: phone,
+            bankName: bankName,
+            accountName: accountName,
+            accountNumber: accountNumber
+        });
+        
+        await refreshSchools();
 
-    // Execute save directly via context -> API
-    addSchool(newSchool);
-
-    // Short UX delay before redirect to ensure persistence is complete and provide visual feedback
-    setTimeout(() => {
+        setTimeout(() => {
+            setIsSubmitting(false);
+            alert('School onboarded successfully!');
+            navigate('/owner-dashboard');
+        }, 500);
+    } catch (error: any) {
+        console.error("Failed to onboard school", error);
+        alert(error.response?.data?.message || "Failed to onboard school");
         setIsSubmitting(false);
-        navigate('/owner-dashboard');
-    }, 500);
+    }
   };
 
   return (
@@ -69,7 +83,19 @@ const AddSchoolScreen: React.FC = () => {
             </div>
 
             <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium text-text-secondary-light">Contact Email</label>
+              <label className="text-sm font-medium text-text-secondary-light">Owner Name</label>
+              <input 
+                value={ownerName}
+                onChange={(e) => setOwnerName(e.target.value)}
+                className="input-field w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-background-light dark:bg-background-dark p-4 outline-none focus:ring-2 focus:ring-primary"
+                placeholder="e.g. Dr. John Doe"
+                required
+                disabled={isSubmitting}
+              />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium text-text-secondary-light">Owner Email (Login Email)</label>
               <input 
                 type="email"
                 value={email}
@@ -82,17 +108,64 @@ const AddSchoolScreen: React.FC = () => {
             </div>
 
             <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium text-text-secondary-light">Initial Student Count</label>
+              <label className="text-sm font-medium text-text-secondary-light">Owner Password</label>
               <input 
-                type="number"
-                value={studentCount}
-                onChange={(e) => setStudentCount(e.target.value)}
+                type="text"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 className="input-field w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-background-light dark:bg-background-dark p-4 outline-none focus:ring-2 focus:ring-primary"
-                placeholder="0"
+                placeholder="Set a secure password"
                 required
                 disabled={isSubmitting}
               />
-              <p className="text-xs text-text-secondary-light ml-1">Estimate or manual count of currently enrolled students.</p>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium text-text-secondary-light">Phone Number</label>
+              <input 
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="input-field w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-background-light dark:bg-background-dark p-4 outline-none focus:ring-2 focus:ring-primary"
+                placeholder="08012345678"
+                required
+                disabled={isSubmitting}
+              />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium text-text-secondary-light">Bank Name</label>
+              <input 
+                value={bankName}
+                onChange={(e) => setBankName(e.target.value)}
+                className="input-field w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-background-light dark:bg-background-dark p-4 outline-none focus:ring-2 focus:ring-primary"
+                placeholder="e.g. GTBank"
+                required
+                disabled={isSubmitting}
+              />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium text-text-secondary-light">Account Name</label>
+              <input 
+                value={accountName}
+                onChange={(e) => setAccountName(e.target.value)}
+                className="input-field w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-background-light dark:bg-background-dark p-4 outline-none focus:ring-2 focus:ring-primary"
+                placeholder="e.g. Lagos International School"
+                required
+                disabled={isSubmitting}
+              />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium text-text-secondary-light">Account Number</label>
+              <input 
+                value={accountNumber}
+                onChange={(e) => setAccountNumber(e.target.value)}
+                className="input-field w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-background-light dark:bg-background-dark p-4 outline-none focus:ring-2 focus:ring-primary"
+                placeholder="0123456789"
+                required
+                disabled={isSubmitting}
+              />
             </div>
         </div>
 
@@ -107,7 +180,7 @@ const AddSchoolScreen: React.FC = () => {
                     <span>Saving...</span>
                 </div>
             ) : (
-                'Save School'
+                'Onboard School'
             )}
         </button>
       </form>
