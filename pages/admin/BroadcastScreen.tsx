@@ -1,12 +1,13 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/Layout';
 import { Header } from '../../components/Header';
-import { useApp } from '../../context/AppContext';
+import { useBroadcast } from '../../hooks/useQueries';
 
 const BroadcastScreen: React.FC = () => {
   const navigate = useNavigate();
-  const { sendBroadcast } = useApp();
+  const { mutate: sendBroadcast } = useBroadcast();
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
 
@@ -14,7 +15,7 @@ const BroadcastScreen: React.FC = () => {
     e.preventDefault();
     if (!title || !message) return;
 
-    sendBroadcast(title, message);
+    sendBroadcast({ title, message });
     navigate('/owner-dashboard');
     // In a real app, this would show a toast success message
   };

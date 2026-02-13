@@ -3,10 +3,15 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/Layout';
 import { Header } from '../../components/Header';
-import { useApp } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
+import { useUsers, useSchoolStudents, useDeleteUser } from '../../hooks/useQueries';
 
 const UsersListScreen: React.FC = () => {
-  const { allUsers, childrenData, deleteUser, setActingRole } = useApp();
+  const { setActingRole } = useAuth();
+  const { data: allUsers = [] } = useUsers();
+  const { data: childrenData = [] } = useSchoolStudents();
+  const { mutate: deleteUser } = useDeleteUser();
+  
   const [searchQuery, setSearchQuery] = useState('');
   const [isRedirecting, setIsRedirecting] = useState<string | null>(null);
   const navigate = useNavigate();

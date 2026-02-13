@@ -2,19 +2,18 @@ import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Layout } from "../components/Layout";
 import { BottomNav } from "../components/BottomNav";
-import { useApp } from "../context/AppContext";
+import { useAuth } from "../context/AuthContext";
+import { useData } from "../context/DataContext";
+import { StatusBadge } from "../components/common/StatusBadge";
 
 const SchoolOwnerDashboard: React.FC = () => {
   const {
-    transactions,
-    childrenData,
-    schools,
-    currentUser,
+    user: currentUser,
     isOwnerAccount,
     setActingRole,
     activeSchoolId,
-    updateChildStatus,
-  } = useApp();
+  } = useAuth();
+  const { transactions, allStudents: childrenData, schools } = useData();
   const navigate = useNavigate();
   const [reportMonth, setReportMonth] = useState(new Date().getMonth());
   const [isGenerating, setIsGenerating] = useState(false);
@@ -306,23 +305,17 @@ const SchoolOwnerDashboard: React.FC = () => {
                 const progress = (child.paidAmount / child.totalFee) * 100;
                 const isCompleted = child.status === "Completed";
                 const isDefaulted =
-                  child.status === "Defaulted" ||
-                  child.status === "Failed";
-                const isActive =
-                  child.status === "Active";
+                  child.status === "Defaulted" || child.status === "Failed";
+                const isActive = child.status === "Active";
                 const isPending = child.status === "Pending";
 
-                let statusColor = "text-warning";
                 let bgColor = "bg-warning";
 
                 if (isCompleted) {
-                  statusColor = "text-success";
                   bgColor = "bg-success";
                 } else if (isDefaulted) {
-                  statusColor = "text-danger";
                   bgColor = "bg-danger";
                 } else if (isActive) {
-                  statusColor = "text-primary";
                   bgColor = "bg-primary";
                 }
 
@@ -353,11 +346,10 @@ const SchoolOwnerDashboard: React.FC = () => {
                             <span className="px-2 py-0.5 rounded-md bg-gray-100 dark:bg-white/5 text-[8px] font-black uppercase text-text-secondary-light tracking-tighter">
                               {child.grade}
                             </span>
-                            <span
-                              className={`text-[9px] font-black uppercase tracking-widest ${statusColor}`}
-                            >
-                              {child.status}
-                            </span>
+                            <StatusBadge
+                              status={child.status}
+                              className="text-[9px] font-black uppercase tracking-widest"
+                            />
                           </div>
                         </div>
                       </div>

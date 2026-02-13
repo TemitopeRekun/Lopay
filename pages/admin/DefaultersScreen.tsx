@@ -3,13 +3,13 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/Layout';
 import { Header } from '../../components/Header';
-import { useApp } from '../../context/AppContext';
+import { useData } from '../../context/DataContext';
 
 const DefaultersScreen: React.FC = () => {
   const navigate = useNavigate();
-  const { childrenData } = useApp();
+  const { allStudents } = useData();
 
-  const defaulters = childrenData.filter(child => child.status === 'Defaulted');
+  const defaulters = allStudents.filter(child => child.status === 'Defaulted');
 
   const handleRemind = (childName: string) => {
       alert(`Reminder sent to parents of ${childName}`);

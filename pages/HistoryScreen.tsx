@@ -3,10 +3,12 @@ import React, { useState } from 'react';
 import { Layout } from '../components/Layout';
 import { Header } from '../components/Header';
 import { BottomNav } from '../components/BottomNav';
-import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
+import { useData } from '../context/DataContext';
 
 const HistoryScreen: React.FC = () => {
-  const { transactions, userRole } = useApp();
+  const { role: userRole } = useAuth();
+  const { transactions } = useData();
   const [filter, setFilter] = useState<'All' | 'Successful' | 'Pending' | 'Failed'>('All');
   const [searchQuery, setSearchQuery] = useState('');
 

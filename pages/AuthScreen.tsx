@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link, useLocation, Navigate } from 'react-router-dom';
-import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
+import { useData } from '../context/DataContext';
 import { Layout } from '../components/Layout';
 
 const AuthScreen: React.FC = () => {
@@ -19,7 +20,8 @@ const AuthScreen: React.FC = () => {
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { login, signup, schools, isAuthenticated, userRole } = useApp();
+  const { login, register, isAuthenticated, role: userRole } = useAuth();
+  const { schools } = useData();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -57,7 +59,15 @@ const AuthScreen: React.FC = () => {
         }
     } else {
         try {
-            await signup(fullName, email, phoneNumber, password, roleSelection, selectedSchoolId);
+            await register({
+                fullName,
+                email,
+                phoneNumber,
+                password,
+                confirmPassword,
+                role: roleSelection,
+                schoolId: selectedSchoolId
+            });
             // Navigation handled by useEffect
         } catch (err: any) {
              setError(err.message || 'An error occurred during sign up.');

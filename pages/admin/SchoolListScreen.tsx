@@ -3,11 +3,17 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/Layout';
 import { Header } from '../../components/Header';
-import { useApp } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
+import { useSchools, useDeleteSchool, useUpdateSchool, useDeleteAllSchools } from '../../hooks/useQueries';
 
 const SchoolListScreen: React.FC = () => {
   const navigate = useNavigate();
-  const { schools, deleteSchool, updateSchool, deleteAllSchools, setActingRole } = useApp();
+  const { setActingRole } = useAuth();
+  const { data: schools = [] } = useSchools();
+  const { mutate: deleteSchool } = useDeleteSchool();
+  const { mutate: updateSchool } = useUpdateSchool();
+  const { mutate: deleteAllSchools } = useDeleteAllSchools();
+  
   const [searchQuery, setSearchQuery] = useState('');
 
   const filteredSchools = schools.filter(school => 
@@ -138,7 +144,7 @@ const SchoolListScreen: React.FC = () => {
                         <div className="grid grid-cols-2 gap-4 pt-2 border-t border-gray-100 dark:border-gray-800 mt-1">
                             <div>
                                 <p className="text-[10px] text-text-secondary-light uppercase font-bold">Contact Email</p>
-                                <p className="text-sm truncate">{school.contactEmail}</p>
+                                <p className="text-sm truncate">{school.contactEmail || school.email}</p>
                             </div>
                             <div className="text-right">
                                 <button 

@@ -3,10 +3,10 @@ import React, { useState } from 'react';
 import { Layout } from '../components/Layout';
 import { Header } from '../components/Header';
 import { BottomNav } from '../components/BottomNav';
-import { useApp } from '../context/AppContext';
+import { useData } from '../context/DataContext';
 
 const NotificationScreen: React.FC = () => {
-  const { notifications } = useApp();
+  const { notifications } = useData();
   const [filter, setFilter] = useState<'All' | 'Payments' | 'Announcements'>('All');
 
   const getIcon = (type: string, status: string) => {

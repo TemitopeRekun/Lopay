@@ -1,12 +1,26 @@
 import axios from "axios";
 import {
-  LoginResponse,
-  SchoolStats,
-  PendingPayment,
-  EnrolledChild,
+  ApiLoginResponse,
+  ApiSchoolStats,
+  ApiPendingPayment,
+  ApiEnrollment,
+  ApiTransaction,
+  ApiNotification,
+  ApiUser,
+  ApiSchool,
 } from "../types";
 
-const API_URL = "http://localhost:3000";
+// Dynamic API URL handling to support mobile/remote access
+const getBaseUrl = () => {
+  if (typeof window !== "undefined") {
+    // Uses the same IP/hostname as the frontend is accessed from
+    // Preserves the port (likely 3000 based on config)
+    return `${window.location.protocol}//${window.location.hostname}:${window.location.port || 3000}`;
+  }
+  return "http://localhost:3000";
+};
+
+const API_URL = getBaseUrl();
 
 export const apiClient = axios.create({
   baseURL: API_URL,
@@ -27,7 +41,7 @@ apiClient.interceptors.request.use((config) => {
 export const BackendAPI = {
   auth: {
     login: async (idToken: string) => {
-      const response = await apiClient.post<LoginResponse>("/auth/login", {
+      const response = await apiClient.post<ApiLoginResponse>("/auth/login", {
         idToken,
       });
       return response.data;
@@ -47,6 +61,10 @@ export const BackendAPI = {
   users: {
     get: async (id: string) => {
       const response = await apiClient.get(`/users/${id}`);
+      return response.data;
+    },
+    update: async (user: Partial<import("../types").User>) => {
+      const response = await apiClient.patch(`/users/${user.id}`, user);
       return response.data;
     },
   },
@@ -78,12 +96,8 @@ export const BackendAPI = {
       const response = await apiClient.delete(`/users/${userId}`);
       return response.data;
     },
-    updateUser: async (user: Partial<import("../types").User>) => {
-      const response = await apiClient.patch(`/users/${user.id}`, user);
-      return response.data;
-    },
     getUsers: async () => {
-      const response = await apiClient.get<import("../types").User[]>("/users");
+      const response = await apiClient.get<ApiUser[]>("/users");
       return response.data;
     },
     broadcast: async (title: string, message: string) => {
@@ -96,25 +110,29 @@ export const BackendAPI = {
   },
   school: {
     getStats: async () => {
-      const response = await apiClient.get<SchoolStats>(
+      const response = await apiClient.get<ApiSchoolStats>(
         "/school-payments/stats",
       );
       return response.data;
     },
     getPendingPayments: async () => {
-      const response = await apiClient.get<PendingPayment[]>(
+      const response = await apiClient.get<ApiPendingPayment[]>(
         "/school-payments/pending",
       );
       return response.data;
     },
     getStudents: async (params?: { search?: string; className?: string }) => {
-      const response = await apiClient.get<any[]>("/school-payments/students", {
-        params,
-      });
+      const response = await apiClient.get<ApiEnrollment[]>(
+        "/school-payments/students",
+        {
+          params: { ...params, limit: 1000 },
+        },
+      );
       return response.data;
     },
+
     getTransactions: async () => {
-      const response = await apiClient.get<any[]>("/transactions");
+      const response = await apiClient.get<ApiTransaction[]>("/transactions");
       return response.data;
     },
     confirmPayment: async (paymentId: string) => {
@@ -150,8 +168,9 @@ export const BackendAPI = {
   },
   public: {
     getSchools: async () => {
-      const response =
-        await apiClient.get<import("../types").School[]>("/schools");
+      const response = await apiClient.get<import("../types").School[]>(
+        "/schools?limit=1000",
+      );
       return response.data;
     },
     getSchoolFees: async (schoolId: string) => {
@@ -175,8 +194,8 @@ export const BackendAPI = {
   },
   parent: {
     getChildren: async () => {
-      const response = await apiClient.get<EnrolledChild[]>(
-        `/enrollments/my-children?t=${new Date().getTime()}`,
+      const response = await apiClient.get<ApiEnrollment[]>(
+        `/enrollments/my-children?limit=1000&t=${new Date().getTime()}`,
       );
       return response.data;
     },
@@ -217,7 +236,7 @@ export const BackendAPI = {
   },
   notifications: {
     get: async () => {
-      const response = await apiClient.get<any[]>("/notifications");
+      const response = await apiClient.get<ApiNotification[]>("/notifications");
       return response.data;
     },
     markRead: async (id: string) => {

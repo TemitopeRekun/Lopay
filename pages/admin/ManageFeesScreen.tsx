@@ -2,12 +2,14 @@ import React, { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Layout } from "../../components/Layout";
 import { Header } from "../../components/Header";
-import { useApp } from "../../context/AppContext";
+import { useAuth } from "../../context/AuthContext";
 import { BackendAPI } from "../../services/backend";
+import { useSchools, useSchoolFees } from "../../hooks/useQueries";
 
 const ManageFeesScreen: React.FC = () => {
   const navigate = useNavigate();
-  const { currentUser, schools, activeSchoolId } = useApp();
+  const { user: currentUser, activeSchoolId } = useAuth();
+  const { data: schools = [] } = useSchools();
 
   const mySchool = useMemo(() => {
     const sId = activeSchoolId || currentUser?.schoolId;
@@ -37,22 +39,22 @@ const ManageFeesScreen: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [progress, setProgress] = useState("");
 
-  // Fetch existing fees
+  const { data: feesData, refetch: refetchFees } = useSchoolFees(
+    mySchool?.id || "",
+    !!mySchool?.id
+  );
+
+  // Sync fees from React Query data
   useEffect(() => {
-    if (mySchool?.id) {
-      BackendAPI.public
-        .getSchoolFees(mySchool.id)
-        .then((data) => {
-          const feeMap: Record<string, string> = {};
-          data.forEach((item) => {
-            feeMap[item.className] = item.feeAmount.toString();
-          });
-          setFees(feeMap);
-          setInitialFees(feeMap);
-        })
-        .catch(console.error);
+    if (feesData) {
+      const feeMap: Record<string, string> = {};
+      feesData.forEach((item: any) => {
+        feeMap[item.className] = item.feeAmount.toString();
+      });
+      setFees(feeMap);
+      setInitialFees(feeMap);
     }
-  }, [mySchool]);
+  }, [feesData]);
 
   // Fix: Explicitly type prev as Record<string, string> to avoid inference issues with state updates
   const handleFeeChange = (grade: string, value: string) => {
@@ -127,19 +129,7 @@ const ManageFeesScreen: React.FC = () => {
       setProgress("Done!");
 
       // Refresh the fees from the backend to show the latest state
-      if (mySchool?.id) {
-        BackendAPI.public
-          .getSchoolFees(mySchool.id)
-          .then((data) => {
-            const feeMap: Record<string, string> = {};
-            data.forEach((item) => {
-              feeMap[item.className] = item.feeAmount.toString();
-            });
-            setFees(feeMap);
-            setInitialFees(feeMap); // Update baseline for next changes
-          })
-          .catch(console.error);
-      }
+      await refetchFees();
 
       setTimeout(() => {
          navigate(-1);

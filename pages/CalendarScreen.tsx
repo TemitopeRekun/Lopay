@@ -3,11 +3,15 @@ import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { Header } from '../components/Header';
-import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
+import { useTransactions, useChildren } from '../hooks/useQueries';
 
 export const CalendarScreen: React.FC = () => {
   const navigate = useNavigate();
-  const { transactions, childrenData, userRole } = useApp();
+  const { user } = useAuth();
+  const { data: transactions = [] } = useTransactions(user?.id);
+  const { data: childrenData = [] } = useChildren();
+  
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
 

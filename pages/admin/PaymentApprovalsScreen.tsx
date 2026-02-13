@@ -2,23 +2,25 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/Layout';
 import { Header } from '../../components/Header';
-import { useApp } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
+import { useData } from '../../context/DataContext';
 
 const PaymentApprovalsScreen: React.FC = () => {
-  const { transactions, approvePayment, declinePayment, userRole } = useApp();
+  const { role: userRole } = useAuth();
+  const { transactions, confirmPayment, declinePayment } = useData();
   const navigate = useNavigate();
   const [selectedReceipt, setSelectedReceipt] = useState<string | null>(null);
 
   const canApprove = userRole === 'owner' || userRole === 'school_owner';
   const pendingTransactions = transactions.filter(t => t.status === 'Pending');
 
-  const handleApprove = (id: string) => {
-      approvePayment(id);
+  const handleApprove = async (id: string) => {
+      await confirmPayment(id);
   };
 
-  const handleDecline = (id: string) => {
+  const handleDecline = async (id: string) => {
       if (globalThis.confirm("Reject this payment?")) {
-          declinePayment(id);
+          await declinePayment(id);
       }
   };
 

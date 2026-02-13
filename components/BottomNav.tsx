@@ -1,12 +1,12 @@
 
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 
 export const BottomNav: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { userRole } = useApp();
+  const { role: userRole } = useAuth();
 
   const isActive = (path: string) => location.pathname === path;
 

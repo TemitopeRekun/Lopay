@@ -1,12 +1,12 @@
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useApp } from '../context/AppContext';
+import { useData } from '../context/DataContext';
 import { Child } from '../types';
 
 export const ConfirmPlan: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { addChild } = useApp();
+  const { addChild } = useData();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const data = location.state as any;
 
