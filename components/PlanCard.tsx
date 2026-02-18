@@ -111,10 +111,12 @@ export const PlanCard: React.FC<PlanCardProps> = ({
   }
 
   const isCompleted = child.status === "Completed";
-  const isDefaulted =
-    child.status === "Defaulted" || child.status === "Failed";
+  const isDefaulted = child.status === "Defaulted" || child.status === "Failed";
   const isActive = child.status === "Active";
-  const isPending = child.status === "Pending";
+  const hasPendingInstallment = !!child.hasPendingInstallment;
+  const hasFailedFirstPayment = !!child.hasFailedFirstPayment;
+  const hasFailedInstallment = !!child.hasFailedInstallment;
+  const isPending = child.status === "Pending" || hasPendingInstallment;
   const isActivating = displayStatus === "Awaiting Approval";
   const isFullyInactive =
     balance.paid === 0 &&
@@ -194,11 +196,7 @@ export const PlanCard: React.FC<PlanCardProps> = ({
             Installments Paid
           </span>
           <span className="text-xs font-bold dark:text-white">
-            <span
-              className={
-                isCompleted ? "text-success" : "text-primary"
-              }
-            >
+            <span className={isCompleted ? "text-success" : "text-primary"}>
               ₦{balance.paid.toLocaleString()}
             </span>{" "}
             <span className="text-text-secondary-light font-normal text-[10px]">
@@ -226,7 +224,9 @@ export const PlanCard: React.FC<PlanCardProps> = ({
           <div className="w-full flex items-center justify-center text-warning font-bold gap-2 text-sm">
             <span className="size-4 border-2 border-warning/30 border-t-warning rounded-full animate-spin"></span>
             <span>
-              {isActivating ? "Verifying Activation..." : "Processing Payment..."}
+              {isActivating
+                ? "Verifying Activation..."
+                : "Processing Payment..."}
             </span>
           </div>
         ) : (
@@ -244,22 +244,36 @@ export const PlanCard: React.FC<PlanCardProps> = ({
                 </span>
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => {
-                  if (onQuickPay) {
-                    onQuickPay(child, nextAmount);
-                  }
-                }}
-                className={`${
-                  balance.paid === 0 ? "bg-primary" : "bg-success"
-                } text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow-md shadow-primary/20 active:scale-95 transition-all hover:opacity-90 flex items-center gap-2`}
-              >
-                <span className="material-symbols-outlined text-sm">
-                  account_balance
-                </span>
-                Pay {entity}
-              </button>
+            <div className="flex flex-col items-end gap-1">
+              {hasFailedFirstPayment && balance.paid === 0 && (
+                <p className="text-[10px] text-danger font-bold text-right max-w-[220px]">
+                  Your first payment couldn&apos;t be verified (receipt not
+                  clear). Please pay again and upload a clearer receipt.
+                </p>
+              )}
+              {hasFailedInstallment && !hasPendingInstallment && (
+                <p className="text-[10px] text-warning font-bold text-right max-w-[220px]">
+                  Your last installment attempt was rejected (receipt not
+                  clear). Please pay again with a clearer image.
+                </p>
+              )}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    if (onQuickPay) {
+                      onQuickPay(child, nextAmount);
+                    }
+                  }}
+                  className={`${
+                    balance.paid === 0 ? "bg-primary" : "bg-success"
+                  } text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow-md shadow-primary/20 active:scale-95 transition-all hover:opacity-90 flex items-center gap-2`}
+                >
+                  <span className="material-symbols-outlined text-sm">
+                    account_balance
+                  </span>
+                  Pay {entity}
+                </button>
+              </div>
             </div>
           </>
         )}
@@ -267,4 +281,3 @@ export const PlanCard: React.FC<PlanCardProps> = ({
     </div>
   );
 };
-

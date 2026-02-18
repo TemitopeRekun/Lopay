@@ -55,6 +55,14 @@ export const normalizeUser = (apiUser: ApiUser): User => {
     role = "university_student";
   }
 
+  const upperStatus = (apiTx.status || "PENDING").toUpperCase();
+  const isSuccess =
+    upperStatus === "SUCCESS" ||
+    upperStatus === "SUCCESSFUL" ||
+    upperStatus === "PAID" ||
+    upperStatus === "COMPLETED";
+  const isFailed = upperStatus === "FAILED";
+
   return {
     id: apiUser.id,
     email: apiUser.email,
@@ -75,10 +83,22 @@ export const normalizeTransaction = (
   );
   const rawPlatformFeePercentage =
     (apiTx as any).platformFeePercentage ?? (apiTx as any).platformFeeRate;
-  const platformFeePercentage =
-    typeof rawPlatformFeePercentage === "number"
-      ? rawPlatformFeePercentage
-      : toNumber(rawPlatformFeePercentage);
+
+  let platformFeePercentage: number | undefined;
+
+  if (
+    rawPlatformFeePercentage !== undefined &&
+    rawPlatformFeePercentage !== null
+  ) {
+    const numeric =
+      typeof rawPlatformFeePercentage === "number"
+        ? rawPlatformFeePercentage
+        : toNumber(rawPlatformFeePercentage);
+
+    if (numeric > 0) {
+      platformFeePercentage = numeric >= 1 ? numeric / 100 : numeric;
+    }
+  }
 
   return {
     id: apiTx.id,
@@ -88,12 +108,7 @@ export const normalizeTransaction = (
     schoolName: apiTx.schoolName || "Unknown School",
     amount,
     date: apiTx.date || apiTx.paymentDate || new Date().toISOString(),
-    status:
-      (apiTx.status || "PENDING").toUpperCase() === "SUCCESS"
-        ? "Successful"
-        : (apiTx.status || "PENDING").toUpperCase() === "FAILED"
-          ? "Failed"
-          : "Pending",
+    status: isSuccess ? "Successful" : isFailed ? "Failed" : "Pending",
     receiptUrl: apiTx.receiptUrl,
     type: apiTx.type || (apiTx as any).paymentType,
     className: (apiTx as any).className,
@@ -102,9 +117,7 @@ export const normalizeTransaction = (
         ? platformFeeAmount
         : undefined,
     platformFeePercentage:
-      typeof platformFeePercentage === "number" &&
-      platformFeePercentage > 0 &&
-      platformFeePercentage < 1
+      typeof platformFeePercentage === "number" && platformFeePercentage > 0
         ? platformFeePercentage
         : undefined,
   };
@@ -141,9 +154,7 @@ export const normalizeChild = (apiEnrollment: ApiEnrollment): Child => {
 
   let remainingBalance = toNumber(apiEnrollment.remainingBalance);
 
-  const rawTotalFeeField = toNumber(
-    apiAny.totalFee ?? apiAny.totalSchoolFee,
-  );
+  const rawTotalFeeField = toNumber(apiAny.totalFee ?? apiAny.totalSchoolFee);
 
   if (rawTotalFeeField > 0 && remainingBalance <= 0 && paidAmount >= 0) {
     const derivedRemaining = rawTotalFeeField - paidAmount;
@@ -159,7 +170,9 @@ export const normalizeChild = (apiEnrollment: ApiEnrollment): Child => {
     }
   }
 
-  const successfulInstallments = (apiEnrollment.payments || []).filter((p) => {
+  const payments = apiEnrollment.payments || [];
+
+  const successfulInstallments = payments.filter((p) => {
     const type = (p.type || p.paymentType || "").toUpperCase();
     const status = (p as any).status
       ? String((p as any).status).toUpperCase()
@@ -196,6 +209,53 @@ export const normalizeChild = (apiEnrollment: ApiEnrollment): Child => {
     nextInstallmentAmount = remainingBalance / defaultInstallmentCount;
   }
 
+  const hasPendingInstallment = payments.some((p) => {
+    const type = (p.type || p.paymentType || "").toUpperCase();
+    const status = (p as any).status
+      ? String((p as any).status).toUpperCase()
+      : "";
+    const isConfirmed =
+      (p as any).isConfirmed === true || (p as any).isConfirmed === false
+        ? (p as any).isConfirmed
+        : undefined;
+
+    if (type !== "INSTALLMENT") {
+      return false;
+    }
+
+    if (status === "PENDING") {
+      return true;
+    }
+
+    if (
+      status === "SUCCESS" &&
+      typeof isConfirmed === "boolean" &&
+      isConfirmed === false
+    ) {
+      return true;
+    }
+
+    return false;
+  });
+
+  const hasFailedFirstPayment = payments.some((p) => {
+    const type = (p.type || p.paymentType || "").toUpperCase();
+    const status = (p as any).status
+      ? String((p as any).status).toUpperCase()
+      : "";
+
+    return type === "FIRST_PAYMENT" && status === "FAILED";
+  });
+
+  const hasFailedInstallment = payments.some((p) => {
+    const type = (p.type || p.paymentType || "").toUpperCase();
+    const status = (p as any).status
+      ? String((p as any).status).toUpperCase()
+      : "";
+
+    return type === "INSTALLMENT" && status === "FAILED";
+  });
+
   return {
     id: apiEnrollment.id || apiEnrollment.childId || apiEnrollment.child?.id,
     parentId: "",
@@ -213,6 +273,9 @@ export const normalizeChild = (apiEnrollment: ApiEnrollment): Child => {
     )}&background=random`,
     remainingBalance,
     schoolId: apiEnrollment.schoolId || "",
+    hasPendingInstallment,
+    hasFailedFirstPayment,
+    hasFailedInstallment,
   };
 };
 

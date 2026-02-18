@@ -48,7 +48,8 @@ const PaymentApprovalsScreen: React.FC = () => {
   const rejectFirstPayment = useRejectFirstPayment();
 
   const canApproveInstallments = isSchoolOwner;
-  const canActivateFirst = isSchoolOwner || isOwner;
+  const canActivateFirst = isOwner;
+  const viewMode: "installments" | "first" = isOwner ? mode : "installments";
 
   const pendingTransactions = useMemo(() => {
     if (isOwner) {
@@ -154,26 +155,28 @@ const PaymentApprovalsScreen: React.FC = () => {
           <button
             onClick={() => setMode("installments")}
             className={`flex-1 py-2 rounded-xl text-xs font-black uppercase tracking-widest border ${
-              mode === "installments"
+              viewMode === "installments"
                 ? "bg-primary text-white border-primary"
                 : "bg-white dark:bg-card-dark text-text-secondary-light dark:text-text-secondary-dark border-gray-100 dark:border-gray-800"
             }`}
           >
             Installments
           </button>
-          <button
-            onClick={() => setMode("first")}
-            className={`flex-1 py-2 rounded-xl text-xs font-black uppercase tracking-widest border ${
-              mode === "first"
-                ? "bg-secondary text-white border-secondary"
-                : "bg-white dark:bg-card-dark text-text-secondary-light dark:text-text-secondary-dark border-gray-100 dark:border-gray-800"
-            }`}
-          >
-            First Payments
-          </button>
+          {isOwner && (
+            <button
+              onClick={() => setMode("first")}
+              className={`flex-1 py-2 rounded-xl text-xs font-black uppercase tracking-widest border ${
+                viewMode === "first"
+                  ? "bg-secondary text-white border-secondary"
+                  : "bg-white dark:bg-card-dark text-text-secondary-light dark:text-text-secondary-dark border-gray-100 dark:border-gray-800"
+              }`}
+            >
+              First Payments
+            </button>
+          )}
         </div>
 
-        {mode === "installments" ? (
+        {viewMode === "installments" ? (
           pendingTransactions.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center opacity-50 pt-20">
               <p>No pending installment payments to review.</p>

@@ -35,6 +35,7 @@ export const QUERY_KEYS = {
   adminPendingFirstPayments: ["adminPendingFirstPayments"],
   adminPendingInstallments: ["adminPendingInstallments"],
   adminSchoolStudents: (schoolId: string) => ["adminSchoolStudents", schoolId],
+  adminPlatformRevenue: ["adminPlatformRevenue"],
 };
 
 // --- Hooks ---
@@ -216,6 +217,17 @@ export const useAdminPendingInstallments = (enabled: boolean = true) => {
     queryFn: async () => {
       const data = await BackendAPI.admin.getPendingInstallments();
       return (Array.isArray(data) ? data : []).map(normalizeTransaction);
+    },
+    enabled,
+  });
+};
+
+export const useAdminPlatformRevenue = (enabled: boolean = true) => {
+  return useQuery({
+    queryKey: QUERY_KEYS.adminPlatformRevenue,
+    queryFn: async () => {
+      const data = await BackendAPI.admin.getPlatformRevenue();
+      return data;
     },
     enabled,
   });
@@ -452,6 +464,7 @@ export const useSettleFirstPayment = () => {
       queryClient.invalidateQueries({
         queryKey: QUERY_KEYS.pendingPayments,
       });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.notifications });
     },
   });
 };
@@ -477,6 +490,7 @@ export const useRejectFirstPayment = () => {
       queryClient.invalidateQueries({
         queryKey: QUERY_KEYS.pendingPayments,
       });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.notifications });
     },
   });
 };

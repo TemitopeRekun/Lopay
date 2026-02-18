@@ -10,6 +10,7 @@ import {
   ApiSchool,
   ApiSchoolBankDetails,
 } from "../types";
+import { ApiPlatformRevenue } from "../types.admin";
 
 const API_URL =
   (import.meta as any).env?.VITE_API_URL ?? "http://localhost:3000";
@@ -128,6 +129,11 @@ export const BackendAPI = {
       const response = await apiClient.get<ApiPendingPayment[]>(
         "/admin/pending-installments",
       );
+      return response.data;
+    },
+    getPlatformRevenue: async () => {
+      const response =
+        await apiClient.get<ApiPlatformRevenue>("/admin/revenue");
       return response.data;
     },
     getSchoolStudents: async (

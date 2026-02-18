@@ -54,6 +54,9 @@ export interface Child {
   // Additional fields from API
   remainingBalance?: number;
   schoolId?: string;
+  hasPendingInstallment?: boolean;
+  hasFailedFirstPayment?: boolean;
+  hasFailedInstallment?: boolean;
 }
 
 export interface Transaction {

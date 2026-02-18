@@ -247,7 +247,26 @@ Here is every single route in the app, exactly what you need to send, and what y
   ]
   ```
 
-#### 5. Super Admin: View Pending Installment Payments (Read-Only)
+#### 5. Super Admin: Settle or Reject First Payment
+
+- **Settle (Approve)**
+  - **Method**: `POST`
+  - **URL**: `/admin/settle-first-payment/:paymentId`
+  - **Header**: `Authorization: Bearer <token>` (Must be Super Admin)
+  - **What happens**:
+    - First `Payment` → `status = "SUCCESS"`, `isConfirmed = true`.
+    - `ChildEnrollment` → `paymentStatus = "ACTIVE"`.
+
+- **Reject**
+  - **Method**: `POST`
+  - **URL**: `/admin/reject-first-payment/:paymentId`
+  - **Header**: `Authorization: Bearer <token>` (Must be Super Admin)
+  - **What happens**:
+    - First `Payment` → `status = "FAILED"`, `isConfirmed` remains `false`.
+    - `ChildEnrollment` → `paymentStatus = "FAILED"` (no balance changes).
+    - Notifications are sent to School Owner and Parent explaining that the first payment was rejected and parent should pay again with a clearer receipt.
+
+#### 6. Super Admin: View Pending Installment Payments (Read-Only)
 
 - **Method**: `GET`
 - **URL**: `/admin/pending-installments`

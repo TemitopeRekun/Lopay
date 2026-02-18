@@ -7,6 +7,7 @@ import { useData } from "../context/DataContext";
 import {
   useAdminPendingFirstPayments,
   useAdminPendingInstallments,
+  useAdminPlatformRevenue,
 } from "../hooks/useQueries";
 import { Transaction } from "../types";
 import { NotificationIconButton } from "../components/NotificationIconButton";
@@ -31,6 +32,7 @@ const OwnerDashboard: React.FC = () => {
     useAdminPendingFirstPayments(isOwner);
   const { data: adminPendingInstallments = [] } =
     useAdminPendingInstallments(isOwner);
+  const { data: platformRevenueData } = useAdminPlatformRevenue(isOwner);
 
   const unreadNotificationsCount = useMemo(() => {
     return notifications ? notifications.filter((n) => !n.read).length : 0;
@@ -38,28 +40,7 @@ const OwnerDashboard: React.FC = () => {
 
   const hasStudentPool = allStudents && allStudents.length > 0;
 
-  const totalPlatformFee = useMemo(() => {
-    const successful = transactions.filter((t) => t.status === "Successful");
-
-    const feeFromTransactions = successful.reduce((acc, t) => {
-      const explicitFee =
-        typeof t.platformFeeAmount === "number" && t.platformFeeAmount > 0
-          ? t.platformFeeAmount
-          : undefined;
-
-      const inferredFee =
-        typeof t.platformFeePercentage === "number" &&
-        t.platformFeePercentage > 0 &&
-        t.platformFeePercentage < 1
-          ? t.amount * t.platformFeePercentage
-          : undefined;
-
-      const fee = explicitFee ?? inferredFee ?? 0;
-      return acc + fee;
-    }, 0);
-
-    return feeFromTransactions;
-  }, [transactions]);
+  const totalPlatformFee = platformRevenueData?.totalRevenue ?? 0;
   const displayRevenue = totalPlatformFee;
 
   const activeStudents = useMemo(() => {
@@ -221,12 +202,11 @@ const OwnerDashboard: React.FC = () => {
 
             const inferredFee =
               typeof t.platformFeePercentage === "number" &&
-              t.platformFeePercentage > 0 &&
-              t.platformFeePercentage < 1
+              t.platformFeePercentage > 0
                 ? t.amount * t.platformFeePercentage
                 : undefined;
 
-            const fee = explicitFee ?? inferredFee ?? 0;
+            const fee = explicitFee ?? inferredFee ?? t.amount;
             return sum + fee;
           }, 0);
 
@@ -255,12 +235,11 @@ const OwnerDashboard: React.FC = () => {
 
             const inferredFee =
               typeof t.platformFeePercentage === "number" &&
-              t.platformFeePercentage > 0 &&
-              t.platformFeePercentage < 1
+              t.platformFeePercentage > 0
                 ? t.amount * t.platformFeePercentage
                 : undefined;
 
-            const fee = explicitFee ?? inferredFee ?? 0;
+            const fee = explicitFee ?? inferredFee ?? t.amount;
             return sum + fee;
           }, 0);
 

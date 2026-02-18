@@ -56,7 +56,7 @@ const Dashboard: React.FC = () => {
     ? allUsers.find((u) => u.id === actingUserId)
     : null;
 
-  const nextUpcomingPayment = React.useMemo(() => {
+  const nextUpcomingAmount = React.useMemo(() => {
     const upcoming = validChildren
       .filter(
         (child) =>
@@ -69,7 +69,24 @@ const Dashboard: React.FC = () => {
         const bTime = new Date(b.nextDueDate).getTime();
         return aTime - bTime;
       });
-    return upcoming[0] || null;
+
+    if (upcoming.length === 0) {
+      return 0;
+    }
+
+    const firstDueTime = new Date(upcoming[0].nextDueDate).getTime();
+
+    return upcoming.reduce((sum, child) => {
+      const childDueTime = new Date(child.nextDueDate).getTime();
+      if (childDueTime !== firstDueTime) {
+        return sum;
+      }
+      const amount =
+        typeof child.nextInstallmentAmount === "number"
+          ? child.nextInstallmentAmount
+          : 0;
+      return sum + amount;
+    }, 0);
   }, [validChildren]);
 
   const handleQuickPay = (childId: string, amount: number) => {
@@ -201,9 +218,7 @@ const Dashboard: React.FC = () => {
               </p>
               <p className="text-4xl font-extrabold tracking-tight mb-2">
                 ₦
-                {(
-                  nextUpcomingPayment?.nextInstallmentAmount || 0
-                ).toLocaleString("en-US", {
+                {(nextUpcomingAmount || 0).toLocaleString("en-US", {
                   minimumFractionDigits: 2,
                 })}
               </p>
