@@ -13,6 +13,17 @@ import {
   UserRole,
 } from "../types";
 
+const toNumber = (value: unknown): number => {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : 0;
+  }
+  if (typeof value === "string" && value.trim() !== "") {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : 0;
+  }
+  return 0;
+};
+
 export const normalizeUser = (apiUser: ApiUser): User => {
   // Determine role safely
   let role: UserRole = "parent";
@@ -58,13 +69,24 @@ export const normalizeUser = (apiUser: ApiUser): User => {
 export const normalizeTransaction = (
   apiTx: ApiTransaction | ApiPendingPayment,
 ): Transaction => {
+  const amount = toNumber(apiTx.amount ?? apiTx.amountPaid);
+  const platformFeeAmount = toNumber(
+    (apiTx as any).platformFeeAmount ?? (apiTx as any).platformFee,
+  );
+  const rawPlatformFeePercentage =
+    (apiTx as any).platformFeePercentage ?? (apiTx as any).platformFeeRate;
+  const platformFeePercentage =
+    typeof rawPlatformFeePercentage === "number"
+      ? rawPlatformFeePercentage
+      : toNumber(rawPlatformFeePercentage);
+
   return {
     id: apiTx.id,
     userId: "", // Often not provided in this specific payload
     childId: "", // Often not provided
     childName: apiTx.childName || apiTx.studentName || "Unknown Child",
     schoolName: apiTx.schoolName || "Unknown School",
-    amount: apiTx.amount || apiTx.amountPaid || 0,
+    amount,
     date: apiTx.date || apiTx.paymentDate || new Date().toISOString(),
     status:
       (apiTx.status || "PENDING").toUpperCase() === "SUCCESS"
@@ -73,22 +95,39 @@ export const normalizeTransaction = (
           ? "Failed"
           : "Pending",
     receiptUrl: apiTx.receiptUrl,
-    type: apiTx.type || (apiTx as any).paymentType, // Handle both
+    type: apiTx.type || (apiTx as any).paymentType,
+    className: (apiTx as any).className,
+    platformFeeAmount:
+      Number.isFinite(platformFeeAmount) && platformFeeAmount > 0
+        ? platformFeeAmount
+        : undefined,
+    platformFeePercentage:
+      typeof platformFeePercentage === "number" &&
+      platformFeePercentage > 0 &&
+      platformFeePercentage < 1
+        ? platformFeePercentage
+        : undefined,
   };
 };
 
 export const normalizeChild = (apiEnrollment: ApiEnrollment): Child => {
-  // Ensure we have a valid object
   if (!apiEnrollment) {
     console.error("normalizeChild called with null/undefined");
     return {} as Child;
   }
 
-  // Calculate total paid amount
-  const paidAmount = (apiEnrollment.payments || []).reduce(
-    (sum, p) => sum + (p.amount || p.amountPaid || 0),
+  const apiAny = apiEnrollment as any;
+
+  const hasPaidField =
+    apiAny.paidAmount !== undefined && apiAny.paidAmount !== null;
+  const paidFromField = hasPaidField ? toNumber(apiAny.paidAmount) : 0;
+
+  const paidFromPayments = (apiEnrollment.payments || []).reduce(
+    (sum, p) => sum + toNumber(p.amount ?? p.amountPaid),
     0,
   );
+
+  const paidAmount = hasPaidField ? paidFromField : paidFromPayments;
 
   const childName =
     apiEnrollment.childName ||
@@ -96,30 +135,83 @@ export const normalizeChild = (apiEnrollment: ApiEnrollment): Child => {
     apiEnrollment.child?.fullName ||
     "Unknown Child";
 
-  // Log if critical fields are missing
   if (!apiEnrollment.id && !apiEnrollment.childId && !apiEnrollment.child?.id) {
     console.error("Missing ID in enrollment:", apiEnrollment);
   }
 
+  let remainingBalance = toNumber(apiEnrollment.remainingBalance);
+
+  const rawTotalFeeField = toNumber(
+    apiAny.totalFee ?? apiAny.totalSchoolFee,
+  );
+
+  if (rawTotalFeeField > 0 && remainingBalance <= 0 && paidAmount >= 0) {
+    const derivedRemaining = rawTotalFeeField - paidAmount;
+    remainingBalance = derivedRemaining > 0 ? derivedRemaining : 0;
+  }
+
+  let totalFee = rawTotalFeeField;
+  if (totalFee <= 0) {
+    if (remainingBalance > 0 || paidAmount > 0) {
+      totalFee = remainingBalance + paidAmount;
+    } else {
+      totalFee = 0;
+    }
+  }
+
+  const successfulInstallments = (apiEnrollment.payments || []).filter((p) => {
+    const type = (p.type || p.paymentType || "").toUpperCase();
+    const status = (p as any).status
+      ? String((p as any).status).toUpperCase()
+      : "";
+    return type === "INSTALLMENT" && status === "SUCCESS";
+  });
+
+  const inferredInstallmentAmount =
+    successfulInstallments.length > 0
+      ? toNumber(
+          successfulInstallments[successfulInstallments.length - 1].amount ??
+            successfulInstallments[successfulInstallments.length - 1]
+              .amountPaid,
+        )
+      : 0;
+
+  const rawInstallmentAmountFromApi = toNumber(
+    apiAny.standardInstallmentAmount ?? apiAny.installmentAmount,
+  );
+
+  const frequency = String(apiAny.installmentFrequency || "").toUpperCase();
+  let defaultInstallmentCount = 3;
+  if (frequency === "WEEKLY") {
+    defaultInstallmentCount = 12;
+  }
+
+  let nextInstallmentAmount = 0;
+
+  if (rawInstallmentAmountFromApi > 0) {
+    nextInstallmentAmount = rawInstallmentAmountFromApi;
+  } else if (inferredInstallmentAmount > 0) {
+    nextInstallmentAmount = inferredInstallmentAmount;
+  } else if (remainingBalance > 0 && defaultInstallmentCount > 0) {
+    nextInstallmentAmount = remainingBalance / defaultInstallmentCount;
+  }
+
   return {
-    id: apiEnrollment.id || apiEnrollment.childId || apiEnrollment.child?.id, // Fallback chain
-    parentId: "", // Not returned by API usually
+    id: apiEnrollment.id || apiEnrollment.childId || apiEnrollment.child?.id,
+    parentId: "",
     name: childName,
     school: apiEnrollment.schoolName || "Unknown School",
     grade:
       apiEnrollment.className || apiEnrollment.child?.className || "Unknown",
-    totalFee: 0, // Not provided in sample
-    paidAmount: paidAmount,
-    nextInstallmentAmount: 0, // Not provided in sample
+    totalFee,
+    paidAmount,
+    nextInstallmentAmount,
     nextDueDate: apiEnrollment.nextDueDate || "Pending",
-    status: normalizeStatus(
-      apiEnrollment.paymentStatus,
-      apiEnrollment.remainingBalance,
-    ),
+    status: normalizeStatus(apiEnrollment.paymentStatus, remainingBalance),
     avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(
       childName,
     )}&background=random`,
-    remainingBalance: apiEnrollment.remainingBalance || 0,
+    remainingBalance,
     schoolId: apiEnrollment.schoolId || "",
   };
 };
@@ -157,39 +249,34 @@ const normalizeStatus = (
   status: string | undefined,
   remainingBalance: number,
 ): "Active" | "Pending" | "Completed" | "Defaulted" | "Failed" => {
-  const upperStatus = (status || "PENDING").toUpperCase();
+  const upperStatus = (status || "").toUpperCase();
 
-  if (
-    upperStatus === "FAILED" ||
-    upperStatus === "REJECTED" ||
-    upperStatus === "DECLINED"
-  ) {
-    return "Failed";
+  if (upperStatus === "PENDING" || !upperStatus) {
+    return "Pending";
   }
 
-  if (
-    upperStatus === "OVERDUE" ||
-    upperStatus === "DEFAULTED" ||
-    upperStatus === "OWING"
-  ) {
+  if (upperStatus === "ACTIVE") {
+    return "Active";
+  }
+
+  if (upperStatus === "COMPLETED") {
+    return "Completed";
+  }
+
+  if (upperStatus === "DEFAULTED") {
     return "Defaulted";
   }
 
-  if (upperStatus === "COMPLETED" || upperStatus === "PAID") {
-    return "Completed";
+  if (upperStatus === "FAILED") {
+    return "Failed";
+  }
+
+  if (upperStatus === "REJECTED" || upperStatus === "DECLINED") {
+    return "Failed";
   }
 
   if (remainingBalance <= 0) {
     return "Completed";
-  }
-
-  if (
-    upperStatus === "ACTIVE" ||
-    upperStatus === "ON TRACK" ||
-    upperStatus === "PARTIAL" ||
-    upperStatus === "DUE SOON"
-  ) {
-    return "Active";
   }
 
   return "Pending";

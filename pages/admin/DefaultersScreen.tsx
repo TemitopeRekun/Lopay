@@ -49,7 +49,17 @@ const DefaultersScreen: React.FC = () => {
                         <div className="flex justify-between items-center text-sm p-3 bg-gray-50 dark:bg-white/5 rounded-lg">
                             <span className="text-text-secondary-light">Outstanding</span>
                             <span className="font-bold text-text-primary-light dark:text-text-primary-dark">
-                                ₦{(child.totalFee - child.paidAmount).toLocaleString()}
+                                ₦{(() => {
+                                  const totalFee = Number.isFinite(child.totalFee)
+                                    ? child.totalFee
+                                    : 0;
+                                  const paidAmount = Number.isFinite(
+                                    child.paidAmount,
+                                  )
+                                    ? child.paidAmount
+                                    : 0;
+                                  return (totalFee - paidAmount).toLocaleString();
+                                })()}
                             </span>
                         </div>
 

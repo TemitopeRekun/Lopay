@@ -5,6 +5,7 @@ import { Header } from "../components/Header";
 import { PaymentPlan } from "../types";
 import { useAuth } from "../context/AuthContext";
 import { useData } from "../context/DataContext";
+import { PLATFORM_BANK } from "../services/backend";
 
 interface LocationState {
   childName: string;
@@ -44,8 +45,7 @@ const ConfirmPlanScreen: React.FC = () => {
   const isStudent = userRole === "university_student";
   const entityType = isStudent ? "Institution" : "School";
 
-  // Use backend values or fallback
-  const platformFee = state.platformFeeAmount || totalFee * 0.025;
+  const platformFee = state.platformFeeAmount ?? 0;
   const initialActivationPayment =
     state.totalInitialPayment || depositAmount + platformFee;
 
@@ -156,7 +156,7 @@ const ConfirmPlanScreen: React.FC = () => {
                   verified
                 </span>
                 <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em]">
-                  Activation Payment
+                  First payment (platform account)
                 </p>
               </div>
               <h2 className="text-4xl font-black tracking-tighter mb-4">
@@ -172,13 +172,17 @@ const ConfirmPlanScreen: React.FC = () => {
                   <span className="text-[9px] font-bold text-slate-400 uppercase">
                     Bank Name
                   </span>
-                  <span className="text-xs font-bold">Moniepoint</span>
+                  <span className="text-xs font-bold">
+                    {PLATFORM_BANK.bankName}
+                  </span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-[9px] font-bold text-slate-400 uppercase">
                     Account Name
                   </span>
-                  <span className="text-xs font-bold">Lopay Technologies</span>
+                  <span className="text-xs font-bold">
+                    {PLATFORM_BANK.accountName}
+                  </span>
                 </div>
                 <div className="flex justify-between items-center pt-2 border-t border-white/5">
                   <span className="text-[9px] font-bold text-slate-400 uppercase">
@@ -186,10 +190,12 @@ const ConfirmPlanScreen: React.FC = () => {
                   </span>
                   <div className="flex items-center gap-2">
                     <span className="text-lg font-mono font-black tracking-widest">
-                      9090390581
+                      {PLATFORM_BANK.accountNumber}
                     </span>
                     <button
-                      onClick={() => copyToClipboard("9090390581")}
+                      onClick={() =>
+                        copyToClipboard(PLATFORM_BANK.accountNumber)
+                      }
                       className="bg-primary text-white p-1.5 rounded-lg active:scale-90 transition-transform"
                     >
                       <span className="material-symbols-outlined text-sm">
@@ -200,7 +206,8 @@ const ConfirmPlanScreen: React.FC = () => {
                 </div>
               </div>
               <p className="mt-4 text-[9px] text-slate-400 leading-relaxed font-medium italic text-center">
-                Transfer the exact amount above to activate your plan.
+                This first payment is processed by LoPay. Please pay into the LoPay
+                platform account shown above.
               </p>
             </div>
           </div>

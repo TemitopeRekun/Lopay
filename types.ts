@@ -67,6 +67,9 @@ export interface Transaction {
   status: "Successful" | "Pending" | "Failed";
   receiptUrl?: string;
   type?: string;
+  className?: string;
+  platformFeeAmount?: number;
+  platformFeePercentage?: number;
 }
 
 export interface Notification {
@@ -86,6 +89,7 @@ export interface School {
   name: string;
   address: string;
   email: string;
+  contactEmail?: string;
   phone: string;
   bankName?: string;
   accountName?: string;
@@ -130,6 +134,12 @@ export interface PaymentCalculationResponse {
 
 // --- Strict API Response Types ---
 
+export interface ApiSchoolBankDetails {
+  bankName: string;
+  accountName: string;
+  accountNumber: string;
+}
+
 export interface ApiUser {
   id: string;
   email: string;
@@ -160,6 +170,8 @@ export interface ApiTransaction {
   className: string;
   schoolName: string;
   receiptUrl?: string;
+  platformFeeAmount?: number;
+  platformFeePercentage?: number;
 }
 
 export interface ApiPendingPayment {
@@ -189,16 +201,22 @@ export interface ApiPayment {
 
 export interface ApiEnrollment {
   id: string;
-  childId: string;
-  studentName: string;
-  childName: string;
-  schoolName: string;
-  schoolId: string;
+  childId?: string;
+  studentName?: string;
+  childName?: string;
+  schoolName?: string;
+  schoolId?: string;
   className: string;
   remainingBalance: number;
-  paymentStatus: string; // "ACTIVE", "PENDING", etc.
-  nextDueDate: string;
-  payments: ApiPayment[];
+  paymentStatus?: string;
+  status?: string;
+  nextDueDate?: string;
+  payments?: ApiPayment[];
+  parentName?: string;
+  parentEmail?: string;
+  parentPhone?: string;
+  installmentFrequency?: string;
+  installmentAmount?: number;
   child?: {
     id: string;
     fullName: string;

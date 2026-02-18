@@ -15,6 +15,7 @@ import {
   School,
   SchoolFee,
 } from "../types";
+import { useUI } from "../context/UIContext";
 
 // --- Keys ---
 export const QUERY_KEYS = {
@@ -22,13 +23,18 @@ export const QUERY_KEYS = {
   children: ["children"],
   notifications: ["notifications"],
   transactions: ["transactions"],
+  globalTransactions: ["globalTransactions"],
   schools: ["schools"],
   schoolStats: ["schoolStats"],
+  schoolBankDetails: (schoolId: string) => ["schoolBankDetails", schoolId],
   pendingPayments: ["pendingPayments"],
   schoolTransactions: ["schoolTransactions"],
   schoolStudents: ["schoolStudents"],
   users: ["users"], // Admin
   schoolFees: (schoolId: string) => ["schoolFees", schoolId],
+  adminPendingFirstPayments: ["adminPendingFirstPayments"],
+  adminPendingInstallments: ["adminPendingInstallments"],
+  adminSchoolStudents: (schoolId: string) => ["adminSchoolStudents", schoolId],
 };
 
 // --- Hooks ---
@@ -38,33 +44,14 @@ export const useChildren = (enabled: boolean = true) => {
     queryKey: QUERY_KEYS.children,
     queryFn: async () => {
       const data = await BackendAPI.parent.getChildren();
-      console.log("Fetched children raw data:", data);
-
-      let list: any[] = [];
-      if (Array.isArray(data)) {
-        list = data;
-      } else if ((data as any)?.data && Array.isArray((data as any).data)) {
-        console.warn(
-          "Backend returned wrapped data (data.data), unwrapping...",
-        );
-        list = (data as any).data;
-      } else if (
-        (data as any)?.enrollments &&
-        Array.isArray((data as any).enrollments)
-      ) {
-        console.warn(
-          "Backend returned wrapped data (data.enrollments), unwrapping...",
-        );
-        list = (data as any).enrollments;
-      } else {
+      if (!Array.isArray(data)) {
         console.error("Unexpected children data format:", data);
+        return [];
       }
-
-      return list.map(normalizeChild);
+      return data.map(normalizeChild);
     },
     enabled,
-    staleTime: 1000 * 60, // 1 minute
-    refetchInterval: 60000, // Poll every minute
+    refetchOnWindowFocus: false,
   });
 };
 
@@ -92,6 +79,17 @@ export const useTransactions = (userId?: string, enabled: boolean = true) => {
   });
 };
 
+export const useGlobalTransactions = (enabled: boolean = true) => {
+  return useQuery({
+    queryKey: QUERY_KEYS.globalTransactions,
+    queryFn: async () => {
+      const data = await BackendAPI.parent.getHistory();
+      return (Array.isArray(data) ? data : []).map(normalizeTransaction);
+    },
+    enabled,
+  });
+};
+
 export const useSchools = () => {
   return useQuery({
     queryKey: QUERY_KEYS.schools,
@@ -111,9 +109,22 @@ export const useSchoolStats = (enabled: boolean = true) => {
   });
 };
 
-export const usePendingPayments = (enabled: boolean = true) => {
+export const usePendingPayments = (
+  contextKeyOrEnabled: string | boolean = true,
+  maybeEnabled?: boolean,
+) => {
+  let contextKey = "default";
+  let enabled: boolean;
+
+  if (typeof contextKeyOrEnabled === "string") {
+    contextKey = contextKeyOrEnabled;
+    enabled = maybeEnabled ?? true;
+  } else {
+    enabled = contextKeyOrEnabled ?? true;
+  }
+
   return useQuery({
-    queryKey: QUERY_KEYS.pendingPayments,
+    queryKey: [...QUERY_KEYS.pendingPayments, contextKey],
     queryFn: async () => {
       const data = await BackendAPI.school.getPendingPayments();
       return (Array.isArray(data) ? data : []).map(normalizeTransaction);
@@ -133,43 +144,29 @@ export const useSchoolTransactions = (enabled: boolean = true) => {
   });
 };
 
-export const useSchoolStudents = (enabled: boolean = true) => {
+export const useSchoolStudents = (
+  contextKeyOrEnabled: string | boolean = true,
+  maybeEnabled?: boolean,
+) => {
+  let contextKey = "default";
+  let enabled: boolean;
+
+  if (typeof contextKeyOrEnabled === "string") {
+    contextKey = contextKeyOrEnabled;
+    enabled = maybeEnabled ?? true;
+  } else {
+    enabled = contextKeyOrEnabled ?? true;
+  }
+
   return useQuery({
-    queryKey: QUERY_KEYS.schoolStudents,
+    queryKey: [...QUERY_KEYS.schoolStudents, contextKey],
     queryFn: async () => {
       const data = await BackendAPI.school.getStudents();
-      console.log("Fetched school students raw data:", data);
-
-      let list: any[] = [];
-      if (Array.isArray(data)) {
-        list = data;
-      } else if ((data as any)?.data && Array.isArray((data as any).data)) {
-        console.warn(
-          "Backend returned wrapped data (data.data), unwrapping...",
-        );
-        list = (data as any).data;
-      } else if (
-        (data as any)?.enrollments &&
-        Array.isArray((data as any).enrollments)
-      ) {
-        // Some endpoints might reuse enrollment format
-        console.warn(
-          "Backend returned wrapped data (data.enrollments), unwrapping...",
-        );
-        list = (data as any).enrollments;
-      } else if (
-        (data as any)?.students &&
-        Array.isArray((data as any).students)
-      ) {
-        console.warn(
-          "Backend returned wrapped data (data.students), unwrapping...",
-        );
-        list = (data as any).students;
-      } else {
+      if (!Array.isArray(data)) {
         console.error("Unexpected school students data format:", data);
+        return [];
       }
-
-      return list.map(normalizeChild);
+      return data.map(normalizeChild);
     },
     enabled,
   });
@@ -179,6 +176,68 @@ export const useSchoolFees = (schoolId: string, enabled: boolean = true) => {
   return useQuery({
     queryKey: QUERY_KEYS.schoolFees(schoolId),
     queryFn: () => BackendAPI.public.getSchoolFees(schoolId),
+    enabled: enabled && !!schoolId,
+  });
+};
+
+export const useSchoolBankDetails = (
+  schoolId: string | null | undefined,
+  enabled: boolean = true,
+) => {
+  return useQuery({
+    queryKey: schoolId
+      ? QUERY_KEYS.schoolBankDetails(schoolId)
+      : ["schoolBankDetails", "none"],
+    queryFn: async () => {
+      if (!schoolId) {
+        throw new Error("School ID is required");
+      }
+      const data = await BackendAPI.public.getSchoolBankDetails(schoolId);
+      return data;
+    },
+    enabled: enabled && !!schoolId,
+  });
+};
+
+export const useAdminPendingFirstPayments = (enabled: boolean = true) => {
+  return useQuery({
+    queryKey: QUERY_KEYS.adminPendingFirstPayments,
+    queryFn: async () => {
+      const data = await BackendAPI.admin.getPendingFirstPayments();
+      return (Array.isArray(data) ? data : []).map(normalizeTransaction);
+    },
+    enabled,
+  });
+};
+
+export const useAdminPendingInstallments = (enabled: boolean = true) => {
+  return useQuery({
+    queryKey: QUERY_KEYS.adminPendingInstallments,
+    queryFn: async () => {
+      const data = await BackendAPI.admin.getPendingInstallments();
+      return (Array.isArray(data) ? data : []).map(normalizeTransaction);
+    },
+    enabled,
+  });
+};
+
+export const useAdminSchoolStudents = (
+  schoolId: string | null,
+  enabled: boolean = true,
+) => {
+  return useQuery({
+    queryKey: schoolId
+      ? QUERY_KEYS.adminSchoolStudents(schoolId)
+      : ["adminSchoolStudents", "none"],
+    queryFn: async () => {
+      if (!schoolId) return [];
+      const data = await BackendAPI.admin.getSchoolStudents(schoolId);
+      if (!Array.isArray(data)) {
+        console.error("Unexpected admin school students data format:", data);
+        return [];
+      }
+      return data.map(normalizeChild);
+    },
     enabled: enabled && !!schoolId,
   });
 };
@@ -213,16 +272,31 @@ export const useUsers = (enabled: boolean = true) => {
 
 export const useEnrollChild = () => {
   const queryClient = useQueryClient();
+  const { showToast } = useUI();
   return useMutation({
     mutationFn: BackendAPI.parent.enroll,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.children });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.schoolStudents });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.schoolStats });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.transactions });
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.globalTransactions,
+      });
+    },
+    onError: (error: unknown) => {
+      const message =
+        error && typeof error === "object" && "message" in error
+          ? String((error as any).message)
+          : "Failed to enroll. Please try again.";
+      showToast(message, "error");
     },
   });
 };
 
 export const usePayInstallment = () => {
   const queryClient = useQueryClient();
+  const { showToast } = useUI();
   return useMutation({
     mutationFn: (data: {
       enrollmentId: string;
@@ -237,6 +311,24 @@ export const usePayInstallment = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.children });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.transactions });
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.globalTransactions,
+      });
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.pendingPayments,
+      });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.schoolStudents });
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.schoolTransactions,
+      });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.schoolStats });
+    },
+    onError: (error: unknown) => {
+      const message =
+        error && typeof error === "object" && "message" in error
+          ? String((error as any).message)
+          : "Payment failed. Please try again.";
+      showToast(message, "error");
     },
   });
 };
@@ -253,6 +345,7 @@ export const useMarkNotificationRead = () => {
 
 export const useUpdateFee = () => {
   const queryClient = useQueryClient();
+  const { showToast } = useUI();
   return useMutation({
     mutationFn: (data: {
       className: string;
@@ -271,28 +364,145 @@ export const useUpdateFee = () => {
         });
       }
     },
+    onError: (error: unknown) => {
+      const message =
+        error && typeof error === "object" && "message" in error
+          ? String((error as any).message)
+          : "Failed to update fees. Please try again.";
+      showToast(message, "error");
+    },
   });
 };
 
 export const useConfirmPayment = () => {
   const queryClient = useQueryClient();
+  const { showToast } = useUI();
   return useMutation({
     mutationFn: BackendAPI.school.confirmPayment,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.pendingPayments });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.schoolStats });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.schoolStudents });
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.schoolTransactions,
+      });
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.globalTransactions,
+      });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.transactions });
+    },
+    onError: (error: unknown) => {
+      const message =
+        error && typeof error === "object" && "message" in error
+          ? String((error as any).message)
+          : "Failed to confirm payment. Please try again.";
+      showToast(message, "error");
+    },
+  });
+};
+
+export const useConfirmFirstPayment = () => {
+  const queryClient = useQueryClient();
+  const { showToast } = useUI();
+  return useMutation({
+    mutationFn: BackendAPI.school.confirmFirstPayment,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.children });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.schoolStudents });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.schoolStats });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.transactions });
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.schoolTransactions,
+      });
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.globalTransactions,
+      });
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.pendingPayments,
+      });
+    },
+    onError: (error: unknown) => {
+      const message =
+        error && typeof error === "object" && "message" in error
+          ? String((error as any).message)
+          : "Failed to confirm first payment. Please try again.";
+      showToast(message, "error");
+    },
+  });
+};
+
+export const useSettleFirstPayment = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: BackendAPI.admin.settleFirstPayment,
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.adminPendingFirstPayments,
+      });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.children });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.schoolStudents });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.schoolStats });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.transactions });
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.schoolTransactions,
+      });
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.globalTransactions,
+      });
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.pendingPayments,
+      });
+    },
+  });
+};
+
+export const useRejectFirstPayment = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: BackendAPI.admin.rejectFirstPayment,
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.adminPendingFirstPayments,
+      });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.children });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.schoolStudents });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.schoolStats });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.transactions });
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.schoolTransactions,
+      });
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.globalTransactions,
+      });
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.pendingPayments,
+      });
     },
   });
 };
 
 export const useDeclinePayment = () => {
   const queryClient = useQueryClient();
+  const { showToast } = useUI();
   return useMutation({
     mutationFn: BackendAPI.school.declinePayment,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.pendingPayments });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.schoolStats });
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.schoolTransactions,
+      });
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.globalTransactions,
+      });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.transactions });
+    },
+    onError: (error: unknown) => {
+      const message =
+        error && typeof error === "object" && "message" in error
+          ? String((error as any).message)
+          : "Failed to decline payment. Please try again.";
+      showToast(message, "error");
     },
   });
 };

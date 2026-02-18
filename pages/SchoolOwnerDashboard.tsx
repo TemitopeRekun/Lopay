@@ -4,7 +4,10 @@ import { Layout } from "../components/Layout";
 import { BottomNav } from "../components/BottomNav";
 import { useAuth } from "../context/AuthContext";
 import { useData } from "../context/DataContext";
-import { StatusBadge } from "../components/common/StatusBadge";
+import { PlanCard } from "../components/PlanCard";
+import { RecentTransactionsList } from "../components/RecentTransactionsList";
+import { ImpersonationBanner } from "../components/ImpersonationBanner";
+import { NotificationIconButton } from "../components/NotificationIconButton";
 
 const SchoolOwnerDashboard: React.FC = () => {
   const {
@@ -13,7 +16,13 @@ const SchoolOwnerDashboard: React.FC = () => {
     setActingRole,
     activeSchoolId,
   } = useAuth();
-  const { transactions, allStudents: childrenData, schools } = useData();
+  const {
+    transactions,
+    pendingPayments,
+    allStudents: childrenData,
+    schools,
+    isLoading,
+  } = useData();
   const navigate = useNavigate();
   const [reportMonth, setReportMonth] = useState(new Date().getMonth());
   const [isGenerating, setIsGenerating] = useState(false);
@@ -45,24 +54,49 @@ const SchoolOwnerDashboard: React.FC = () => {
   }, [schoolStudents, searchQuery]);
 
   const schoolTransactions = useMemo(() => {
-    return transactions;
-  }, [transactions]);
+    const schoolId = activeSchoolId || currentUser?.schoolId;
+    if (!schoolId) {
+      return transactions;
+    }
+    return transactions.filter((t) => (t as any).schoolId === schoolId);
+  }, [transactions, activeSchoolId, currentUser]);
 
-  const pendingCount = useMemo(() => {
-    return transactions.filter((t) => t.status === "Pending").length;
-  }, [transactions]);
+  const pendingFirstEnrollmentsCount = useMemo(
+    () => schoolStudents.filter((s) => s.status === "Pending").length,
+    [schoolStudents],
+  );
+
+  const pendingCount = useMemo(
+    () => pendingPayments.length + pendingFirstEnrollmentsCount,
+    [pendingPayments, pendingFirstEnrollmentsCount],
+  );
 
   const totalRevenue = useMemo(() => {
-    return schoolTransactions
-      .filter((t) => t.status === "Successful")
-      .reduce((acc, t) => acc + t.amount, 0);
-  }, [schoolTransactions]);
+    return schoolStudents.reduce((acc, c) => {
+      const total = Number.isFinite(c.totalFee) ? c.totalFee : 0;
+      const paid = Number.isFinite(c.paidAmount) ? c.paidAmount : 0;
+      const cappedPaid = total > 0 ? Math.min(paid, total * 0.25) : paid;
+      return acc + cappedPaid;
+    }, 0);
+  }, [schoolStudents]);
 
   const totalOutstanding = useMemo(() => {
-    return schoolStudents.reduce(
-      (acc, c) => acc + (c.totalFee - c.paidAmount),
-      0,
-    );
+    return schoolStudents.reduce((acc, c) => {
+      const isDefaulted = c.status === "Defaulted" || c.status === "Failed";
+      if (!isDefaulted) {
+        return acc;
+      }
+
+      const total = Number.isFinite(c.totalFee) ? c.totalFee : 0;
+      const paid = Number.isFinite(c.paidAmount) ? c.paidAmount : 0;
+      const derivedRemaining = total - paid;
+      const remainingFromChild = Number.isFinite(c.remainingBalance)
+        ? c.remainingBalance
+        : derivedRemaining;
+      const remaining = remainingFromChild > 0 ? remainingFromChild : 0;
+
+      return acc + remaining;
+    }, 0);
   }, [schoolStudents]);
 
   const handleReturnToAdmin = () => {
@@ -94,25 +128,35 @@ const SchoolOwnerDashboard: React.FC = () => {
     }, 1000);
   };
 
+  if (isLoading) {
+    return (
+      <Layout showBottomNav>
+        {activeSchoolId && isOwnerAccount && (
+          <ImpersonationBanner
+            mode="school"
+            label={mySchool?.name || "School"}
+            onExit={handleReturnToAdmin}
+          />
+        )}
+        <main className="flex flex-col items-center justify-center flex-1 p-6">
+          <div className="w-12 h-12 border-4 border-secondary/30 border-t-secondary rounded-full animate-spin mb-4" />
+          <p className="text-sm font-bold text-text-secondary-light">
+            Loading school dashboard…
+          </p>
+        </main>
+        <BottomNav />
+      </Layout>
+    );
+  }
+
   return (
     <Layout showBottomNav>
       {activeSchoolId && isOwnerAccount && (
-        <div className="bg-secondary text-white px-6 py-2.5 flex items-center justify-between shadow-lg sticky top-0 z-50">
-          <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-sm">
-              visibility
-            </span>
-            <p className="text-[10px] font-black uppercase tracking-widest">
-              Managing {mySchool?.name || "School"}
-            </p>
-          </div>
-          <button
-            onClick={handleReturnToAdmin}
-            className="bg-white text-secondary px-3 py-1 rounded-full text-[9px] font-black uppercase shadow-sm active:scale-95"
-          >
-            Exit School
-          </button>
-        </div>
+        <ImpersonationBanner
+          mode="school"
+          label={mySchool?.name || "School"}
+          onExit={handleReturnToAdmin}
+        />
       )}
 
       <div
@@ -134,16 +178,11 @@ const SchoolOwnerDashboard: React.FC = () => {
             </p>
           </div>
         </div>
-        <button
+        <NotificationIconButton
+          unreadCount={0}
           onClick={() => navigate("/notifications")}
-          className="size-10 rounded-2xl bg-white dark:bg-card-dark border border-gray-100 dark:border-gray-800 flex items-center justify-center text-text-primary-light dark:text-text-primary-dark shadow-sm hover:shadow-md transition-all relative"
-        >
-          <span className="material-symbols-outlined text-xl">
-            notifications
-          </span>
-          {/* Badge if needed */}
-          <span className="absolute top-2 right-2 size-2 bg-danger rounded-full border border-white dark:border-card-dark"></span>
-        </button>
+          variant="round"
+        />
       </div>
 
       <div className="flex flex-col gap-4 relative">
@@ -244,7 +283,10 @@ const SchoolOwnerDashboard: React.FC = () => {
             </div>
           </div>
 
-          <div className="bg-white dark:bg-card-dark p-5 rounded-[24px] border border-gray-100 dark:border-gray-800 shadow-sm">
+          <div
+            className="bg-white dark:bg-card-dark p-5 rounded-[24px] border border-gray-100 dark:border-gray-800 shadow-sm cursor-pointer active:scale-95 transition-transform"
+            onClick={() => navigate("/admin/defaulters")}
+          >
             <p className="text-[9px] font-black text-text-secondary-light uppercase tracking-[0.2em] mb-2">
               Fee Arrears
             </p>
@@ -264,7 +306,7 @@ const SchoolOwnerDashboard: React.FC = () => {
             </p>
             <div className="flex items-baseline gap-1">
               <p className="text-xl font-black text-text-primary-light dark:text-text-primary-dark">
-                {schoolStudents.filter((s) => s.paidAmount > 0).length}
+                {schoolStudents.filter((s) => s.status === "Active").length}
               </p>
               <span className="text-[9px] font-bold text-text-secondary-light uppercase">
                 Verified
@@ -301,162 +343,23 @@ const SchoolOwnerDashboard: React.FC = () => {
                 </p>
               </div>
             ) : (
-              filteredStudents.map((child) => {
-                const progress = (child.paidAmount / child.totalFee) * 100;
-                const isCompleted = child.status === "Completed";
-                const isDefaulted =
-                  child.status === "Defaulted" || child.status === "Failed";
-                const isActive = child.status === "Active";
-                const isPending = child.status === "Pending";
-
-                let bgColor = "bg-warning";
-
-                if (isCompleted) {
-                  bgColor = "bg-success";
-                } else if (isDefaulted) {
-                  bgColor = "bg-danger";
-                } else if (isActive) {
-                  bgColor = "bg-primary";
-                }
-
-                return (
-                  <div
-                    key={child.id}
-                    className="group bg-white dark:bg-card-dark p-5 rounded-[32px] border border-gray-100 dark:border-gray-800 shadow-sm transition-all hover:border-secondary/30 hover:shadow-xl hover:shadow-secondary/5 hover:-translate-y-0.5"
-                  >
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="flex items-center gap-4">
-                        <div className="relative">
-                          <div className="size-12 rounded-[18px] overflow-hidden border-2 border-gray-100 dark:border-gray-800 shadow-inner group-hover:scale-105 transition-transform">
-                            <img
-                              src={child.avatarUrl}
-                              alt={child.name}
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                          <div
-                            className={`absolute -bottom-1 -right-1 size-5 rounded-full border-[3px] border-white dark:border-card-dark ${bgColor} ${isPending ? "shadow-lg shadow-warning/30" : ""}`}
-                          ></div>
-                        </div>
-                        <div>
-                          <p className="font-black text-sm text-text-primary-light dark:text-text-primary-dark tracking-tight">
-                            {child.name}
-                          </p>
-                          <div className="flex items-center gap-1.5 mt-1">
-                            <span className="px-2 py-0.5 rounded-md bg-gray-100 dark:bg-white/5 text-[8px] font-black uppercase text-text-secondary-light tracking-tighter">
-                              {child.grade}
-                            </span>
-                            <StatusBadge
-                              status={child.status}
-                              className="text-[9px] font-black uppercase tracking-widest"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-black text-base text-text-primary-light dark:text-text-primary-dark">
-                          ₦{child.paidAmount.toLocaleString()}
-                        </p>
-                        <p className="text-[9px] text-text-secondary-light font-bold uppercase tracking-widest opacity-60">
-                          Settled
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="w-full h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden shadow-inner">
-                        <div
-                          className={`h-full rounded-full transition-all duration-1000 ease-out ${bgColor}`}
-                          style={{ width: `${progress}%` }}
-                        ></div>
-                      </div>
-                      <div className="flex justify-between items-center text-[9px] font-black text-text-secondary-light uppercase tracking-widest">
-                        <div className="flex items-center gap-1.5 text-secondary">
-                          <span className="material-symbols-outlined text-[11px] filled">
-                            auto_awesome
-                          </span>
-                          {Math.round(progress)}% Progress
-                        </div>
-                        <div className="text-text-primary-light dark:text-text-primary-dark bg-gray-50 dark:bg-white/5 px-1.5 py-0.5 rounded-md">
-                          ₦
-                          {(child.totalFee - child.paidAmount).toLocaleString()}{" "}
-                          <span className="opacity-50 font-bold ml-0.5">
-                            Balance
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
-
-        {/* Recent Transactions Log */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between px-1">
-            <h3 className="text-xs font-black text-text-primary-light dark:text-text-primary-dark uppercase tracking-[0.15em] flex items-center gap-2">
-              <div className="size-7 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
-                <span className="material-symbols-outlined text-base filled">
-                  history
-                </span>
-              </div>
-              Recent Payments Log
-            </h3>
-            <button
-              onClick={() => navigate("/history")}
-              className="text-[10px] font-black text-primary uppercase tracking-widest"
-            >
-              View All
-            </button>
-          </div>
-
-          <div className="flex flex-col gap-3">
-            {schoolTransactions.length === 0 ? (
-              <div className="text-center py-8 bg-gray-50/30 dark:bg-white/5 rounded-2xl border border-dashed border-gray-100 dark:border-gray-800">
-                <p className="text-[10px] text-text-secondary-light font-bold uppercase tracking-widest">
-                  No transactions recorded
-                </p>
-              </div>
-            ) : (
-              schoolTransactions.slice(0, 5).map((tx) => (
-                <div
-                  key={tx.id}
-                  className="bg-white dark:bg-card-dark p-4 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm flex justify-between items-center transition-all hover:border-primary/20"
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`size-10 rounded-xl flex items-center justify-center text-white ${tx.status === "Successful" ? "bg-success shadow-lg shadow-success/20" : "bg-warning shadow-lg shadow-warning/20"}`}
-                    >
-                      <span className="material-symbols-outlined text-xl">
-                        {tx.status === "Successful" ? "check" : "sync"}
-                      </span>
-                    </div>
-                    <div>
-                      <p className="text-xs font-black text-text-primary-light dark:text-text-primary-dark">
-                        {tx.childName}
-                      </p>
-                      <p className="text-[9px] text-text-secondary-light font-bold uppercase tracking-widest">
-                        {tx.date}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-black text-text-primary-light dark:text-text-primary-dark">
-                      ₦{tx.amount.toLocaleString()}
-                    </p>
-                    <p
-                      className={`text-[8px] font-black uppercase tracking-[0.15em] ${tx.status === "Successful" ? "text-success" : "text-warning"}`}
-                    >
-                      {tx.status}
-                    </p>
-                  </div>
-                </div>
+              filteredStudents.map((child) => (
+                <PlanCard
+                  key={child.id}
+                  child={child}
+                  mode="school"
+                  schoolName={mySchool?.name || child.school || "School"}
+                />
               ))
             )}
           </div>
         </div>
+
+        <RecentTransactionsList
+          transactions={schoolTransactions}
+          emptyLabel="No transactions recorded"
+          onViewAll={() => navigate("/history")}
+        />
 
         <div className="bg-slate-50 dark:bg-white/5 p-6 rounded-[32px] border border-gray-100 dark:border-gray-800 space-y-5">
           <div className="flex items-center gap-3">

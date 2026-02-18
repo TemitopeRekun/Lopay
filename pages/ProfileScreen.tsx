@@ -16,6 +16,7 @@ const ProfileScreen: React.FC = () => {
     actingUserId,
     setActingRole,
     updateUser: updateAuthUser,
+    isOwnerAccount,
   } = useAuth();
   const { schools } = useData();
   const navigate = useNavigate();
@@ -28,7 +29,6 @@ const ProfileScreen: React.FC = () => {
   const effectiveUser = actingUserId ? actingUser : user;
 
   const isImpersonating = !!actingUserId;
-  const isOwnerAccount = user?.role === "owner";
   const isSchoolOwner = userRole === "school_owner";
 
   // Edit state for bank details

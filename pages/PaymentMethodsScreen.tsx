@@ -4,6 +4,8 @@ import { Layout } from "../components/Layout";
 import { Header } from "../components/Header";
 import { useAuth } from "../context/AuthContext";
 import { useData } from "../context/DataContext";
+import { useSchoolBankDetails } from "../hooks/useQueries";
+import { getPlatformActivationBankDetails } from "../services/backend";
 
 const PaymentMethodsScreen: React.FC = () => {
   const location = useLocation();
@@ -30,41 +32,53 @@ const PaymentMethodsScreen: React.FC = () => {
   const [paymentAmount, setPaymentAmount] = useState(state?.amount || 0);
   const [isEditingAmount, setIsEditingAmount] = useState(!!state?.isCustomOnly);
 
+  const isFirstPaymentFlow =
+    !isPaymentFlow && (!child || (Number.isFinite(child.paidAmount) ? child.paidAmount : 0) === 0);
+
   const school = useMemo(() => {
-    return schools.find((s) => s.name === child?.school);
-  }, [schools, child?.school]);
+    if (!child) return null;
+    return (
+      schools.find((s) => s.id === child.schoolId) ||
+      schools.find((s) => s.name === child.school)
+    );
+  }, [schools, child]);
+
+  const schoolIdForBankDetails = child?.schoolId || school?.id || null;
+  const needsSchoolBankDetails = !isFirstPaymentFlow;
+
+  const {
+    data: schoolBankDetails,
+    isLoading: isLoadingSchoolBankDetails,
+    isError: isSchoolBankDetailsError,
+  } = useSchoolBankDetails(schoolIdForBankDetails, needsSchoolBankDetails);
 
   const institutionBank = useMemo(() => {
-    if (!school) return null;
-    
-    // Check if school object has these fields
-    if (school.accountNumber) {
-      return {
-        accountName: school.accountName || school.name,
-        bankName: school.bankName || "Unknown Bank",
-        accountNumber: school.accountNumber,
-        isLopayEscrow: false,
-        institutionName: school.name,
-      };
-    }
-    return null;
-  }, [school]);
+    if (!school || !schoolBankDetails) return null;
+    return {
+      accountName: schoolBankDetails.accountName || school.name,
+      bankName: schoolBankDetails.bankName,
+      accountNumber: schoolBankDetails.accountNumber,
+      isLopayEscrow: false,
+      institutionName: school.name,
+    };
+  }, [school, schoolBankDetails]);
 
   const activeBankDetails = useMemo(() => {
-    if (child && child.paidAmount > 0 && institutionBank) {
+    if (!isFirstPaymentFlow && institutionBank) {
       return institutionBank;
     }
 
-    return {
-      accountName: "Lopay Technologies",
-      bankName: "Moniepoint",
-      accountNumber: "9090390581",
-      isLopayEscrow: true,
-      institutionName: isStudent ? "Lopay Tuition Hub" : "Lopay Activation Hub",
-    };
-  }, [child, institutionBank, isStudent]);
+    if (!isFirstPaymentFlow && !institutionBank) {
+      return null;
+    }
 
-  const canEditAmount = !activeBankDetails.isLopayEscrow && state?.allowCustom;
+    return {
+      ...getPlatformActivationBankDetails(isStudent),
+    };
+  }, [isFirstPaymentFlow, institutionBank, isStudent]);
+
+  const canEditAmount =
+    !!activeBankDetails && !activeBankDetails.isLopayEscrow && state?.allowCustom;
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -103,13 +117,61 @@ const PaymentMethodsScreen: React.FC = () => {
 
   const entityType = isStudent ? "Institution" : "School";
 
+  const primaryHeadingLabel =
+    isFirstPaymentFlow && !isStudent
+      ? "First payment (platform account)"
+      : !isFirstPaymentFlow && !isStudent && school
+        ? `Ongoing installments (${school.name} account)`
+        : activeBankDetails && activeBankDetails.isLopayEscrow
+          ? "Platform account"
+          : "School account";
+
+  const paymentInfoCopy =
+    !isStudent && isFirstPaymentFlow
+      ? "This first payment is processed by LoPay. Please pay into the LoPay platform account shown below."
+      : !isStudent && !isFirstPaymentFlow
+        ? "These installments are paid directly to your school. Please pay into the school's account shown below."
+        : "";
+
+  if (!activeBankDetails) {
+    if (needsSchoolBankDetails && isLoadingSchoolBankDetails) {
+      return (
+        <Layout>
+          <Header
+            title={isFirstPaymentFlow ? "First Payment" : `${entityType} Installment`}
+          />
+          <div className="p-6 flex flex-col flex-1 overflow-y-auto pb-safe">
+            <div className="mb-4 px-4 py-3 rounded-2xl bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-gray-800 text-xs text-text-secondary-light">
+              Fetching this school’s latest bank details...
+            </div>
+          </div>
+        </Layout>
+      );
+    }
+
+    if (needsSchoolBankDetails && isSchoolBankDetailsError) {
+      return (
+        <Layout>
+          <Header
+            title={isFirstPaymentFlow ? "First Payment" : `${entityType} Installment`}
+          />
+          <div className="p-6 flex flex-col flex-1 overflow-y-auto pb-safe">
+            <div className="mb-4 px-4 py-3 rounded-2xl bg-danger/10 border border-danger/30 text-xs text-danger">
+              Unable to load this school’s bank details. Please try again or contact support.
+            </div>
+          </div>
+        </Layout>
+      );
+    }
+  }
+
   return (
     <Layout>
       <Header
         title={
-          activeBankDetails.isLopayEscrow
-            ? "Activation Deposit"
-            : `${entityType} Payment`
+          isFirstPaymentFlow
+            ? "First Payment"
+            : `${entityType} Installment`
         }
       />
       <div className="p-6 flex flex-col flex-1 overflow-y-auto pb-safe">
@@ -125,7 +187,7 @@ const PaymentMethodsScreen: React.FC = () => {
           </div>
           <div className="overflow-hidden">
             <p className="text-[9px] font-black uppercase tracking-[0.15em] text-text-secondary-light">
-              Receiving Entity
+              {primaryHeadingLabel}
             </p>
             <h3 className="text-sm font-bold truncate text-text-primary-light dark:text-text-primary-dark">
               {activeBankDetails.institutionName}
@@ -197,7 +259,15 @@ const PaymentMethodsScreen: React.FC = () => {
               {!activeBankDetails.isLopayEscrow && child && (
                 <p className="text-[9px] font-bold text-text-secondary-light mt-1 uppercase">
                   Outstanding Balance: ₦
-                  {(child.totalFee - child.paidAmount).toLocaleString()}
+                  {(() => {
+                    const totalFee = Number.isFinite(child.totalFee)
+                      ? child.totalFee
+                      : 0;
+                    const paidAmount = Number.isFinite(child.paidAmount)
+                      ? child.paidAmount
+                      : 0;
+                    return (totalFee - paidAmount).toLocaleString();
+                  })()}
                 </p>
               )}
             </div>
@@ -208,6 +278,20 @@ const PaymentMethodsScreen: React.FC = () => {
           className={`bg-white dark:bg-card-dark border-2 rounded-[32px] p-6 shadow-sm mb-6 relative overflow-hidden transition-all animate-fade-in-up delay-75 ${activeBankDetails.isLopayEscrow ? "border-primary/20" : "border-success/20"}`}
         >
           <div className="space-y-4">
+            {paymentInfoCopy && (
+              <p className="text-[11px] text-text-secondary-light dark:text-text-secondary-dark leading-relaxed">
+                {paymentInfoCopy}
+              </p>
+            )}
+            <div className="flex flex-col gap-1">
+              <span className="text-[9px] font-black text-text-secondary-light uppercase tracking-[0.2em]">
+                {activeBankDetails.isLopayEscrow
+                  ? "Pay to LoPay (platform) account"
+                  : school
+                    ? `Pay to ${school.name} account`
+                    : "Pay to school account"}
+              </span>
+            </div>
             <div className="flex flex-col gap-1">
               <span className="text-[9px] font-black text-text-secondary-light uppercase tracking-[0.2em]">
                 Bank Provider

@@ -8,19 +8,11 @@ import {
   ApiNotification,
   ApiUser,
   ApiSchool,
+  ApiSchoolBankDetails,
 } from "../types";
 
-// Dynamic API URL handling to support mobile/remote access
-const getBaseUrl = () => {
-  if (typeof window !== "undefined") {
-    // Uses the same IP/hostname as the frontend is accessed from
-    // Preserves the port (likely 3000 based on config)
-    return `${window.location.protocol}//${window.location.hostname}:${window.location.port || 3000}`;
-  }
-  return "http://localhost:3000";
-};
-
-const API_URL = getBaseUrl();
+const API_URL =
+  (import.meta as any).env?.VITE_API_URL ?? "http://localhost:3000";
 
 export const apiClient = axios.create({
   baseURL: API_URL,
@@ -37,6 +29,25 @@ apiClient.interceptors.request.use((config) => {
   }
   return config;
 });
+
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error?.response?.status;
+
+    if (status === 401) {
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("user");
+
+      if (typeof window !== "undefined") {
+        window.location.href = "/#/auth";
+        window.location.reload();
+      }
+    }
+
+    return Promise.reject(error);
+  },
+);
 
 export const BackendAPI = {
   auth: {
@@ -107,6 +118,42 @@ export const BackendAPI = {
       });
       return response.data;
     },
+    getPendingFirstPayments: async () => {
+      const response = await apiClient.get<ApiPendingPayment[]>(
+        "/admin/pending-first-payments",
+      );
+      return response.data;
+    },
+    getPendingInstallments: async () => {
+      const response = await apiClient.get<ApiPendingPayment[]>(
+        "/admin/pending-installments",
+      );
+      return response.data;
+    },
+    getSchoolStudents: async (
+      schoolId: string,
+      params?: { search?: string; className?: string },
+    ) => {
+      const response = await apiClient.get<ApiEnrollment[]>(
+        `/admin/schools/${schoolId}/students`,
+        {
+          params: { ...params, limit: 1000 },
+        },
+      );
+      return response.data;
+    },
+    settleFirstPayment: async (paymentId: string) => {
+      const response = await apiClient.post(
+        `/admin/settle-first-payment/${paymentId}`,
+      );
+      return response.data;
+    },
+    rejectFirstPayment: async (paymentId: string) => {
+      const response = await apiClient.post(
+        `/admin/reject-first-payment/${paymentId}`,
+      );
+      return response.data;
+    },
   },
   school: {
     getStats: async () => {
@@ -132,7 +179,16 @@ export const BackendAPI = {
     },
 
     getTransactions: async () => {
-      const response = await apiClient.get<ApiTransaction[]>("/transactions");
+      const response = await apiClient.get<ApiTransaction[]>(
+        "/school-payments/history",
+      );
+      return response.data;
+    },
+    confirmFirstPayment: async (enrollmentId: string) => {
+      const response = await apiClient.post(
+        "/enrollments/confirm-first-payment",
+        { enrollmentId },
+      );
       return response.data;
     },
     confirmPayment: async (paymentId: string) => {
@@ -177,6 +233,12 @@ export const BackendAPI = {
       const response = await apiClient.get<
         { className: string; feeAmount: number }[]
       >(`/school-payments/fees/${schoolId}`);
+      return response.data;
+    },
+    getSchoolBankDetails: async (schoolId: string) => {
+      const response = await apiClient.get<ApiSchoolBankDetails>(
+        `/school-payments/bank-details/${schoolId}`,
+      );
       return response.data;
     },
     calculatePaymentPlan: async (payload: {
@@ -244,4 +306,20 @@ export const BackendAPI = {
       return response.data;
     },
   },
+};
+
+export const PLATFORM_BANK = {
+  bankName: "Moniepoint",
+  accountName: "Lopay Technologies",
+  accountNumber: "9090390581",
+};
+
+export const getPlatformActivationBankDetails = (isStudent: boolean) => {
+  return {
+    accountName: PLATFORM_BANK.accountName,
+    bankName: PLATFORM_BANK.bankName,
+    accountNumber: PLATFORM_BANK.accountNumber,
+    isLopayEscrow: true,
+    institutionName: isStudent ? "Lopay Tuition Hub" : "Lopay Activation Hub",
+  };
 };

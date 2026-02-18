@@ -21,6 +21,7 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   role: UserRole | null;
+  isOwnerAccount: boolean;
   token: string | null;
   login: (email: string, password?: string) => Promise<User>;
   logout: () => void;
@@ -36,6 +37,7 @@ interface AuthContextType {
 
   // The effective role used for UI permissions (actingRole > user.role)
   effectiveRole: UserRole | null;
+  userRole: UserRole | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -179,7 +181,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     }
   };
 
-  const effectiveRole = actingRole || user?.role || null;
+  const userRole = user?.role || null;
+  const isOwnerAccount = userRole === "owner";
+  const effectiveRole = actingRole || userRole;
 
   return (
     <AuthContext.Provider
@@ -187,6 +191,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         user,
         isAuthenticated: !!user && !!token,
         role: effectiveRole, // Expose the effective role as the primary role
+        isOwnerAccount,
         token,
         login,
         logout,
@@ -199,6 +204,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         setActingRole,
         switchRole,
         effectiveRole,
+        userRole,
       }}
     >
       {children}

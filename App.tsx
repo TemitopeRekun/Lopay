@@ -318,16 +318,16 @@ const AppRoutes = () => {
 const App: React.FC = () => {
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <DataProvider>
-          <UIProvider>
+      <UIProvider>
+        <AuthProvider>
+          <DataProvider>
             {/* AppProvider removed - Context Split Complete */}
             <HashRouter>
               <AppRoutes />
             </HashRouter>
-          </UIProvider>
-        </DataProvider>
-      </AuthProvider>
+          </DataProvider>
+        </AuthProvider>
+      </UIProvider>
       <ReactQueryDevtools initialIsOpen={false} />
     </QueryClientProvider>
   );
