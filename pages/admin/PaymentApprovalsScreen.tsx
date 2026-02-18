@@ -99,6 +99,7 @@ const PaymentApprovalsScreen: React.FC = () => {
           await confirmPayment(id);
         } else {
           await declinePayment(id);
+          navigate("/home");
         }
       } else {
         if (!canActivateFirst) return;
@@ -107,6 +108,7 @@ const PaymentApprovalsScreen: React.FC = () => {
             await settleFirstPayment.mutateAsync(id);
           } else {
             await rejectFirstPayment.mutateAsync(id);
+            navigate("/home");
           }
         } else {
           if (type === "approve") {

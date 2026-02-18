@@ -133,18 +133,6 @@ const Dashboard: React.FC = () => {
 
   const hasPlans = validChildren.length > 0;
 
-  const userTransactions = React.useMemo(() => {
-    return transactions;
-  }, [transactions]);
-
-  const sortedTransactions = React.useMemo(() => {
-    return [...userTransactions].sort((a, b) => {
-      const dateA = new Date(a.date).getTime();
-      const dateB = new Date(b.date).getTime();
-      return dateB - dateA;
-    });
-  }, [userTransactions]);
-
   if (isLoading) {
     return (
       <Layout showBottomNav>
@@ -292,7 +280,7 @@ const Dashboard: React.FC = () => {
             </div>
 
             <RecentTransactionsList
-              transactions={sortedTransactions}
+              transactions={transactions}
               emptyLabel="No transactions recorded"
               onViewAll={() => navigate("/history")}
             />

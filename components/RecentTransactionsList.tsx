@@ -14,7 +14,15 @@ export const RecentTransactionsList: React.FC<RecentTransactionsListProps> = ({
 }) => {
   const hasTransactions =
     Array.isArray(transactions) && transactions.length > 0;
-  const items = hasTransactions ? transactions.slice(0, 5) : [];
+  const items = hasTransactions
+    ? [...transactions]
+        .sort((a, b) => {
+          const dateA = new Date(a.date).getTime();
+          const dateB = new Date(b.date).getTime();
+          return dateB - dateA;
+        })
+        .slice(0, 5)
+    : [];
 
   return (
     <div className="space-y-4">

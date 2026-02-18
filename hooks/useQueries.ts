@@ -128,7 +128,9 @@ export const usePendingPayments = (
     queryKey: [...QUERY_KEYS.pendingPayments, contextKey],
     queryFn: async () => {
       const data = await BackendAPI.school.getPendingPayments();
-      return (Array.isArray(data) ? data : []).map(normalizeTransaction);
+      return (Array.isArray(data) ? data : [])
+        .map(normalizeTransaction)
+        .filter((t) => t.status === "Pending");
     },
     enabled,
   });
@@ -205,7 +207,9 @@ export const useAdminPendingFirstPayments = (enabled: boolean = true) => {
     queryKey: QUERY_KEYS.adminPendingFirstPayments,
     queryFn: async () => {
       const data = await BackendAPI.admin.getPendingFirstPayments();
-      return (Array.isArray(data) ? data : []).map(normalizeTransaction);
+      return (Array.isArray(data) ? data : [])
+        .map(normalizeTransaction)
+        .filter((t) => t.status === "Pending");
     },
     enabled,
   });
@@ -216,7 +220,9 @@ export const useAdminPendingInstallments = (enabled: boolean = true) => {
     queryKey: QUERY_KEYS.adminPendingInstallments,
     queryFn: async () => {
       const data = await BackendAPI.admin.getPendingInstallments();
-      return (Array.isArray(data) ? data : []).map(normalizeTransaction);
+      return (Array.isArray(data) ? data : [])
+        .map(normalizeTransaction)
+        .filter((t) => t.status === "Pending");
     },
     enabled,
   });
@@ -334,6 +340,7 @@ export const usePayInstallment = () => {
         queryKey: QUERY_KEYS.schoolTransactions,
       });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.schoolStats });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.notifications });
     },
     onError: (error: unknown) => {
       const message =
@@ -402,6 +409,7 @@ export const useConfirmPayment = () => {
         queryKey: QUERY_KEYS.globalTransactions,
       });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.transactions });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.notifications });
     },
     onError: (error: unknown) => {
       const message =
@@ -432,6 +440,7 @@ export const useConfirmFirstPayment = () => {
       queryClient.invalidateQueries({
         queryKey: QUERY_KEYS.pendingPayments,
       });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.notifications });
     },
     onError: (error: unknown) => {
       const message =
@@ -510,6 +519,7 @@ export const useDeclinePayment = () => {
         queryKey: QUERY_KEYS.globalTransactions,
       });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.transactions });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.notifications });
     },
     onError: (error: unknown) => {
       const message =

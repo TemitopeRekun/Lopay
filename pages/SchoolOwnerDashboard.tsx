@@ -18,6 +18,7 @@ const SchoolOwnerDashboard: React.FC = () => {
   } = useAuth();
   const {
     transactions,
+    schoolTransactions,
     pendingPayments,
     allStudents: childrenData,
     schools,
@@ -53,14 +54,6 @@ const SchoolOwnerDashboard: React.FC = () => {
 
     return result;
   }, [schoolStudents, searchQuery]);
-
-  const schoolTransactions = useMemo(() => {
-    const schoolId = activeSchoolId || currentUser?.schoolId;
-    if (!schoolId) {
-      return transactions;
-    }
-    return transactions.filter((t) => (t as any).schoolId === schoolId);
-  }, [transactions, activeSchoolId, currentUser]);
 
   const pendingFirstEnrollmentsCount = useMemo(
     () => schoolStudents.filter((s) => s.status === "Pending").length,
