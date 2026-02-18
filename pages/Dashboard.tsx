@@ -56,38 +56,64 @@ const Dashboard: React.FC = () => {
     ? allUsers.find((u) => u.id === actingUserId)
     : null;
 
-  const nextUpcomingAmount = React.useMemo(() => {
-    const upcoming = validChildren
-      .filter(
-        (child) =>
-          child.status !== "Completed" &&
-          child.nextInstallmentAmount > 0 &&
-          child.nextDueDate,
-      )
-      .sort((a, b) => {
-        const aTime = new Date(a.nextDueDate).getTime();
-        const bTime = new Date(b.nextDueDate).getTime();
-        return aTime - bTime;
-      });
+  const activeEnrollments = React.useMemo(() => {
+    return validChildren.filter((child) => {
+      const remaining =
+        typeof child.remainingBalance === "number" ? child.remainingBalance : 0;
+      return (
+        remaining > 0 &&
+        child.status !== "Completed" &&
+        child.status !== "Defaulted"
+      );
+    });
+  }, [validChildren]);
 
-    if (upcoming.length === 0) {
-      return 0;
-    }
+  const enrollmentsWithNext = React.useMemo(() => {
+    return activeEnrollments.filter((child) => {
+      const amount =
+        typeof child.nextInstallmentAmount === "number"
+          ? child.nextInstallmentAmount
+          : 0;
+      return amount > 0;
+    });
+  }, [activeEnrollments]);
 
-    const firstDueTime = new Date(upcoming[0].nextDueDate).getTime();
-
-    return upcoming.reduce((sum, child) => {
-      const childDueTime = new Date(child.nextDueDate).getTime();
-      if (childDueTime !== firstDueTime) {
-        return sum;
-      }
+  const totalNextCollection = React.useMemo(() => {
+    return enrollmentsWithNext.reduce((sum, child) => {
       const amount =
         typeof child.nextInstallmentAmount === "number"
           ? child.nextInstallmentAmount
           : 0;
       return sum + amount;
     }, 0);
-  }, [validChildren]);
+  }, [enrollmentsWithNext]);
+
+  const singleNextEnrollment =
+    enrollmentsWithNext.length === 1 ? enrollmentsWithNext[0] : null;
+
+  const earliestDueDate = React.useMemo(() => {
+    if (enrollmentsWithNext.length === 0) {
+      return null;
+    }
+    const dates = enrollmentsWithNext
+      .map((child) => child.nextDueDate)
+      .filter((d): d is string => !!d);
+    if (dates.length === 0) {
+      return null;
+    }
+    return dates.sort()[0];
+  }, [enrollmentsWithNext]);
+
+  const nextCollectionAmount = React.useMemo(() => {
+    if (singleNextEnrollment) {
+      const amount =
+        typeof singleNextEnrollment.nextInstallmentAmount === "number"
+          ? singleNextEnrollment.nextInstallmentAmount
+          : 0;
+      return amount;
+    }
+    return totalNextCollection;
+  }, [singleNextEnrollment, totalNextCollection]);
 
   const handleQuickPay = (childId: string, amount: number) => {
     navigate("/payment-methods", {
@@ -218,15 +244,27 @@ const Dashboard: React.FC = () => {
               </p>
               <p className="text-4xl font-extrabold tracking-tight mb-2">
                 ₦
-                {(nextUpcomingAmount || 0).toLocaleString("en-US", {
+                {(nextCollectionAmount || 0).toLocaleString("en-US", {
                   minimumFractionDigits: 2,
                 })}
               </p>
-              <div className="flex items-center gap-2 mt-2">
-                <div className="size-2 rounded-full bg-accent animate-pulse"></div>
-                <p className="text-white/70 text-[10px] font-bold uppercase tracking-wider">
-                  Direct Settlement Active
-                </p>
+              <div className="flex flex-col gap-1 mt-2">
+                <div className="flex items-center gap-2">
+                  <div className="size-2 rounded-full bg-accent animate-pulse"></div>
+                  <p className="text-white/70 text-[10px] font-bold uppercase tracking-wider">
+                    Direct Settlement Active
+                  </p>
+                </div>
+                {singleNextEnrollment && singleNextEnrollment.nextDueDate && (
+                  <p className="text-white/70 text-[10px] font-bold uppercase tracking-wider">
+                    Due {singleNextEnrollment.nextDueDate}
+                  </p>
+                )}
+                {!singleNextEnrollment && earliestDueDate && (
+                  <p className="text-white/70 text-[10px] font-bold uppercase tracking-wider">
+                    Earliest due: {earliestDueDate}
+                  </p>
+                )}
               </div>
             </div>
 

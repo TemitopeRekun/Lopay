@@ -343,6 +343,17 @@ Here is every single route in the app, exactly what you need to send, and what y
   }
   ```
 
+- **How the numbers are calculated**:
+  - `totalRevenue`:
+    - Sums `schoolAmount` for all **confirmed** payments for this school.
+    - Includes:
+      - The school’s share of each confirmed first payment (after admin settles it).
+      - All confirmed installment payments.
+    - This value increases incrementally as students make first payments and pay installments that get confirmed.
+  - `pendingRevenue`:
+    - Sums `amountPaid` for all **unconfirmed** payments for this school.
+    - Represents what parents claim to have paid but which the school (or admin, for first payment) has not yet approved.
+
 #### 6. Get Pending Payments
 
 - **Method**: `GET`

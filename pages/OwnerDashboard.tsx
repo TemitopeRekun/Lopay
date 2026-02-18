@@ -6,7 +6,6 @@ import { useAuth } from "../context/AuthContext";
 import { useData } from "../context/DataContext";
 import {
   useAdminPendingFirstPayments,
-  useAdminPendingInstallments,
   useAdminPlatformRevenue,
 } from "../hooks/useQueries";
 import { Transaction } from "../types";
@@ -30,8 +29,6 @@ const OwnerDashboard: React.FC = () => {
 
   const { data: adminPendingFirst = [] } =
     useAdminPendingFirstPayments(isOwner);
-  const { data: adminPendingInstallments = [] } =
-    useAdminPendingInstallments(isOwner);
   const { data: platformRevenueData } = useAdminPlatformRevenue(isOwner);
 
   const unreadNotificationsCount = useMemo(() => {
@@ -40,7 +37,31 @@ const OwnerDashboard: React.FC = () => {
 
   const hasStudentPool = allStudents && allStudents.length > 0;
 
-  const totalPlatformFee = platformRevenueData?.totalRevenue ?? 0;
+  const totalPlatformFee = React.useMemo(() => {
+    const apiTotal = platformRevenueData?.totalRevenue;
+    if (typeof apiTotal === "number" && apiTotal > 0) {
+      return apiTotal;
+    }
+
+    const successfulTx = transactions.filter((t) => t.status === "Successful");
+
+    return successfulTx.reduce((sum, t) => {
+      const explicitFee =
+        typeof t.platformFeeAmount === "number" && t.platformFeeAmount > 0
+          ? t.platformFeeAmount
+          : undefined;
+
+      const inferredFee =
+        typeof t.platformFeePercentage === "number" &&
+        t.platformFeePercentage > 0
+          ? t.amount * t.platformFeePercentage
+          : undefined;
+
+      const fee = explicitFee ?? inferredFee ?? 0;
+      return sum + fee;
+    }, 0);
+  }, [platformRevenueData, transactions]);
+
   const displayRevenue = totalPlatformFee;
 
   const activeStudents = useMemo(() => {
@@ -128,9 +149,7 @@ const OwnerDashboard: React.FC = () => {
 
   const pendingApprovalsCount = useMemo(() => {
     if (isOwner) {
-      const firstPending = adminPendingFirst.length;
-      const installmentsPending = adminPendingInstallments.length;
-      return firstPending + installmentsPending;
+      return adminPendingFirst.length;
     }
 
     const base =
@@ -147,7 +166,6 @@ const OwnerDashboard: React.FC = () => {
   }, [
     isOwner,
     adminPendingFirst,
-    adminPendingInstallments,
     pendingPayments,
     transactions,
     pendingFirstEnrollmentsCount,

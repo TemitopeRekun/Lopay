@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Layout } from "../../components/Layout";
 import { Header } from "../../components/Header";
 import { useAuth } from "../../context/AuthContext";
@@ -22,12 +22,6 @@ const PaymentApprovalsScreen: React.FC = () => {
     confirmFirstPayment,
   } = useData();
   const navigate = useNavigate();
-  const location = useLocation();
-  const initialMode =
-    (location.state as { mode?: "installments" | "first" } | null)?.mode ===
-    "first"
-      ? "first"
-      : "installments";
   const [selectedReceipt, setSelectedReceipt] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<{
     id: string;
@@ -35,7 +29,6 @@ const PaymentApprovalsScreen: React.FC = () => {
     scope: "installment" | "first";
   } | null>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
-  const [mode, setMode] = useState<"installments" | "first">(initialMode);
 
   const isOwner = userRole === "owner";
   const isSchoolOwner = userRole === "school_owner";
@@ -49,7 +42,7 @@ const PaymentApprovalsScreen: React.FC = () => {
 
   const canApproveInstallments = isSchoolOwner;
   const canActivateFirst = isOwner;
-  const viewMode: "installments" | "first" = isOwner ? mode : "installments";
+  const viewMode: "installments" | "first" = isOwner ? "first" : "installments";
 
   const pendingTransactions = useMemo(() => {
     if (isOwner) {
@@ -152,27 +145,15 @@ const PaymentApprovalsScreen: React.FC = () => {
       <Header title="Payment Approvals" />
       <div className="flex-1 p-6 overflow-y-auto">
         <div className="flex gap-2 mb-4">
-          <button
-            onClick={() => setMode("installments")}
-            className={`flex-1 py-2 rounded-xl text-xs font-black uppercase tracking-widest border ${
-              viewMode === "installments"
-                ? "bg-primary text-white border-primary"
-                : "bg-white dark:bg-card-dark text-text-secondary-light dark:text-text-secondary-dark border-gray-100 dark:border-gray-800"
-            }`}
-          >
-            Installments
-          </button>
+          {isSchoolOwner && (
+            <div className="flex-1 py-2 rounded-xl text-xs font-black uppercase tracking-widest border bg-primary text-white border-primary text-center">
+              Installments
+            </div>
+          )}
           {isOwner && (
-            <button
-              onClick={() => setMode("first")}
-              className={`flex-1 py-2 rounded-xl text-xs font-black uppercase tracking-widest border ${
-                viewMode === "first"
-                  ? "bg-secondary text-white border-secondary"
-                  : "bg-white dark:bg-card-dark text-text-secondary-light dark:text-text-secondary-dark border-gray-100 dark:border-gray-800"
-              }`}
-            >
+            <div className="flex-1 py-2 rounded-xl text-xs font-black uppercase tracking-widest border bg-secondary text-white border-secondary text-center">
               First Payments
-            </button>
+            </div>
           )}
         </div>
 

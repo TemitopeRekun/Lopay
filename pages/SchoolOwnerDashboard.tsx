@@ -22,6 +22,7 @@ const SchoolOwnerDashboard: React.FC = () => {
     allStudents: childrenData,
     schools,
     isLoading,
+    schoolStats,
   } = useData();
   const navigate = useNavigate();
   const [reportMonth, setReportMonth] = useState(new Date().getMonth());
@@ -66,19 +67,25 @@ const SchoolOwnerDashboard: React.FC = () => {
     [schoolStudents],
   );
 
-  const pendingCount = useMemo(
-    () => pendingPayments.length + pendingFirstEnrollmentsCount,
-    [pendingPayments, pendingFirstEnrollmentsCount],
-  );
+  const pendingCount = useMemo(() => pendingPayments.length, [pendingPayments]);
 
   const totalRevenue = useMemo(() => {
-    return schoolStudents.reduce((acc, c) => {
-      const total = Number.isFinite(c.totalFee) ? c.totalFee : 0;
-      const paid = Number.isFinite(c.paidAmount) ? c.paidAmount : 0;
-      const cappedPaid = total > 0 ? Math.min(paid, total * 0.25) : paid;
-      return acc + cappedPaid;
-    }, 0);
-  }, [schoolStudents]);
+    if (!schoolStats) {
+      return 0;
+    }
+    return Number.isFinite(schoolStats.totalRevenue)
+      ? schoolStats.totalRevenue
+      : 0;
+  }, [schoolStats]);
+
+  const pendingRevenue = useMemo(() => {
+    if (!schoolStats) {
+      return 0;
+    }
+    return Number.isFinite(schoolStats.pendingRevenue)
+      ? schoolStats.pendingRevenue
+      : 0;
+  }, [schoolStats]);
 
   const totalOutstanding = useMemo(() => {
     return schoolStudents.reduce((acc, c) => {
@@ -279,6 +286,10 @@ const SchoolOwnerDashboard: React.FC = () => {
                 <div className="px-3 py-1.5 rounded-xl bg-white/10 backdrop-blur-xl text-[9px] font-black border border-white/10">
                   {schoolStudents.length} REGISTERED
                 </div>
+              </div>
+              <div className="mt-4 flex items-center justify-between text-[10px] font-bold text-white/70">
+                <span>Pending approvals</span>
+                <span>₦{pendingRevenue.toLocaleString()}</span>
               </div>
             </div>
           </div>

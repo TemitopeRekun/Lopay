@@ -17,6 +17,7 @@ import {
   usePendingPayments,
   useSchoolTransactions,
   useUpdateFee,
+  useSchoolStats,
 } from "../hooks/useQueries";
 import {
   Child,
@@ -25,6 +26,7 @@ import {
   Transaction,
   User,
   EnrollmentData,
+  ApiSchoolStats,
 } from "../types";
 import { BackendAPI } from "../services/backend";
 import { useQueryClient } from "@tanstack/react-query";
@@ -69,6 +71,7 @@ interface DataContextType {
   // Additional data for school owners (can be null/empty for parents)
   allStudents: Child[];
   pendingPayments: Transaction[];
+  schoolStats: ApiSchoolStats | null;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -128,6 +131,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({
       schoolContextKey,
       isAuthenticated && (isSchoolContext || isPlatformOwner),
     );
+
+  const { data: schoolStats = null, isLoading: loadingStats } = useSchoolStats(
+    isAuthenticated && (isSchoolContext || isPlatformOwner),
+  );
 
   const transactions = isPlatformOwner
     ? globalTransactions
@@ -250,7 +257,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({
     loadingNotifications ||
     loadingSchools ||
     ((isSchoolContext || isPlatformOwner) &&
-      (loadingStudents || loadingPending || loadingSchoolTransactions));
+      (loadingStudents ||
+        loadingPending ||
+        loadingSchoolTransactions ||
+        loadingStats));
 
   return (
     <DataContext.Provider
@@ -279,6 +289,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({
         updateFee,
         allStudents,
         pendingPayments,
+        schoolStats,
       }}
     >
       {children}

@@ -25,43 +25,26 @@ const toNumber = (value: unknown): number => {
 };
 
 export const normalizeUser = (apiUser: ApiUser): User => {
-  // Determine role safely
   let role: UserRole = "parent";
   const rawRole = apiUser.role;
   const apiRole = (rawRole || "").trim().toLowerCase();
 
-  console.log(
-    `[normalizeUser] Input role: "${rawRole}", Normalized: "${apiRole}"`,
-  );
-
   if (
     apiRole === "owner" ||
-    apiRole.includes("admin") || // Covers admin, superadmin, super_admin, super admin
+    apiRole.includes("admin") ||
     apiRole === "superadmin" ||
     apiRole === "super_admin"
   ) {
-    // Special check: ensure it's not school_admin (which contains admin)
-    // But we check school first? No, we check strict owner/admin first.
-    // Wait, school_admin contains admin.
     if (apiRole.includes("school")) {
       role = "school_owner";
     } else {
       role = "owner";
     }
   } else if (apiRole.includes("school") || apiRole === "owner") {
-    // Covers school_owner, school_admin, school owner
     role = "school_owner";
   } else if (apiRole.includes("student")) {
     role = "university_student";
   }
-
-  const upperStatus = (apiTx.status || "PENDING").toUpperCase();
-  const isSuccess =
-    upperStatus === "SUCCESS" ||
-    upperStatus === "SUCCESSFUL" ||
-    upperStatus === "PAID" ||
-    upperStatus === "COMPLETED";
-  const isFailed = upperStatus === "FAILED";
 
   return {
     id: apiUser.id,
@@ -100,10 +83,18 @@ export const normalizeTransaction = (
     }
   }
 
+  const upperStatus = (apiTx.status || "PENDING").toUpperCase();
+  const isSuccess =
+    upperStatus === "SUCCESS" ||
+    upperStatus === "SUCCESSFUL" ||
+    upperStatus === "PAID" ||
+    upperStatus === "COMPLETED";
+  const isFailed = upperStatus === "FAILED";
+
   return {
     id: apiTx.id,
-    userId: "", // Often not provided in this specific payload
-    childId: "", // Often not provided
+    userId: "",
+    childId: "",
     childName: apiTx.childName || apiTx.studentName || "Unknown Child",
     schoolName: apiTx.schoolName || "Unknown School",
     amount,
