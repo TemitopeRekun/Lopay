@@ -1,6 +1,78 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@plugin "@tailwindcss/forms";
+@plugin "@tailwindcss/container-queries";
+
+@theme {
+  --color-primary: #4a90e2;
+  --color-primary-dark: #357abd;
+  --color-primary-light: #d4e3f8;
+
+  --color-accent: #13ec5b;
+  --color-accent-dark: #0c9e3d;
+
+  --color-secondary: #50e3c2;
+  --color-warning: #f5a623;
+  --color-danger: #ff3b30;
+  --color-success: #34c759;
+
+  --color-background-light: #f2f2f7;
+  --color-background-dark: #101214;
+
+  --color-card-light: #ffffff;
+  --color-card-dark: #1c1c1e;
+
+  --color-text-primary-light: #1c1c1e;
+  --color-text-primary-dark: #f2f2f7;
+  --color-text-secondary-light: #8e8e93;
+  --color-text-secondary-dark: #9ca3af;
+
+  --font-display: "Manrope", sans-serif;
+  --font-sans: "Manrope", sans-serif;
+
+  --radius: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.5rem;
+
+  --animate-fade-in: fadeIn 0.5s ease-out;
+  --animate-fade-in-up: fadeInUp 0.6s ease-out;
+  --animate-loading-bar: loadingBar 2.8s ease-in-out forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes loadingBar {
+  0% {
+    width: 0%;
+  }
+  20% {
+    width: 10%;
+  }
+  50% {
+    width: 60%;
+  }
+  100% {
+    width: 100%;
+  }
+}
 
 body {
   -webkit-font-smoothing: antialiased;
@@ -9,11 +81,19 @@ body {
 }
 
 .material-symbols-outlined {
-  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+  font-variation-settings:
+    "FILL" 0,
+    "wght" 400,
+    "GRAD" 0,
+    "opsz" 24;
 }
 
 .material-symbols-outlined.filled {
-  font-variation-settings: "FILL" 1, "wght" 400, "GRAD" 0, "opsz" 24;
+  font-variation-settings:
+    "FILL" 1,
+    "wght" 400,
+    "GRAD" 0,
+    "opsz" 24;
 }
 
 .no-scrollbar::-webkit-scrollbar {
