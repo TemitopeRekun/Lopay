@@ -21,15 +21,36 @@ const OwnerDashboard: React.FC = () => {
     notifications,
     pendingPayments,
     isLoading,
+    hasError,
+    refreshData,
   } = useData();
   const navigate = useNavigate();
   const [chartView, setChartView] = useState<"Weekly" | "Monthly">("Monthly");
 
   const isOwner = userRole === "owner";
 
-  const { data: adminPendingFirst = [] } =
-    useAdminPendingFirstPayments(isOwner);
-  const { data: platformRevenueData } = useAdminPlatformRevenue(isOwner);
+  const {
+    data: adminPendingFirst = [],
+    isError: pendingFirstError,
+    refetch: refetchPendingFirst,
+  } = useAdminPendingFirstPayments(isOwner);
+  const {
+    data: platformRevenueData,
+    isError: platformRevenueError,
+    refetch: refetchPlatformRevenue,
+  } = useAdminPlatformRevenue(isOwner);
+
+  const hasNetworkError = hasError || pendingFirstError || platformRevenueError;
+
+  const handleRetryAll = () => {
+    refreshData();
+    if (pendingFirstError) {
+      refetchPendingFirst();
+    }
+    if (platformRevenueError) {
+      refetchPlatformRevenue();
+    }
+  };
 
   const unreadNotificationsCount = useMemo(() => {
     return notifications ? notifications.filter((n) => !n.read).length : 0;
@@ -329,6 +350,30 @@ const OwnerDashboard: React.FC = () => {
       </div>
 
       <main className="flex flex-col gap-6 p-6 pb-32">
+        {hasNetworkError && (
+          <div className="flex items-center justify-between gap-3 rounded-2xl border border-danger/20 bg-danger/5 px-4 py-3">
+            <div className="flex items-start gap-3">
+              <span className="material-symbols-outlined text-danger">
+                wifi_off
+              </span>
+              <div>
+                <p className="text-xs font-bold text-text-primary-light dark:text-text-primary-dark">
+                  Couldn&apos;t load latest admin data
+                </p>
+                <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                  Check your connection and try again.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={handleRetryAll}
+              className="px-3 py-1.5 rounded-full bg-danger text-white text-[10px] font-bold uppercase tracking-[0.15em] active:scale-95 transition-transform"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
         {/* Key Metrics */}
         <div className="grid grid-cols-2 gap-4">
           <div className="col-span-2 bg-slate-900 text-white p-7 rounded-3xl shadow-xl relative overflow-hidden">
@@ -338,7 +383,7 @@ const OwnerDashboard: React.FC = () => {
               </span>
             </div>
             <div className="relative z-10">
-              <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] mb-2">
+              <p className="text-slate-400 text-xs font-bold uppercase tracking-[0.2em] mb-2">
                 Total Platform Revenue
               </p>
               <h2 className="text-4xl font-black tracking-tighter">
@@ -356,7 +401,7 @@ const OwnerDashboard: React.FC = () => {
             <p className="text-2xl font-black text-text-primary-light dark:text-text-primary-dark">
               {activeStudents}
             </p>
-            <p className="text-[10px] font-bold text-text-secondary-light uppercase tracking-wider">
+            <p className="text-xs font-bold text-text-secondary-light uppercase tracking-wider">
               Total Students
             </p>
           </div>
@@ -365,7 +410,7 @@ const OwnerDashboard: React.FC = () => {
             <p className="text-2xl font-black text-primary">
               ₦{(pendingAmount / 1000000).toFixed(1)}M
             </p>
-            <p className="text-[10px] font-bold text-text-secondary-light uppercase tracking-wider">
+            <p className="text-xs font-bold text-text-secondary-light uppercase tracking-wider">
               Plan Arrears
             </p>
           </div>
@@ -377,7 +422,7 @@ const OwnerDashboard: React.FC = () => {
               <h3 className="text-sm font-black text-text-primary-light dark:text-text-primary-dark uppercase tracking-widest">
                 Revenue Insights
               </h3>
-              <p className="text-[10px] text-text-secondary-light font-bold">
+              <p className="text-xs text-text-secondary-light font-bold">
                 Platform collection trends
               </p>
             </div>
@@ -426,7 +471,7 @@ const OwnerDashboard: React.FC = () => {
           <div className="mt-8 pt-6 border-t border-gray-50 dark:border-gray-800 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="size-2 rounded-full bg-accent"></div>
-              <span className="text-[10px] font-bold text-text-secondary-light uppercase">
+              <span className="text-xs font-bold text-text-secondary-light uppercase">
                 Growth: +12.4%
               </span>
             </div>

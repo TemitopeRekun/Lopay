@@ -5,6 +5,7 @@ import { Header } from "../components/Header";
 import { PaymentPlan } from "../types";
 import { useAuth } from "../context/AuthContext";
 import { useData } from "../context/DataContext";
+import { useUI } from "../context/UIContext";
 import { PLATFORM_BANK } from "../services/backend";
 
 interface LocationState {
@@ -25,6 +26,7 @@ const ConfirmPlanScreen: React.FC = () => {
   const location = useLocation();
   const { addChild } = useData();
   const { role: userRole } = useAuth();
+  const { showToast } = useUI();
   const [isProcessing, setIsProcessing] = useState(false);
   const [receiptImage, setReceiptImage] = useState<string | null>(null);
 
@@ -56,7 +58,7 @@ const ConfirmPlanScreen: React.FC = () => {
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    alert("Account number copied!");
+    showToast("Account number copied!", "success");
   };
 
   const handleSnapReceipt = () => {
@@ -68,11 +70,11 @@ const ConfirmPlanScreen: React.FC = () => {
 
   const handleConfirm = () => {
     if (!receiptImage) {
-      alert("Please upload a payment receipt to proceed.");
+      showToast("Please upload a payment receipt to proceed.", "error");
       return;
     }
     if (!schoolId) {
-      alert("Missing school information. Please restart the process.");
+      showToast("Missing school information. Please restart the process.", "error");
       return;
     }
 
@@ -114,7 +116,7 @@ const ConfirmPlanScreen: React.FC = () => {
           ? backendMessage.join(", ")
           : backendMessage || err.message || "Failed to confirm enrollment.";
 
-        alert(`Enrollment Failed: ${errorMessage}`);
+        showToast(`Enrollment Failed: ${errorMessage}`, "error");
         setIsProcessing(false);
       }
     }, 2000);

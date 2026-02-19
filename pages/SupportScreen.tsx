@@ -2,8 +2,11 @@
 import React from 'react';
 import { Layout } from '../components/Layout';
 import { Header } from '../components/Header';
+import { useUI } from '../context/UIContext';
 
 const SupportScreen: React.FC = () => {
+  const { showToast } = useUI();
+
   return (
     <Layout>
       <Header title="Help & Support" />
@@ -31,7 +34,7 @@ const SupportScreen: React.FC = () => {
         <h3 className="font-bold text-lg mb-4 mt-8 text-text-primary-light dark:text-text-primary-dark">Contact Us</h3>
         <div className="flex flex-col gap-3">
             <button 
-                onClick={() => alert("Connecting to an agent...")}
+                onClick={() => showToast("Connecting to an agent...", "info")}
                 className="flex items-center gap-4 p-4 bg-white dark:bg-card-dark rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
             >
                 <span className="material-symbols-outlined text-green-500">chat</span>

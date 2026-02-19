@@ -38,6 +38,66 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import PaymentApprovalsScreen from "./pages/admin/PaymentApprovalsScreen";
 import ManageFeesScreen from "./pages/admin/ManageFeesScreen";
 
+type ErrorBoundaryProps = {
+  children: React.ReactNode;
+};
+
+type ErrorBoundaryState = {
+  hasError: boolean;
+};
+
+class ErrorBoundary extends React.Component<
+  ErrorBoundaryProps,
+  ErrorBoundaryState
+> {
+  props: ErrorBoundaryProps;
+  state: ErrorBoundaryState = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: unknown, info: unknown) {
+    console.error("Unhandled application error", error, info);
+  }
+
+  handleReload = () => {
+    if (typeof window !== "undefined") {
+      window.location.reload();
+    }
+  };
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="fixed inset-0 z-[9999] bg-black flex flex-col items-center justify-center px-8">
+          <div className="flex flex-col items-center gap-6">
+            <div className="w-24 h-24 rounded-full border border-white/20 flex items-center justify-center">
+              <span className="text-white text-4xl font-black">!</span>
+            </div>
+            <div className="text-center space-y-3">
+              <h1 className="text-white text-2xl font-black tracking-tight">
+                Something went wrong
+              </h1>
+              <p className="text-white/60 text-xs font-medium uppercase tracking-[0.2em]">
+                TAP TO RELOAD THE APP
+              </p>
+            </div>
+            <button
+              onClick={this.handleReload}
+              className="mt-2 px-6 py-3 rounded-full bg-white text-black text-xs font-bold uppercase tracking-[0.2em] shadow-[0_0_20px_rgba(255,255,255,0.35)] active:scale-95 transition-transform"
+            >
+              Reload
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
 const SplashScreen = () => (
   <div className="fixed inset-0 z-[9999] bg-black flex flex-col items-center justify-center animate-fade-in">
     <div className="flex flex-col items-center gap-8 animate-fade-in-up">
@@ -321,9 +381,10 @@ const App: React.FC = () => {
       <UIProvider>
         <AuthProvider>
           <DataProvider>
-            {/* AppProvider removed - Context Split Complete */}
             <HashRouter>
-              <AppRoutes />
+              <ErrorBoundary>
+                <AppRoutes />
+              </ErrorBoundary>
             </HashRouter>
           </DataProvider>
         </AuthProvider>

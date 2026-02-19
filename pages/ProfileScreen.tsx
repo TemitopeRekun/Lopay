@@ -5,6 +5,7 @@ import { Header } from "../components/Header";
 import { BottomNav } from "../components/BottomNav";
 import { useAuth } from "../context/AuthContext";
 import { useData } from "../context/DataContext";
+import { useUI } from "../context/UIContext";
 import { useUser, useUpdateUser } from "../hooks/useQueries";
 
 const ProfileScreen: React.FC = () => {
@@ -19,6 +20,7 @@ const ProfileScreen: React.FC = () => {
     isOwnerAccount,
   } = useAuth();
   const { schools } = useData();
+  const { showToast } = useUI();
   const navigate = useNavigate();
 
   // Fetch acting user data if impersonating
@@ -91,10 +93,10 @@ const ProfileScreen: React.FC = () => {
         });
       }
       setIsEditingBank(false);
-      alert("Settlement details updated successfully!");
+      showToast("Settlement details updated successfully!", "success");
     } catch (error) {
       console.error("Failed to update bank details", error);
-      alert("Failed to update details. Please try again.");
+      showToast("Failed to update details. Please try again.", "error");
     }
   };
 
@@ -113,7 +115,7 @@ const ProfileScreen: React.FC = () => {
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    alert("Account number copied!");
+    showToast("Account number copied!", "success");
   };
 
   return (

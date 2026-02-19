@@ -3,10 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { Layout } from "../../components/Layout";
 import { Header } from "../../components/Header";
 import { useAddSchool } from "../../hooks/useQueries";
+import { useUI } from "../../context/UIContext";
 
 const AddSchoolScreen: React.FC = () => {
   const navigate = useNavigate();
   const { mutate: addSchool, isPending: isSubmitting } = useAddSchool();
+  const { showToast } = useUI();
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
   const [email, setEmail] = useState("");
@@ -44,12 +46,15 @@ const AddSchoolScreen: React.FC = () => {
       },
       {
         onSuccess: () => {
-          alert("School onboarded successfully!");
+          showToast("School onboarded successfully!", "success");
           navigate("/owner-dashboard");
         },
         onError: (error: any) => {
           console.error("Failed to onboard school", error);
-          alert(error.response?.data?.message || "Failed to onboard school");
+          showToast(
+            error.response?.data?.message || "Failed to onboard school",
+            "error"
+          );
         },
       }
     );

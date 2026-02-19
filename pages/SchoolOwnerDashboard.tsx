@@ -8,6 +8,7 @@ import { PlanCard } from "../components/PlanCard";
 import { RecentTransactionsList } from "../components/RecentTransactionsList";
 import { ImpersonationBanner } from "../components/ImpersonationBanner";
 import { NotificationIconButton } from "../components/NotificationIconButton";
+import { useUI } from "../context/UIContext";
 
 const SchoolOwnerDashboard: React.FC = () => {
   const {
@@ -24,7 +25,10 @@ const SchoolOwnerDashboard: React.FC = () => {
     schools,
     isLoading,
     schoolStats,
+    hasError,
+    refreshData,
   } = useData();
+  const { showToast } = useUI();
   const navigate = useNavigate();
   const [reportMonth, setReportMonth] = useState(new Date().getMonth());
   const [isGenerating, setIsGenerating] = useState(false);
@@ -120,10 +124,13 @@ const SchoolOwnerDashboard: React.FC = () => {
   ];
 
   const downloadReport = () => {
-    if (!mySchool) return;
+    if (!mySchool) {
+      showToast("Unable to generate report. Please select a school.", "error");
+      return;
+    }
     setIsGenerating(true);
     setTimeout(() => {
-      alert("Report generated successfully!");
+      showToast("Report generated successfully", "success");
       setIsGenerating(false);
     }, 1000);
   };
@@ -173,7 +180,7 @@ const SchoolOwnerDashboard: React.FC = () => {
             <h1 className="text-lg font-extrabold tracking-tight text-text-primary-light dark:text-text-primary-dark">
               {mySchool?.name || "School Dashboard"}
             </h1>
-            <p className="text-[9px] text-text-secondary-light font-bold uppercase tracking-widest opacity-70">
+            <p className="text-[11px] text-text-secondary-light font-bold uppercase tracking-widest opacity-70">
               Bursar Management Portal
             </p>
           </div>
@@ -201,16 +208,40 @@ const SchoolOwnerDashboard: React.FC = () => {
         </div>
 
         <div className="flex items-center justify-between px-1">
-          <p className="text-[9px] font-bold text-text-secondary-light uppercase tracking-widest">
+          <p className="text-[11px] font-bold text-text-secondary-light uppercase tracking-widest">
             Student Registry
           </p>
-          <span className="text-[9px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+          <span className="text-[11px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
             {filteredStudents.length} Students
           </span>
         </div>
       </div>
 
       <main className="flex flex-col gap-6 p-6 pb-32">
+        {hasError && (
+          <div className="flex items-center justify-between gap-3 rounded-2xl border border-danger/20 bg-danger/5 px-4 py-3">
+            <div className="flex items-start gap-3">
+              <span className="material-symbols-outlined text-danger">
+                wifi_off
+              </span>
+              <div>
+                <p className="text-xs font-bold text-text-primary-light dark:text-text-primary-dark">
+                  Couldn&apos;t load latest school data
+                </p>
+                <p className="text-[10px] text-text-secondary-light dark:text-text-secondary-dark">
+                  Check your connection and try again.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={refreshData}
+              className="px-3 py-1.5 rounded-full bg-danger text-white text-[10px] font-bold uppercase tracking-[0.15em] active:scale-95 transition-transform"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
         {/* Management Tools */}
         <div className="grid grid-cols-2 gap-4">
           <button
@@ -226,7 +257,7 @@ const SchoolOwnerDashboard: React.FC = () => {
               <p className="text-sm font-black text-secondary uppercase tracking-widest">
                 Fee Structure
               </p>
-              <p className="text-[9px] text-secondary/60 font-bold uppercase mt-1">
+              <p className="text-[11px] text-secondary/60 font-bold uppercase mt-1">
                 Configure Prices
               </p>
             </div>
@@ -250,7 +281,7 @@ const SchoolOwnerDashboard: React.FC = () => {
               <p className="text-sm font-black text-primary uppercase tracking-widest">
                 Verify Payments
               </p>
-              <p className="text-[9px] text-primary/60 font-bold uppercase mt-1">
+              <p className="text-[11px] text-primary/60 font-bold uppercase mt-1">
                 Approve Requests
               </p>
             </div>
@@ -265,7 +296,7 @@ const SchoolOwnerDashboard: React.FC = () => {
               </span>
             </div>
             <div className="relative z-10">
-              <p className="text-white/50 text-[9px] font-bold uppercase tracking-[0.3em] mb-2">
+              <p className="text-white/50 text-[11px] font-bold uppercase tracking-[0.3em] mb-2">
                 Platform Collections
               </p>
               <h2 className="text-3xl font-black tracking-tighter mb-4">
@@ -291,7 +322,7 @@ const SchoolOwnerDashboard: React.FC = () => {
             className="bg-white dark:bg-card-dark p-5 rounded-[24px] border border-gray-100 dark:border-gray-800 shadow-sm cursor-pointer active:scale-95 transition-transform"
             onClick={() => navigate("/admin/defaulters")}
           >
-            <p className="text-[9px] font-black text-text-secondary-light uppercase tracking-[0.2em] mb-2">
+            <p className="text-[11px] font-black text-text-secondary-light uppercase tracking-[0.2em] mb-2">
               Fee Arrears
             </p>
             <div className="flex items-baseline gap-1">
@@ -305,7 +336,7 @@ const SchoolOwnerDashboard: React.FC = () => {
           </div>
 
           <div className="bg-white dark:bg-card-dark p-5 rounded-[24px] border border-gray-100 dark:border-gray-800 shadow-sm">
-            <p className="text-[9px] font-black text-text-secondary-light uppercase tracking-[0.2em] mb-2">
+            <p className="text-[11px] font-black text-text-secondary-light uppercase tracking-[0.2em] mb-2">
               Active Plans
             </p>
             <div className="flex items-baseline gap-1">
@@ -342,7 +373,7 @@ const SchoolOwnerDashboard: React.FC = () => {
                 <h4 className="font-black text-text-primary-light dark:text-text-primary-dark mb-1 text-base">
                   No Records Found
                 </h4>
-                <p className="text-[10px] text-text-secondary-light max-w-[180px] mx-auto leading-relaxed">
+                <p className="text-xs text-text-secondary-light max-w-[180px] mx-auto leading-relaxed">
                   No students match your search criteria.
                 </p>
               </div>
@@ -376,7 +407,7 @@ const SchoolOwnerDashboard: React.FC = () => {
               <h3 className="text-xs font-black text-text-primary-light dark:text-text-primary-dark uppercase tracking-[0.2em]">
                 Exports Center
               </h3>
-              <p className="text-[9px] text-text-secondary-light font-bold uppercase tracking-tight">
+              <p className="text-[11px] text-text-secondary-light font-bold uppercase tracking-tight">
                 Audit and transaction reports
               </p>
             </div>

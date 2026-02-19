@@ -1,5 +1,6 @@
 import React, { useRef, useState } from "react";
 import { useData } from "../context/DataContext";
+import { useUI } from "../context/UIContext";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -13,10 +14,29 @@ export const Layout: React.FC<LayoutProps> = ({
   showBottomNav = false,
 }) => {
   const { refreshData } = useData();
+  const { showToast } = useUI();
+  const [isOnline, setIsOnline] = useState(() =>
+    typeof navigator !== "undefined" ? navigator.onLine : true,
+  );
   const [pullDistance, setPullDistance] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const startYRef = useRef<number | null>(null);
   const canPullRef = useRef(false);
+
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
 
   const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
     if (isRefreshing) return;
@@ -59,6 +79,12 @@ export const Layout: React.FC<LayoutProps> = ({
 
     if (!shouldRefresh) {
       setPullDistance(0);
+      return;
+    }
+
+    if (!isOnline) {
+      setPullDistance(0);
+      showToast("You're offline. Showing cached data.", "info");
       return;
     }
 
@@ -109,6 +135,14 @@ export const Layout: React.FC<LayoutProps> = ({
               transition: isRefreshing ? "transform 150ms ease-out" : undefined,
             }}
           >
+            {!isOnline && (
+              <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
+                <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 text-amber-700 border border-amber-500/30 px-3 py-1 text-[9px] font-black uppercase tracking-[0.2em]">
+                  <span className="size-1.5 rounded-full bg-amber-500"></span>
+                  Offline
+                </div>
+              </div>
+            )}
             {children}
           </div>
         </div>

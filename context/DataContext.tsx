@@ -44,6 +44,7 @@ interface DataContextType {
   notifications: Notification[];
   schools: School[];
   isLoading: boolean;
+  hasError: boolean;
 
   // Actions / Mutations
   refreshData: () => Promise<void>;
@@ -98,43 +99,63 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({
       : "none";
 
   // --- Queries ---
-  const { data: childrenData = [], isLoading: loadingChildren } = useChildren(
-    isAuthenticated && isParent,
-  );
+  const {
+    data: childrenData = [],
+    isLoading: loadingChildren,
+    isError: errorChildren,
+  } = useChildren(isAuthenticated && isParent);
 
-  const { data: parentTransactions = [], isLoading: loadingTransactions } =
-    useTransactions(user?.id, isAuthenticated && isParent);
+  const {
+    data: parentTransactions = [],
+    isLoading: loadingTransactions,
+    isError: errorTransactions,
+  } = useTransactions(user?.id, isAuthenticated && isParent);
 
   const {
     data: schoolTransactions = [],
     isLoading: loadingSchoolTransactions,
+    isError: errorSchoolTransactions,
   } = useSchoolTransactions(isAuthenticated && isSchoolContext);
 
-  const { data: globalTransactions = [] } = useGlobalTransactions(
-    isAuthenticated && isPlatformOwner,
-  );
+  const { data: globalTransactions = [], isError: errorGlobalTransactions } =
+    useGlobalTransactions(isAuthenticated && isPlatformOwner);
 
-  const { data: notifications = [], isLoading: loadingNotifications } =
-    useNotifications(user?.id, isAuthenticated);
+  const {
+    data: notifications = [],
+    isLoading: loadingNotifications,
+    isError: errorNotifications,
+  } = useNotifications(user?.id, isAuthenticated);
 
-  const { data: schools = [], isLoading: loadingSchools } = useSchools();
+  const {
+    data: schools = [],
+    isLoading: loadingSchools,
+    isError: errorSchools,
+  } = useSchools();
 
   // School Owner / Platform Owner Data
-  const { data: allStudents = [], isLoading: loadingStudents } =
-    useSchoolStudents(
-      schoolContextKey,
-      isAuthenticated && (isSchoolContext || isPlatformOwner),
-    );
-
-  const { data: pendingPayments = [], isLoading: loadingPending } =
-    usePendingPayments(
-      schoolContextKey,
-      isAuthenticated && (isSchoolContext || isPlatformOwner),
-    );
-
-  const { data: schoolStats = null, isLoading: loadingStats } = useSchoolStats(
+  const {
+    data: allStudents = [],
+    isLoading: loadingStudents,
+    isError: errorStudents,
+  } = useSchoolStudents(
+    schoolContextKey,
     isAuthenticated && (isSchoolContext || isPlatformOwner),
   );
+
+  const {
+    data: pendingPayments = [],
+    isLoading: loadingPending,
+    isError: errorPending,
+  } = usePendingPayments(
+    schoolContextKey,
+    isAuthenticated && (isSchoolContext || isPlatformOwner),
+  );
+
+  const {
+    data: schoolStats = null,
+    isLoading: loadingStats,
+    isError: errorStats,
+  } = useSchoolStats(isAuthenticated && (isSchoolContext || isPlatformOwner));
 
   const transactions = isPlatformOwner
     ? globalTransactions
@@ -262,6 +283,17 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({
         loadingSchoolTransactions ||
         loadingStats));
 
+  const hasError =
+    !!errorChildren ||
+    !!errorTransactions ||
+    !!errorNotifications ||
+    !!errorSchools ||
+    !!errorGlobalTransactions ||
+    !!errorSchoolTransactions ||
+    !!errorStudents ||
+    !!errorPending ||
+    !!errorStats;
+
   return (
     <DataContext.Provider
       value={{
@@ -276,6 +308,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({
         notifications,
         schools,
         isLoading,
+        hasError,
         refreshData,
         refreshParentView,
         refreshSchoolView,
@@ -301,6 +334,32 @@ export const useData = () => {
   const context = useContext(DataContext);
   if (context === undefined) {
     throw new Error("useData must be used within a DataProvider");
+  }
+  return context;
+};
+
+export const useParentData = () => {
+  const context = useData();
+  if (!context.isParent) {
+    throw new Error(
+      "useParentData must be used in a parent or student context",
+    );
+  }
+  return context;
+};
+
+export const useSchoolData = () => {
+  const context = useData();
+  if (!context.isSchoolContext && !context.isPlatformOwner) {
+    throw new Error("useSchoolData must be used in a school or owner context");
+  }
+  return context;
+};
+
+export const useOwnerData = () => {
+  const context = useData();
+  if (!context.isPlatformOwner) {
+    throw new Error("useOwnerData must be used in a platform owner context");
   }
   return context;
 };

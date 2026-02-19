@@ -93,6 +93,32 @@ export const UIProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     [removeToast]
   );
 
+  const getToastStyles = (type: ToastMessage["type"]) => {
+    switch (type) {
+      case "success":
+        return "bg-success/90 text-white border-success/30";
+      case "error":
+        return "bg-danger/90 text-white border-danger/30";
+      case "warning":
+        return "bg-warning/90 text-black border-warning/40";
+      default:
+        return "bg-slate-900 text-white border-white/10";
+    }
+  };
+
+  const getToastIcon = (type: ToastMessage["type"]) => {
+    switch (type) {
+      case "success":
+        return "check_circle";
+      case "error":
+        return "error";
+      case "warning":
+        return "warning";
+      default:
+        return "info";
+    }
+  };
+
   return (
     <UIContext.Provider
       value={{
@@ -109,7 +135,33 @@ export const UIProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
       }}
     >
       {children}
-      {/* Toast Container could be rendered here or in a separate component using useUI() */}
+      <div className="fixed top-4 right-4 z-[9999] flex w-[360px] max-w-[92vw] flex-col gap-3 pointer-events-none">
+        {toasts.map((toast) => (
+          <div
+            key={toast.id}
+            className={`pointer-events-auto flex items-start gap-3 rounded-2xl border px-4 py-3 shadow-xl backdrop-blur-md animate-fade-in-up ${getToastStyles(
+              toast.type
+            )}`}
+            role="status"
+            aria-live="polite"
+          >
+            <span className="material-symbols-outlined text-base mt-0.5">
+              {getToastIcon(toast.type)}
+            </span>
+            <p className="text-xs font-bold leading-relaxed flex-1">
+              {toast.message}
+            </p>
+            <button
+              type="button"
+              onClick={() => removeToast(toast.id)}
+              className="rounded-full p-1 text-white/80 hover:text-white transition-colors"
+              aria-label="Dismiss notification"
+            >
+              <span className="material-symbols-outlined text-sm">close</span>
+            </button>
+          </div>
+        ))}
+      </div>
     </UIContext.Provider>
   );
 };

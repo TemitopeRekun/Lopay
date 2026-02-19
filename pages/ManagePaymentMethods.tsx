@@ -4,21 +4,23 @@ import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
 import { Header } from '../components/Header';
 import { Layout } from '../components/Layout';
+import { useUI } from '../context/UIContext';
 
 export const ManagePaymentMethods: React.FC = () => {
   const navigate = useNavigate();
+  const { showToast } = useUI();
 
   const handleAddMethod = () => {
       // In a real app, this would open a modal or navigate to a form
       const method = window.prompt("Enter new card number (Simulation):", "");
       if (method) {
-          alert("Payment method added successfully!");
+          showToast("Payment method added successfully!", "success");
       }
   };
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    alert('Copied to clipboard');
+    showToast("Copied to clipboard", "success");
   };
 
   return (

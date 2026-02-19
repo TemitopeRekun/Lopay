@@ -37,12 +37,8 @@ apiClient.interceptors.response.use(
     const status = error?.response?.status;
 
     if (status === 401) {
-      localStorage.removeItem("accessToken");
-      localStorage.removeItem("user");
-
       if (typeof window !== "undefined") {
-        window.location.href = "/#/auth";
-        window.location.reload();
+        window.dispatchEvent(new Event("lopay:unauthorized"));
       }
     }
 

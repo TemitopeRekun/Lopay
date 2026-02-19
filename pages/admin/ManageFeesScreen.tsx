@@ -3,12 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { Layout } from "../../components/Layout";
 import { Header } from "../../components/Header";
 import { useAuth } from "../../context/AuthContext";
+import { useUI } from "../../context/UIContext";
 import { BackendAPI } from "../../services/backend";
 import { useSchools, useSchoolFees } from "../../hooks/useQueries";
 
 const ManageFeesScreen: React.FC = () => {
   const navigate = useNavigate();
   const { user: currentUser, activeSchoolId } = useAuth();
+  const { showToast } = useUI();
   const { data: schools = [] } = useSchools();
 
   const mySchool = useMemo(() => {
@@ -81,7 +83,7 @@ const ManageFeesScreen: React.FC = () => {
       });
 
       if (updates.length === 0) {
-        alert("No fee changes detected to publish.");
+        showToast("No fee changes detected to publish.", "info");
         setIsSaving(false);
         return;
       }
@@ -132,8 +134,8 @@ const ManageFeesScreen: React.FC = () => {
       await refetchFees();
 
       setTimeout(() => {
-         navigate(-1);
-        alert("Fee structure updated successfully!");
+        showToast("Fee structure updated successfully!", "success");
+        navigate(-1);
         // We stay on the page so the user can see the saved values
         // navigate(-1);
       }, 500);
@@ -141,7 +143,7 @@ const ManageFeesScreen: React.FC = () => {
       console.error("Failed to update fees", error);
       const errorMessage =
         error.response?.data?.message || error.message || "Unknown error";
-      alert(`Failed to update fees: ${errorMessage}`);
+      showToast(`Failed to update fees: ${errorMessage}`, "error");
     } finally {
       setIsSaving(false);
       setProgress("");

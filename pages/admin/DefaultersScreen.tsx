@@ -4,19 +4,21 @@ import { useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/Layout';
 import { Header } from '../../components/Header';
 import { useData } from '../../context/DataContext';
+import { useUI } from '../../context/UIContext';
 
 const DefaultersScreen: React.FC = () => {
   const navigate = useNavigate();
   const { allStudents } = useData();
+  const { showToast } = useUI();
 
   const defaulters = allStudents.filter(child => child.status === 'Defaulted');
 
   const handleRemind = (childName: string) => {
-      alert(`Reminder sent to parents of ${childName}`);
+      showToast(`Reminder sent to parents of ${childName}`, "success");
   };
 
   const handleCall = () => {
-      alert("Simulating call to parent...");
+      showToast("Simulating call to parent...", "info");
       // window.location.href = "tel:1234567890";
   };
 

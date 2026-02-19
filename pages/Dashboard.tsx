@@ -25,6 +25,8 @@ const Dashboard: React.FC = () => {
     notifications = [],
     schools = [],
     isLoading,
+    hasError,
+    refreshData,
   } = useData();
   const { data: allUsers = [] } = useUsers(isOwnerAccount);
   const navigate = useNavigate();
@@ -198,6 +200,30 @@ const Dashboard: React.FC = () => {
       </div>
 
       <main className="flex flex-col gap-6 p-6">
+        {hasError && (
+          <div className="flex items-center justify-between gap-3 rounded-2xl border border-danger/20 bg-danger/5 px-4 py-3">
+            <div className="flex items-start gap-3">
+              <span className="material-symbols-outlined text-danger">
+                wifi_off
+              </span>
+              <div>
+                <p className="text-xs font-bold text-text-primary-light dark:text-text-primary-dark">
+                  Couldn&apos;t load latest data
+                </p>
+                <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                  Check your connection and try again.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={refreshData}
+              className="px-3 py-1.5 rounded-full bg-danger text-white text-[10px] font-bold uppercase tracking-[0.15em] active:scale-95 transition-transform"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
         {!hasPlans ? (
           <div className="flex flex-col items-center justify-center py-10 text-center animate-fade-in-up">
             <div className="w-48 h-48 bg-gray-50 dark:bg-white/5 rounded-full flex items-center justify-center mb-6 relative overflow-hidden">
@@ -239,17 +265,17 @@ const Dashboard: React.FC = () => {
               <div className="flex flex-col gap-1 mt-2">
                 <div className="flex items-center gap-2">
                   <div className="size-2 rounded-full bg-accent animate-pulse"></div>
-                  <p className="text-white/70 text-[10px] font-bold uppercase tracking-wider">
+                  <p className="text-white/70 text-xs font-bold uppercase tracking-wider">
                     Direct Settlement Active
                   </p>
                 </div>
                 {singleNextEnrollment && singleNextEnrollment.nextDueDate && (
-                  <p className="text-white/70 text-[10px] font-bold uppercase tracking-wider">
+                  <p className="text-white/70 text-xs font-bold uppercase tracking-wider">
                     Due {singleNextEnrollment.nextDueDate}
                   </p>
                 )}
                 {!singleNextEnrollment && earliestDueDate && (
-                  <p className="text-white/70 text-[10px] font-bold uppercase tracking-wider">
+                  <p className="text-white/70 text-xs font-bold uppercase tracking-wider">
                     Earliest due: {earliestDueDate}
                   </p>
                 )}

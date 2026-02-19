@@ -116,6 +116,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     });
   };
 
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      logout();
+    };
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("lopay:unauthorized", handleUnauthorized);
+    }
+
+    return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("lopay:unauthorized", handleUnauthorized);
+      }
+    };
+  }, [logout]);
+
   const register = async (data: RegisterData) => {
     try {
       await BackendAPI.auth.register(data);

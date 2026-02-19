@@ -4,6 +4,7 @@ import { Layout } from "../components/Layout";
 import { Header } from "../components/Header";
 import { useAuth } from "../context/AuthContext";
 import { useData } from "../context/DataContext";
+import { useUI } from "../context/UIContext";
 import { useSchoolBankDetails } from "../hooks/useQueries";
 import { getPlatformActivationBankDetails } from "../services/backend";
 
@@ -12,6 +13,7 @@ const PaymentMethodsScreen: React.FC = () => {
   const navigate = useNavigate();
   const { role: userRole, user: currentUser } = useAuth();
   const { submitPayment, childrenData, schools } = useData();
+  const { showToast } = useUI();
   const [isProcessing, setIsProcessing] = useState(false);
   const [receiptImage, setReceiptImage] = useState<string | null>(null);
 
@@ -82,7 +84,7 @@ const PaymentMethodsScreen: React.FC = () => {
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    alert("Account number copied!");
+    showToast("Account number copied!", "success");
   };
 
   const handleSnapReceipt = () => {
@@ -100,18 +102,19 @@ const PaymentMethodsScreen: React.FC = () => {
           paymentAmount,
           receiptImage || undefined,
         );
-        alert(
+        showToast(
           "Payment submitted successfully! Waiting for school confirmation.",
+          "success"
         );
         navigate("/dashboard");
       } catch (error) {
         console.error(error);
-        alert("Failed to submit payment. Please try again.");
+        showToast("Failed to submit payment. Please try again.", "error");
       } finally {
         setIsProcessing(false);
       }
     } else {
-      alert("Please enter a valid amount.");
+      showToast("Please enter a valid amount.", "error");
     }
   };
 

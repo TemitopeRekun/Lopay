@@ -107,6 +107,9 @@ export const useSchoolStats = (enabled: boolean = true) => {
     queryKey: QUERY_KEYS.schoolStats,
     queryFn: BackendAPI.school.getStats,
     enabled,
+    staleTime: 1000 * 30,
+    refetchInterval: enabled ? 1000 * 30 : false,
+    refetchOnWindowFocus: true,
   });
 };
 
@@ -133,6 +136,9 @@ export const usePendingPayments = (
         .filter((t) => t.status === "Pending");
     },
     enabled,
+    staleTime: 1000 * 30,
+    refetchInterval: enabled ? 1000 * 30 : false,
+    refetchOnWindowFocus: true,
   });
 };
 
@@ -236,6 +242,9 @@ export const useAdminPlatformRevenue = (enabled: boolean = true) => {
       return data;
     },
     enabled,
+    staleTime: 1000 * 30,
+    refetchInterval: enabled ? 1000 * 30 : false,
+    refetchOnWindowFocus: true,
   });
 };
 
