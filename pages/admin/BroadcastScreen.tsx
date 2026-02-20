@@ -4,20 +4,34 @@ import { useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/Layout';
 import { Header } from '../../components/Header';
 import { useBroadcast } from '../../hooks/useQueries';
+import { useUI } from '../../context/UIContext';
 
 const BroadcastScreen: React.FC = () => {
   const navigate = useNavigate();
   const { mutate: sendBroadcast } = useBroadcast();
+  const { showToast } = useUI();
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !message) return;
+    if (!title || !message) {
+      showToast('Please enter a subject and message.', 'warning');
+      return;
+    }
 
-    sendBroadcast({ title, message });
-    navigate('/owner-dashboard');
-    // In a real app, this would show a toast success message
+    sendBroadcast(
+      { title, message },
+      {
+        onSuccess: () => {
+          showToast('Broadcast sent successfully.', 'success');
+          navigate('/owner-dashboard');
+        },
+        onError: () => {
+          showToast('Failed to send broadcast. Please try again.', 'error');
+        },
+      },
+    );
   };
 
   return (

@@ -142,7 +142,7 @@ const ProfileScreen: React.FC = () => {
       <Header title="My Profile" />
       <div className="flex-1 overflow-y-auto pb-10">
         {/* Personal Identity Header */}
-        <div className="p-8 flex flex-col items-center bg-gradient-to-b from-gray-50 to-white dark:from-white/5 dark:to-background-dark border-b border-gray-100 dark:border-gray-800">
+        <div className="p-8 flex flex-col items-center bg-linear-to-b from-gray-50 to-white dark:from-white/5 dark:to-background-dark border-b border-gray-100 dark:border-gray-800">
           <div className="relative mb-4">
             <div className="size-24 rounded-[32px] overflow-hidden border-4 border-white dark:border-gray-800 shadow-2xl rotate-3">
               <img

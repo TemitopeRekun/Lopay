@@ -16,7 +16,7 @@ const WelcomeScreen: React.FC = () => {
           </div>
           
           <div className="w-full px-6 py-8">
-            <div className="w-full aspect-square bg-gradient-to-br from-accent/20 to-primary/20 rounded-3xl flex items-center justify-center overflow-hidden relative">
+            <div className="w-full aspect-square bg-linear-to-br from-accent/20 to-primary/20 rounded-3xl flex items-center justify-center overflow-hidden relative">
                {/* Abstract decorative shapes */}
                <div className="absolute top-10 left-10 w-32 h-32 bg-accent/30 rounded-full blur-2xl"></div>
                <div className="absolute bottom-10 right-10 w-40 h-40 bg-primary/30 rounded-full blur-3xl"></div>

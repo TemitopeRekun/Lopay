@@ -70,7 +70,7 @@ class ErrorBoundary extends React.Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div className="fixed inset-0 z-[9999] bg-black flex flex-col items-center justify-center px-8">
+        <div className="fixed inset-0 z-9999 bg-black flex flex-col items-center justify-center px-8">
           <div className="flex flex-col items-center gap-6">
             <div className="w-24 h-24 rounded-full border border-white/20 flex items-center justify-center">
               <span className="text-white text-4xl font-black">!</span>
@@ -99,7 +99,7 @@ class ErrorBoundary extends React.Component<
 }
 
 const SplashScreen = () => (
-  <div className="fixed inset-0 z-[9999] bg-black flex flex-col items-center justify-center animate-fade-in">
+  <div className="fixed inset-0 z-9999 bg-black flex flex-col items-center justify-center animate-fade-in">
     <div className="flex flex-col items-center gap-8 animate-fade-in-up">
       <div className="w-40 h-40 relative flex items-center justify-center">
         <svg
