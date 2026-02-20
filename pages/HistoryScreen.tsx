@@ -72,8 +72,20 @@ const HistoryScreen: React.FC = () => {
                      <div key={t.id} className="group bg-white dark:bg-card-dark p-5 rounded-[28px] border border-gray-100 dark:border-gray-800 shadow-sm transition-all hover:shadow-xl hover:border-primary/20">
                          <div className="flex justify-between items-start mb-4">
                              <div className="flex items-center gap-4">
-                                <div className={`size-12 rounded-2xl flex items-center justify-center text-white shrink-0 ${t.status === 'Successful' ? 'bg-success shadow-lg shadow-success/20' : 'bg-warning shadow-lg shadow-warning/20'}`}>
-                                    <span className="material-symbols-outlined text-2xl">{t.status === 'Successful' ? 'payments' : 'sync'}</span>
+                                <div className={`size-12 rounded-2xl flex items-center justify-center text-white shrink-0 ${
+                                    t.status === 'Successful'
+                                      ? 'bg-success shadow-lg shadow-success/20'
+                                      : t.status === 'Failed'
+                                        ? 'bg-danger shadow-lg shadow-danger/20'
+                                        : 'bg-warning shadow-lg shadow-warning/20'
+                                  }`}>
+                                    <span className="material-symbols-outlined text-2xl">
+                                      {t.status === 'Successful'
+                                        ? 'payments'
+                                        : t.status === 'Failed'
+                                          ? 'error'
+                                          : 'sync'}
+                                    </span>
                                 </div>
                                 <div>
                                     <h3 className="font-black text-sm text-text-primary-light dark:text-text-primary-dark tracking-tight">{t.childName}</h3>

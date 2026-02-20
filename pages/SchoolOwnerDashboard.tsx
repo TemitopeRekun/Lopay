@@ -66,6 +66,20 @@ const SchoolOwnerDashboard: React.FC = () => {
 
   const pendingCount = useMemo(() => pendingPayments.length, [pendingPayments]);
 
+  const uniqueTransactions = useMemo(() => {
+    const seen = new Set<string>();
+    return schoolTransactions.filter((tx) => {
+      const key =
+        tx.id ||
+        `${tx.childName}|${tx.amount}|${tx.date}|${tx.status}|${tx.type || ""}`;
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
+  }, [schoolTransactions]);
+
   const totalRevenue = useMemo(() => {
     if (!schoolStats) {
       return 0;
@@ -391,7 +405,7 @@ const SchoolOwnerDashboard: React.FC = () => {
         </div>
 
         <RecentTransactionsList
-          transactions={schoolTransactions}
+          transactions={uniqueTransactions}
           emptyLabel="No transactions recorded"
           onViewAll={() => navigate("/history")}
         />

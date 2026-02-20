@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Layout } from "../components/Layout";
 import { Header } from "../components/Header";
@@ -16,6 +16,7 @@ const PaymentMethodsScreen: React.FC = () => {
   const { showToast } = useUI();
   const [isProcessing, setIsProcessing] = useState(false);
   const [receiptImage, setReceiptImage] = useState<string | null>(null);
+  const receiptInputRef = useRef<HTMLInputElement | null>(null);
 
   const state = location.state as {
     paymentType?: string;
@@ -87,13 +88,69 @@ const PaymentMethodsScreen: React.FC = () => {
     showToast("Account number copied!", "success");
   };
 
-  const handleSnapReceipt = () => {
-    setReceiptImage(
-      "https://images.unsplash.com/photo-1554224155-169641357599?auto=format&fit=crop&q=80&w=400",
-    );
+  const handleSelectReceipt = () => {
+    receiptInputRef.current?.click();
+  };
+
+  const handleReceiptFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) {
+      showToast("Please select a receipt image.", "warning");
+      return;
+    }
+    if (!file.type.startsWith("image/")) {
+      showToast("Receipt must be an image file.", "error");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result !== "string") {
+        showToast("Failed to read receipt image. Please try again.", "error");
+        return;
+      }
+
+      const img = new Image();
+      img.onload = () => {
+        const maxDimension = 1024;
+        const scale = Math.min(
+          1,
+          maxDimension / Math.max(img.width, img.height),
+        );
+        const targetWidth = Math.max(1, Math.round(img.width * scale));
+        const targetHeight = Math.max(1, Math.round(img.height * scale));
+
+        const canvas = document.createElement("canvas");
+        canvas.width = targetWidth;
+        canvas.height = targetHeight;
+
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          showToast("Failed to process receipt image.", "error");
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+
+        const compressed = canvas.toDataURL("image/jpeg", 0.6);
+        setReceiptImage(compressed);
+      };
+      img.onerror = () => {
+        showToast("Failed to process receipt image. Please try again.", "error");
+      };
+      img.src = reader.result;
+    };
+    reader.onerror = () => {
+      showToast("Failed to read receipt image. Please try again.", "error");
+    };
+    reader.readAsDataURL(file);
   };
 
   const handlePaymentSent = async () => {
+    if (!receiptImage) {
+      showToast("Please upload a payment receipt before submitting.", "error");
+      return;
+    }
     if (state?.childId && paymentAmount > 0) {
       setIsProcessing(true);
       try {
@@ -338,8 +395,15 @@ const PaymentMethodsScreen: React.FC = () => {
           <p className="text-[10px] font-black text-text-secondary-light uppercase tracking-widest mb-2 px-1">
             Proof of Transfer
           </p>
+          <input
+            ref={receiptInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleReceiptFileChange}
+            className="hidden"
+          />
           {receiptImage ? (
-            <div className="relative rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-800 h-32">
+            <div className="relative rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-800 h-44">
               <img
                 src={receiptImage}
                 alt="Receipt"
@@ -354,8 +418,8 @@ const PaymentMethodsScreen: React.FC = () => {
             </div>
           ) : (
             <button
-              onClick={handleSnapReceipt}
-              className="w-full h-32 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-800 flex flex-col items-center justify-center gap-2 hover:bg-gray-50 dark:hover:bg-white/5 transition-all text-text-secondary-light group"
+              onClick={handleSelectReceipt}
+              className="w-full h-48 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-800 flex flex-col items-center justify-center gap-2 hover:bg-gray-50 dark:hover:bg-white/5 transition-all text-text-secondary-light group"
             >
               <div className="size-10 rounded-full bg-gray-100 dark:bg-white/10 flex items-center justify-center transition-colors group-hover:bg-primary group-hover:text-white">
                 <span className="material-symbols-outlined">photo_camera</span>

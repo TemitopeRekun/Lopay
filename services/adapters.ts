@@ -267,6 +267,7 @@ export const normalizeChild = (apiEnrollment: ApiEnrollment): Child => {
     hasPendingInstallment,
     hasFailedFirstPayment,
     hasFailedInstallment,
+    payments,
   };
 };
 

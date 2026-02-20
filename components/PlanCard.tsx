@@ -144,11 +144,52 @@ export const PlanCard: React.FC<PlanCardProps> = ({
       ? child.nextInstallmentAmount
       : 0;
 
+  const payments = child.payments || [];
+  const latestPayment = payments
+    .filter((p) => p && (p.date || p.paymentDate))
+    .slice()
+    .sort((a, b) => {
+      const dateA = new Date(a.date || a.paymentDate || 0).getTime();
+      const dateB = new Date(b.date || b.paymentDate || 0).getTime();
+      return dateB - dateA;
+    })[0];
+
+  const latestStatus = latestPayment?.status
+    ? String(latestPayment.status).toUpperCase()
+    : "";
+
+  const latestIsSuccess =
+    latestStatus === "SUCCESS" ||
+    latestStatus === "SUCCESSFUL" ||
+    latestStatus === "PAID" ||
+    latestStatus === "COMPLETED";
+  const latestIsPending = latestStatus === "PENDING";
+  const latestIsFailed =
+    latestStatus === "FAILED" ||
+    latestStatus === "REJECTED" ||
+    latestStatus === "DECLINED";
+
+  const hasPendingPayment = latestIsPending || hasPendingInstallment;
+  const hasFailedPayment = latestIsFailed
+    ? true
+    : latestIsSuccess
+      ? false
+      : (hasFailedFirstPayment && balance.paid === 0) ||
+        (hasFailedInstallment && !hasPendingInstallment);
+
+  const badgeStatus = hasFailedPayment
+    ? "Failed"
+    : hasPendingPayment
+      ? "Pending"
+      : isCompleted
+        ? "Completed"
+        : isActive
+          ? "Active"
+          : isDefaulted
+            ? "Defaulted"
+            : "Not Active";
+
   const entity = entityLabel || "School";
-  const badgeStatus =
-    displayStatus === "Awaiting Approval" || displayStatus === "Not Active"
-      ? displayStatus
-      : child.status;
 
   return (
     <div className="flex flex-col rounded-2xl bg-white dark:bg-card-dark shadow-sm border border-gray-100 dark:border-gray-800 p-0 overflow-hidden group hover:shadow-md transition-all">
@@ -244,20 +285,17 @@ export const PlanCard: React.FC<PlanCardProps> = ({
                 </span>
               </p>
             </div>
-            <div className="flex flex-col items-end gap-1">
-              {hasFailedFirstPayment && balance.paid === 0 && (
-                <p className="text-[10px] text-danger font-bold text-right max-w-[220px]">
-                  Your first payment couldn&apos;t be verified (receipt not
-                  clear). Please pay again and upload a clearer receipt.
-                </p>
-              )}
-              {hasFailedInstallment && !hasPendingInstallment && (
-                <p className="text-[10px] text-warning font-bold text-right max-w-[220px]">
-                  Your last installment attempt was rejected (receipt not
-                  clear). Please pay again with a clearer image.
-                </p>
-              )}
-              <div className="flex items-center gap-2">
+            <div className="flex flex-col gap-2 w-full">
+              {hasFailedPayment ? (
+                <div className="w-full rounded-xl border border-danger/20 bg-danger/10 px-3 py-2 text-center">
+                  <p className="text-[10px] text-danger font-bold leading-snug">
+                    {hasFailedFirstPayment && balance.paid === 0
+                      ? "Your first payment couldn’t be verified (receipt not clear). Please pay again and upload a clearer receipt."
+                      : "Your last installment attempt was rejected (receipt not clear). Please pay again with a clearer image."}
+                  </p>
+                </div>
+              ) : null}
+              <div className="flex items-center gap-2 self-end">
                 <button
                   onClick={() => {
                     if (onQuickPay) {

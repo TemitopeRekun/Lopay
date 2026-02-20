@@ -57,6 +57,7 @@ export interface Child {
   hasPendingInstallment?: boolean;
   hasFailedFirstPayment?: boolean;
   hasFailedInstallment?: boolean;
+  payments?: ApiPayment[];
 }
 
 export interface Transaction {
@@ -194,12 +195,15 @@ export interface ApiPendingPayment {
 }
 
 export interface ApiPayment {
+  id?: string;
   amount: number;
   amountPaid: number;
   date: string;
   paymentDate: string;
   type: string;
   paymentType: string;
+  status?: string;
+  receiptUrl?: string;
 }
 
 export interface ApiEnrollment {

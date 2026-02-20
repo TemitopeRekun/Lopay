@@ -63,11 +63,17 @@ export const RecentTransactionsList: React.FC<RecentTransactionsListProps> = ({
                   className={`size-10 rounded-xl flex items-center justify-center text-white ${
                     tx.status === "Successful"
                       ? "bg-success shadow-lg shadow-success/20"
-                      : "bg-warning shadow-lg shadow-warning/20"
+                      : tx.status === "Failed"
+                        ? "bg-danger shadow-lg shadow-danger/20"
+                        : "bg-warning shadow-lg shadow-warning/20"
                   }`}
                 >
                   <span className="material-symbols-outlined text-xl">
-                    {tx.status === "Successful" ? "check" : "sync"}
+                    {tx.status === "Successful"
+                      ? "check"
+                      : tx.status === "Failed"
+                        ? "error"
+                        : "sync"}
                   </span>
                 </div>
                 <div>
@@ -85,7 +91,11 @@ export const RecentTransactionsList: React.FC<RecentTransactionsListProps> = ({
                 </p>
                 <p
                   className={`text-[8px] font-black uppercase tracking-[0.15em] ${
-                    tx.status === "Successful" ? "text-success" : "text-warning"
+                    tx.status === "Successful"
+                      ? "text-success"
+                      : tx.status === "Failed"
+                        ? "text-danger"
+                        : "text-warning"
                   }`}
                 >
                   {tx.status}

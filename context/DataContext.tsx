@@ -160,7 +160,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({
   const transactions = isPlatformOwner
     ? globalTransactions
     : isSchoolContext
-      ? [...pendingPayments, ...schoolTransactions]
+      ? schoolTransactions
       : parentTransactions;
 
   // --- Mutations ---
