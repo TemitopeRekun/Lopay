@@ -10,7 +10,12 @@ import {
   ApiSchool,
   ApiSchoolBankDetails,
 } from "../types";
-import { ApiPlatformRevenue } from "../types.admin";
+import {
+  ApiAdminOverview,
+  ApiAdminSchoolSummary,
+  ApiAdminStudentsSummary,
+  ApiPlatformRevenue,
+} from "../types.admin";
 
 const API_URL =
   (import.meta as any).env?.VITE_API_URL ?? "http://localhost:3000";
@@ -118,18 +123,48 @@ export const BackendAPI = {
     getPendingFirstPayments: async () => {
       const response = await apiClient.get<ApiPendingPayment[]>(
         "/admin/pending-first-payments",
+        { params: { includeReceiptSignedUrls: true } },
       );
       return response.data;
     },
     getPendingInstallments: async () => {
       const response = await apiClient.get<ApiPendingPayment[]>(
         "/admin/pending-installments",
+        { params: { includeReceiptSignedUrls: true } },
       );
       return response.data;
     },
     getPlatformRevenue: async () => {
       const response =
         await apiClient.get<ApiPlatformRevenue>("/admin/revenue");
+      return response.data;
+    },
+    getAllTransactions: async (params?: {
+      includeReceiptSignedUrls?: boolean;
+      receiptType?: "ALL" | "FIRST_PAYMENT" | "INSTALLMENT";
+    }) => {
+      const response = await apiClient.get<ApiTransaction[]>(
+        "/admin/transactions",
+        { params },
+      );
+      return response.data;
+    },
+    getStudentsSummary: async () => {
+      const response = await apiClient.get<ApiAdminStudentsSummary>(
+        "/admin/students/summary",
+      );
+      return response.data;
+    },
+    getSchoolsSummary: async () => {
+      const response = await apiClient.get<ApiAdminSchoolSummary[]>(
+        "/admin/schools/summary",
+      );
+      return response.data;
+    },
+    getOverview: async () => {
+      const response = await apiClient.get<ApiAdminOverview>(
+        "/admin/overview",
+      );
       return response.data;
     },
     getSchoolStudents: async (
@@ -167,6 +202,7 @@ export const BackendAPI = {
     getPendingPayments: async () => {
       const response = await apiClient.get<ApiPendingPayment[]>(
         "/school-payments/pending",
+        { params: { includeReceiptSignedUrls: true } },
       );
       return response.data;
     },
@@ -183,6 +219,7 @@ export const BackendAPI = {
     getTransactions: async () => {
       const response = await apiClient.get<ApiTransaction[]>(
         "/school-payments/history",
+        { params: { includeReceiptSignedUrls: true } },
       );
       return response.data;
     },
@@ -290,7 +327,9 @@ export const BackendAPI = {
       return response.data;
     },
     getHistory: async () => {
-      const response = await apiClient.get<any[]>("/transactions");
+      const response = await apiClient.get<any[]>("/transactions", {
+        params: { includeReceiptSignedUrls: true },
+      });
       return response.data;
     },
     deleteChild: async (childId: string) => {
@@ -306,6 +345,36 @@ export const BackendAPI = {
     markRead: async (id: string) => {
       const response = await apiClient.patch(`/notifications/${id}/read`);
       return response.data;
+    },
+  },
+  documents: {
+    receipts: {
+      createUploadUrl: async (data: {
+        fileName: string;
+        contentType: string;
+      }) => {
+        const response = await apiClient.post(
+          "/documents/receipts/upload-url",
+          data,
+        );
+        return response.data as {
+          path: string;
+          signedUrl: string;
+          token?: string;
+          expiresIn?: number;
+        };
+      },
+      createDownloadUrl: async (data: { paymentId: string }) => {
+        const response = await apiClient.post(
+          "/documents/receipts/download-url",
+          data,
+        );
+        return response.data as {
+          path: string;
+          signedUrl: string;
+          expiresIn?: number;
+        };
+      },
     },
   },
 };

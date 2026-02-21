@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import React, { useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { Layout } from "../components/Layout";
 
 export const Calculator: React.FC = () => {
   const location = useLocation();
@@ -27,17 +28,27 @@ export const Calculator: React.FC = () => {
   };
 
   return (
-    <div className="relative flex h-auto min-h-screen w-full flex-col bg-background-light dark:bg-background-dark font-display">
-      <div className="flex items-center p-4 pb-2 justify-between">
-        <button onClick={() => navigate(-1)} className="flex size-12 shrink-0 items-center text-slate-900 dark:text-slate-100">
-          <span className="material-symbols-outlined !text-2xl">arrow_back_ios_new</span>
-        </button>
-        <h2 className="text-lg font-bold leading-tight flex-1 text-center pr-12">Payment Calculator</h2>
-      </div>
+    <Layout>
+      <div className="flex flex-col flex-1">
+        <div className="flex items-center p-4 pb-2 justify-between">
+          <button
+            onClick={() => navigate(-1)}
+            className="flex size-12 shrink-0 items-center text-slate-900 dark:text-slate-100"
+          >
+            <span className="material-symbols-outlined !text-2xl">
+              arrow_back_ios_new
+            </span>
+          </button>
+          <h2 className="text-lg font-bold leading-tight flex-1 text-center pr-12">
+            Payment Calculator
+          </h2>
+        </div>
 
-      <h1 className="text-[32px] font-bold leading-tight px-4 text-left pb-3 pt-6">How much is this term's fee?</h1>
-      
-      <div className="flex max-w-[480px] flex-wrap items-end gap-4 px-4 py-3">
+        <h1 className="text-[32px] font-bold leading-tight px-4 text-left pb-3 pt-6">
+          How much is this term's fee?
+        </h1>
+
+        <div className="flex max-w-[480px] flex-wrap items-end gap-4 px-4 py-3">
         <label className="flex flex-col min-w-40 flex-1">
           <p className="text-base font-medium leading-normal pb-2">Total Term Fee</p>
           <div className="relative">
@@ -93,19 +104,24 @@ export const Calculator: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex items-center justify-center gap-1.5 px-4 pt-2 pb-6 mt-auto">
-        <span className="material-symbols-outlined text-sm text-slate-500">info</span>
-        <p className="text-slate-500 text-sm font-medium">How is this calculated?</p>
-      </div>
+        <div className="flex items-center justify-center gap-1.5 px-4 pt-2 pb-6 mt-auto">
+          <span className="material-symbols-outlined text-sm text-slate-500">
+            info
+          </span>
+          <p className="text-slate-500 text-sm font-medium">
+            How is this calculated?
+          </p>
+        </div>
 
-      <div className="sticky bottom-0 w-full bg-background-light dark:bg-background-dark p-4 pt-2 pb-6 border-t border-slate-200 dark:border-slate-800">
-        <button 
-          onClick={handleChoose}
-          className="flex w-full items-center justify-center rounded-xl bg-primary-green px-6 py-4 text-center text-base font-bold text-slate-900 shadow-sm transition-transform duration-200 ease-in-out hover:scale-[1.02] active:scale-[0.98]"
-        >
-          Choose a Plan
-        </button>
+        <div className="sticky bottom-0 w-full bg-background-light dark:bg-background-dark p-4 pt-2 pb-6 border-t border-slate-200 dark:border-slate-800">
+          <button
+            onClick={handleChoose}
+            className="flex w-full items-center justify-center rounded-xl bg-primary-green px-6 py-4 text-center text-base font-bold text-slate-900 shadow-sm transition-transform duration-200 ease-in-out hover:scale-[1.02] active:scale-[0.98]"
+          >
+            Choose a Plan
+          </button>
+        </div>
       </div>
-    </div>
+    </Layout>
   );
 };

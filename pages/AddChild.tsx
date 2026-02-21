@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Layout } from "../components/Layout";
 
 export const AddChild: React.FC = () => {
   const navigate = useNavigate();
@@ -21,15 +22,23 @@ export const AddChild: React.FC = () => {
   };
 
   return (
-    <div className="relative flex h-auto min-h-screen w-full flex-col bg-background-light dark:bg-background-dark font-display">
-      <header className="sticky top-0 z-10 flex items-center bg-background-light/80 dark:bg-background-dark/80 p-4 pb-3 backdrop-blur-sm border-b border-transparent dark:border-slate-800">
-        <button onClick={() => navigate(-1)} className="flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
-          <span className="material-symbols-outlined text-2xl">arrow_back</span>
-        </button>
-        <h1 className="text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pr-10">Add Child & Fee Details</h1>
-      </header>
-      
-      <main className="flex-1 px-4 py-2">
+    <Layout>
+      <div className="flex flex-col flex-1">
+        <header className="sticky top-0 z-10 flex items-center bg-background-light/80 dark:bg-background-dark/80 p-4 pb-3 backdrop-blur-sm border-b border-transparent dark:border-slate-800">
+          <button
+            onClick={() => navigate(-1)}
+            className="flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+          >
+            <span className="material-symbols-outlined text-2xl">
+              arrow_back
+            </span>
+          </button>
+          <h1 className="text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pr-10">
+            Add Child & Fee Details
+          </h1>
+        </header>
+
+        <main className="flex-1 px-4 py-2">
         <section className="mb-6">
           <h2 className="text-lg font-bold leading-tight tracking-[-0.015em] pb-2 pt-4">Child's Information</h2>
           <div className="flex flex-col gap-4">
@@ -94,16 +103,17 @@ export const AddChild: React.FC = () => {
             </div>
           </div>
         </section>
-      </main>
+        </main>
 
-      <footer className="sticky bottom-0 bg-background-light/95 dark:bg-background-dark/95 p-4 backdrop-blur-sm border-t border-slate-200 dark:border-slate-800">
-        <button 
-          onClick={handleNext}
-          className="flex h-14 w-full items-center justify-center rounded-xl bg-primary-green text-slate-900 text-lg font-bold leading-normal transition-transform active:scale-95 shadow-sm hover:shadow-md"
-        >
-          Calculate Installment Plan
-        </button>
-      </footer>
-    </div>
+        <footer className="sticky bottom-0 bg-background-light/95 dark:bg-background-dark/95 p-4 backdrop-blur-sm border-t border-slate-200 dark:border-slate-800">
+          <button
+            onClick={handleNext}
+            className="flex h-14 w-full items-center justify-center rounded-xl bg-primary-green text-slate-900 text-lg font-bold leading-normal transition-transform active:scale-95 shadow-sm hover:shadow-md"
+          >
+            Calculate Installment Plan
+          </button>
+        </footer>
+      </div>
+    </Layout>
   );
 };

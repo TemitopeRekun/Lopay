@@ -36,6 +36,9 @@ export const QUERY_KEYS = {
   adminPendingInstallments: ["adminPendingInstallments"],
   adminSchoolStudents: (schoolId: string) => ["adminSchoolStudents", schoolId],
   adminPlatformRevenue: ["adminPlatformRevenue"],
+  adminStudentsSummary: ["adminStudentsSummary"],
+  adminSchoolsSummary: ["adminSchoolsSummary"],
+  adminOverview: ["adminOverview"],
 };
 
 // --- Hooks ---
@@ -84,7 +87,10 @@ export const useGlobalTransactions = (enabled: boolean = true) => {
   return useQuery({
     queryKey: QUERY_KEYS.globalTransactions,
     queryFn: async () => {
-      const data = await BackendAPI.parent.getHistory();
+      const data = await BackendAPI.admin.getAllTransactions({
+        includeReceiptSignedUrls: true,
+        receiptType: "ALL",
+      });
       return (Array.isArray(data) ? data : []).map(normalizeTransaction);
     },
     enabled,
@@ -208,7 +214,10 @@ export const useSchoolBankDetails = (
   });
 };
 
-export const useAdminPendingFirstPayments = (enabled: boolean = true) => {
+export const useAdminPendingFirstPayments = (
+  enabled: boolean = true,
+  pollIntervalMs?: number,
+) => {
   return useQuery({
     queryKey: QUERY_KEYS.adminPendingFirstPayments,
     queryFn: async () => {
@@ -218,10 +227,15 @@ export const useAdminPendingFirstPayments = (enabled: boolean = true) => {
         .filter((t) => t.status === "Pending");
     },
     enabled,
+    refetchInterval: enabled ? pollIntervalMs ?? false : false,
+    refetchOnWindowFocus: true,
   });
 };
 
-export const useAdminPendingInstallments = (enabled: boolean = true) => {
+export const useAdminPendingInstallments = (
+  enabled: boolean = true,
+  pollIntervalMs?: number,
+) => {
   return useQuery({
     queryKey: QUERY_KEYS.adminPendingInstallments,
     queryFn: async () => {
@@ -231,6 +245,8 @@ export const useAdminPendingInstallments = (enabled: boolean = true) => {
         .filter((t) => t.status === "Pending");
     },
     enabled,
+    refetchInterval: enabled ? pollIntervalMs ?? false : false,
+    refetchOnWindowFocus: true,
   });
 };
 
@@ -244,6 +260,47 @@ export const useAdminPlatformRevenue = (enabled: boolean = true) => {
     enabled,
     staleTime: 1000 * 30,
     refetchInterval: enabled ? 1000 * 30 : false,
+    refetchOnWindowFocus: true,
+  });
+};
+
+export const useAdminStudentsSummary = (enabled: boolean = true) => {
+  return useQuery({
+    queryKey: QUERY_KEYS.adminStudentsSummary,
+    queryFn: BackendAPI.admin.getStudentsSummary,
+    enabled,
+    staleTime: 1000 * 30,
+    refetchInterval: enabled ? 1000 * 60 : false,
+    refetchOnWindowFocus: true,
+  });
+};
+
+export const useAdminSchoolsSummary = (enabled: boolean = true) => {
+  return useQuery({
+    queryKey: QUERY_KEYS.adminSchoolsSummary,
+    queryFn: BackendAPI.admin.getSchoolsSummary,
+    enabled,
+    staleTime: 1000 * 60,
+    refetchInterval: enabled ? 1000 * 60 * 5 : false,
+    refetchOnWindowFocus: false,
+  });
+};
+
+export const useAdminOverview = (enabled: boolean = true) => {
+  return useQuery({
+    queryKey: QUERY_KEYS.adminOverview,
+    queryFn: async () => {
+      const data = await BackendAPI.admin.getOverview();
+      return {
+        ...data,
+        recentTransactions: (data?.recentTransactions || []).map(
+          normalizeTransaction,
+        ),
+      };
+    },
+    enabled,
+    staleTime: 1000 * 30,
+    refetchInterval: enabled ? 1000 * 60 : false,
     refetchOnWindowFocus: true,
   });
 };
@@ -310,6 +367,12 @@ export const useEnrollChild = () => {
       queryClient.invalidateQueries({
         queryKey: QUERY_KEYS.globalTransactions,
       });
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.adminPendingFirstPayments,
+      });
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.adminPendingInstallments,
+      });
     },
     onError: (error: unknown) => {
       const message =
@@ -350,6 +413,12 @@ export const usePayInstallment = () => {
       });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.schoolStats });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.notifications });
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.adminPendingFirstPayments,
+      });
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.adminPendingInstallments,
+      });
     },
     onError: (error: unknown) => {
       const message =

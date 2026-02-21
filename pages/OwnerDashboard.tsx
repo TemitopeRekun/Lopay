@@ -6,20 +6,17 @@ import { useAuth } from "../context/AuthContext";
 import { useData } from "../context/DataContext";
 import {
   useAdminPendingFirstPayments,
+  useAdminOverview,
   useAdminPlatformRevenue,
+  useAdminStudentsSummary,
 } from "../hooks/useQueries";
-import { Transaction } from "../types";
 import { NotificationIconButton } from "../components/NotificationIconButton";
 
 const OwnerDashboard: React.FC = () => {
-  const { userRole, setActingRole } = useAuth();
+  const { userRole, setActingRole, effectiveRole } = useAuth();
   const {
     transactions,
-    allStudents,
-    childrenData,
-    schools,
     notifications,
-    pendingPayments,
     isLoading,
     hasError,
     refreshData,
@@ -28,6 +25,12 @@ const OwnerDashboard: React.FC = () => {
   const [chartView, setChartView] = useState<"Weekly" | "Monthly">("Monthly");
 
   const isOwner = userRole === "owner";
+
+  useEffect(() => {
+    if (userRole === "owner" && effectiveRole !== "owner") {
+      setActingRole("owner");
+    }
+  }, [userRole, effectiveRole, setActingRole]);
 
   const {
     data: adminPendingFirst = [],
@@ -39,8 +42,30 @@ const OwnerDashboard: React.FC = () => {
     isError: platformRevenueError,
     refetch: refetchPlatformRevenue,
   } = useAdminPlatformRevenue(isOwner);
+  const { data: adminOverview, isError: overviewError } =
+    useAdminOverview(isOwner);
+  const { data: studentsSummary, isError: summaryError } =
+    useAdminStudentsSummary(isOwner);
 
-  const hasNetworkError = hasError || pendingFirstError || platformRevenueError;
+  const hasOwnerData =
+    (adminOverview?.recentTransactions?.length || 0) > 0 ||
+    adminPendingFirst.length > 0 ||
+    typeof adminOverview?.totalRevenue === "number" ||
+    typeof studentsSummary?.totalStudents === "number" ||
+    typeof platformRevenueData?.totalRevenue === "number";
+
+  const hasNetworkError =
+    !isLoading &&
+    (hasError ||
+      pendingFirstError ||
+      platformRevenueError ||
+      overviewError ||
+      summaryError);
+  const hasEmptyOwnerData =
+    !hasNetworkError &&
+    !isLoading &&
+    (adminOverview?.recentTransactions?.length || 0) === 0 &&
+    adminPendingFirst.length === 0;
 
   const handleRetryAll = () => {
     refreshData();
@@ -56,15 +81,16 @@ const OwnerDashboard: React.FC = () => {
     return notifications ? notifications.filter((n) => !n.read).length : 0;
   }, [notifications]);
 
-  const hasStudentPool = allStudents && allStudents.length > 0;
-
   const totalPlatformFee = React.useMemo(() => {
-    const apiTotal = platformRevenueData?.totalRevenue;
+    const apiTotal =
+      adminOverview?.totalRevenue ?? platformRevenueData?.totalRevenue;
     if (typeof apiTotal === "number" && apiTotal > 0) {
       return apiTotal;
     }
 
-    const successfulTx = transactions.filter((t) => t.status === "Successful");
+    const sourceTx =
+      adminOverview?.recentTransactions || transactions || [];
+    const successfulTx = sourceTx.filter((t) => t.status === "Successful");
 
     return successfulTx.reduce((sum, t) => {
       const explicitFee =
@@ -86,27 +112,23 @@ const OwnerDashboard: React.FC = () => {
   const displayRevenue = totalPlatformFee;
 
   const activeStudents = useMemo(() => {
-    if (hasStudentPool) {
-      return allStudents.length;
+    if (typeof studentsSummary?.activeStudents === "number") {
+      return studentsSummary.activeStudents;
     }
     const ids = new Set<string>();
-    transactions.forEach((t) => {
+    (adminOverview?.recentTransactions || transactions).forEach((t) => {
       const key = t.childId || t.childName;
       if (key) ids.add(key);
     });
     return ids.size;
-  }, [hasStudentPool, allStudents, transactions]);
+  }, [studentsSummary, adminOverview?.recentTransactions, transactions]);
 
   const pendingAmount = useMemo(() => {
-    if (!hasStudentPool) {
-      return 0;
+    if (typeof studentsSummary?.totalOutstandingBalance === "number") {
+      return studentsSummary.totalOutstandingBalance;
     }
-    return allStudents.reduce((acc, c) => {
-      const total = Number.isFinite(c.totalFee) ? c.totalFee : 0;
-      const paid = Number.isFinite(c.paidAmount) ? c.paidAmount : 0;
-      return acc + (total - paid);
-    }, 0);
-  }, [hasStudentPool, allStudents]);
+    return 0;
+  }, [studentsSummary]);
 
   const pendingFirstPaymentsBySchool = useMemo(() => {
     if (isOwner) {
@@ -132,68 +154,39 @@ const OwnerDashboard: React.FC = () => {
 
       return Array.from(map.values()).filter((item) => item.count > 0);
     }
-
-    const map = new Map<
-      string,
-      { schoolId: string; schoolName: string; count: number }
-    >();
-
-    childrenData.forEach((c) => {
-      if (c.status !== "Pending") return;
-      const school =
-        (c.schoolId && schools.find((s) => s.id === c.schoolId)) || null;
-      const schoolName = school?.name || c.school || "Unknown School";
-      const key = school?.id || c.schoolId || schoolName;
-      if (!key) return;
-
-      const existing = map.get(key);
-      if (existing) {
-        existing.count += 1;
-      } else {
-        map.set(key, {
-          schoolId: school?.id || c.schoolId || "",
-          schoolName,
-          count: 1,
-        });
-      }
-    });
-
-    return Array.from(map.values()).filter((item) => item.count > 0);
-  }, [isOwner, adminPendingFirst, childrenData, schools]);
+    return [];
+  }, [isOwner, adminPendingFirst]);
 
   const pendingFirstEnrollmentsCount = useMemo(() => {
     if (isOwner) {
       return adminPendingFirst.length;
     }
-    return childrenData.filter((c) => c.status === "Pending").length;
-  }, [isOwner, adminPendingFirst, childrenData]);
+    return 0;
+  }, [isOwner, adminPendingFirst]);
 
   const pendingApprovalsCount = useMemo(() => {
     if (isOwner) {
+      if (typeof adminOverview?.pendingApprovals === "number") {
+        return adminOverview.pendingApprovals;
+      }
       return adminPendingFirst.length;
     }
-
-    const base =
-      pendingPayments && pendingPayments.length > 0
-        ? pendingPayments
-        : transactions.filter((t) => t.status === "Pending");
-
-    const installmentsPending = base.filter(
-      (t) => (t.type || "").toUpperCase() !== "FIRST_PAYMENT",
-    ).length;
-
-    const firstPending = pendingFirstEnrollmentsCount;
-    return installmentsPending + firstPending;
+    return 0;
   }, [
     isOwner,
     adminPendingFirst,
-    pendingPayments,
-    transactions,
-    pendingFirstEnrollmentsCount,
+    adminOverview?.pendingApprovals,
   ]);
 
   // Chart Data Processing (time-bucketed platform fee from transactions)
   const chartData = useMemo(() => {
+    if (adminOverview?.revenueSeries?.length) {
+      return adminOverview.revenueSeries.map((point) => ({
+        label: point.label,
+        value: point.value,
+      }));
+    }
+
     const data: { label: string; value: number }[] = [];
     const now = new Date();
     const successfulTx = transactions.filter((t) => t.status === "Successful");
@@ -286,7 +279,7 @@ const OwnerDashboard: React.FC = () => {
       }
     }
     return data;
-  }, [chartView, transactions]);
+  }, [chartView, transactions, adminOverview?.revenueSeries]);
 
   const maxChartValue = Math.max(...chartData.map((d) => d.value), 1);
 
@@ -350,7 +343,23 @@ const OwnerDashboard: React.FC = () => {
       </div>
 
       <main className="flex flex-col gap-6 p-6 pb-32">
-        {hasNetworkError && (
+        {hasEmptyOwnerData && (
+          <div className="flex items-start gap-3 rounded-2xl border border-amber-300/40 bg-amber-200/30 px-4 py-3">
+            <span className="material-symbols-outlined text-amber-600">
+              info
+            </span>
+            <div>
+              <p className="text-xs font-bold text-amber-700">
+                No admin data returned yet
+              </p>
+              <p className="text-xs text-amber-700/80">
+                If this is unexpected, confirm the admin history endpoint is
+                reachable and try refresh.
+              </p>
+            </div>
+          </div>
+        )}
+        {hasNetworkError && !hasOwnerData && (
           <div className="flex items-center justify-between gap-3 rounded-2xl border border-danger/20 bg-danger/5 px-4 py-3">
             <div className="flex items-start gap-3">
               <span className="material-symbols-outlined text-danger">
@@ -399,7 +408,9 @@ const OwnerDashboard: React.FC = () => {
 
           <div className="bg-white dark:bg-card-dark p-5 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm">
             <p className="text-2xl font-black text-text-primary-light dark:text-text-primary-dark">
-              {activeStudents}
+              {typeof studentsSummary?.totalStudents === "number"
+                ? studentsSummary.totalStudents
+                : activeStudents}
             </p>
             <p className="text-xs font-bold text-text-secondary-light uppercase tracking-wider">
               Total Students

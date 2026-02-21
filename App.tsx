@@ -12,6 +12,8 @@ import { queryClient } from "./services/queryClient";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { DataProvider } from "./context/DataContext";
 import { UIProvider } from "./context/UIContext";
+import { Capacitor } from "@capacitor/core";
+import { StatusBar, Style } from "@capacitor/status-bar";
 import AuthScreen from "./pages/AuthScreen";
 import WelcomeScreen from "./pages/WelcomeScreen";
 import Dashboard from "./pages/Dashboard";
@@ -285,7 +287,8 @@ const AppRoutes = () => {
         <Route
           path="/add-child"
           element={
-            <ProtectedRoute allowedRoles={["parent", "university_student"]}>
+          <ProtectedRoute allowedRoles={["parent", "university_student"]}>
+            <AddChildScreen />
               <AddChildScreen />
             </ProtectedRoute>
           }
@@ -376,6 +379,14 @@ const AppRoutes = () => {
 };
 
 const App: React.FC = () => {
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    StatusBar.setStyle({ style: Style.Light }).catch(() => undefined);
+    StatusBar.setBackgroundColor({ color: "#0f1115" }).catch(() => undefined);
+    StatusBar.setOverlaysWebView({ overlay: false }).catch(() => undefined);
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <UIProvider>
@@ -389,7 +400,7 @@ const App: React.FC = () => {
           </DataProvider>
         </AuthProvider>
       </UIProvider>
-      <ReactQueryDevtools initialIsOpen={false} />
+      {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
     </QueryClientProvider>
   );
 };

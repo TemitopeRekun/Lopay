@@ -6,7 +6,8 @@ import { useAuth } from "../context/AuthContext";
 import { useData } from "../context/DataContext";
 import { useUI } from "../context/UIContext";
 import { useSchoolBankDetails } from "../hooks/useQueries";
-import { getPlatformActivationBankDetails } from "../services/backend";
+import { BackendAPI, getPlatformActivationBankDetails } from "../services/backend";
+import { NativeBridge } from "../services/native";
 
 const PaymentMethodsScreen: React.FC = () => {
   const location = useLocation();
@@ -16,6 +17,12 @@ const PaymentMethodsScreen: React.FC = () => {
   const { showToast } = useUI();
   const [isProcessing, setIsProcessing] = useState(false);
   const [receiptImage, setReceiptImage] = useState<string | null>(null);
+  const [receiptBlob, setReceiptBlob] = useState<Blob | null>(null);
+  const [receiptFileName, setReceiptFileName] = useState<string | null>(null);
+  const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [isUploading, setIsUploading] = useState(false);
+  const [receiptPath, setReceiptPath] = useState<string | null>(null);
   const receiptInputRef = useRef<HTMLInputElement | null>(null);
 
   const state = location.state as {
@@ -92,6 +99,55 @@ const PaymentMethodsScreen: React.FC = () => {
     receiptInputRef.current?.click();
   };
 
+  const processReceiptDataUrl = (dataUrl: string, fileName?: string) => {
+    setReceiptFileName(fileName || "receipt.jpg");
+    setReceiptUrl(null);
+    setReceiptPath(null);
+    setUploadProgress(0);
+
+    const img = new Image();
+    img.onload = () => {
+      const maxDimension = 1024;
+      const scale = Math.min(
+        1,
+        maxDimension / Math.max(img.width, img.height),
+      );
+      const targetWidth = Math.max(1, Math.round(img.width * scale));
+      const targetHeight = Math.max(1, Math.round(img.height * scale));
+
+      const canvas = document.createElement("canvas");
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        showToast("Failed to process receipt image.", "error");
+        return;
+      }
+
+      ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+
+      const preview = canvas.toDataURL("image/jpeg", 0.6);
+      setReceiptImage(preview);
+
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            showToast("Failed to compress receipt image.", "error");
+            return;
+          }
+          setReceiptBlob(blob);
+        },
+        "image/jpeg",
+        0.6,
+      );
+    };
+    img.onerror = () => {
+      showToast("Failed to process receipt image. Please try again.", "error");
+    };
+    img.src = dataUrl;
+  };
+
   const handleReceiptFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) {
@@ -109,36 +165,7 @@ const PaymentMethodsScreen: React.FC = () => {
         showToast("Failed to read receipt image. Please try again.", "error");
         return;
       }
-
-      const img = new Image();
-      img.onload = () => {
-        const maxDimension = 1024;
-        const scale = Math.min(
-          1,
-          maxDimension / Math.max(img.width, img.height),
-        );
-        const targetWidth = Math.max(1, Math.round(img.width * scale));
-        const targetHeight = Math.max(1, Math.round(img.height * scale));
-
-        const canvas = document.createElement("canvas");
-        canvas.width = targetWidth;
-        canvas.height = targetHeight;
-
-        const ctx = canvas.getContext("2d");
-        if (!ctx) {
-          showToast("Failed to process receipt image.", "error");
-          return;
-        }
-
-        ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
-
-        const compressed = canvas.toDataURL("image/jpeg", 0.6);
-        setReceiptImage(compressed);
-      };
-      img.onerror = () => {
-        showToast("Failed to process receipt image. Please try again.", "error");
-      };
-      img.src = reader.result;
+      processReceiptDataUrl(reader.result, file.name);
     };
     reader.onerror = () => {
       showToast("Failed to read receipt image. Please try again.", "error");
@@ -146,18 +173,135 @@ const PaymentMethodsScreen: React.FC = () => {
     reader.readAsDataURL(file);
   };
 
+  const handleCaptureReceipt = async () => {
+    if (!NativeBridge.isNative()) {
+      handleSelectReceipt();
+      return;
+    }
+
+    const permission = await NativeBridge.requestCameraPermissions();
+    if (permission.camera !== "granted") {
+      showToast("Camera permission is required to take a photo.", "warning");
+      return;
+    }
+
+    try {
+      const photo = await NativeBridge.takePhoto();
+      if (!photo.dataUrl) {
+        showToast("No photo captured. Please try again.", "error");
+        return;
+      }
+      processReceiptDataUrl(photo.dataUrl, "receipt.jpg");
+    } catch (error) {
+      console.error(error);
+      showToast("Failed to open camera. Please try again.", "error");
+    }
+  };
+
+  const handlePickFromPhone = async () => {
+    if (!NativeBridge.isNative()) {
+      handleSelectReceipt();
+      return;
+    }
+
+    const permission = await NativeBridge.requestCameraPermissions();
+    if (permission.photos !== "granted") {
+      showToast("Photo access is required to select a receipt.", "warning");
+      return;
+    }
+
+    try {
+      await NativeBridge.requestFilesystemPermissions();
+      const photo = await NativeBridge.pickPhoto();
+      if (!photo.dataUrl) {
+        showToast("No photo selected. Please try again.", "error");
+        return;
+      }
+      processReceiptDataUrl(photo.dataUrl, "receipt.jpg");
+    } catch (error) {
+      console.error(error);
+      showToast("Failed to open photos. Please try again.", "error");
+    }
+  };
+
+  const uploadReceipt = async () => {
+    if (receiptPath) {
+      return { path: receiptPath };
+    }
+    if (!receiptBlob) {
+      throw new Error("Receipt image is missing.");
+    }
+
+    const safeName = (receiptFileName || "receipt.jpg")
+      .replace(/\s+/g, "-")
+      .replace(/[^a-zA-Z0-9\-_.]/g, "");
+    const normalizedFileName = safeName.endsWith(".jpg")
+      ? safeName
+      : `${safeName}.jpg`;
+
+    const maxAttempts = 2;
+    let lastError: unknown;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        setIsUploading(true);
+        setUploadProgress(0);
+
+        const { path, signedUrl } =
+          await BackendAPI.documents.receipts.createUploadUrl({
+            fileName: normalizedFileName,
+            contentType: "image/jpeg",
+          });
+
+        const uploadResponse = await fetch(signedUrl, {
+          method: "PUT",
+          body: receiptBlob,
+          headers: {
+            "Content-Type": "image/jpeg",
+          },
+        });
+
+        if (!uploadResponse.ok) {
+          showToast("Receipt upload failed. Please try again.", "error");
+          throw new Error("Receipt upload failed.");
+        }
+
+        setUploadProgress(100);
+        setReceiptUrl(path);
+        setReceiptPath(path);
+        setIsUploading(false);
+        showToast("Receipt uploaded successfully.", "success");
+        return { path };
+      } catch (error) {
+        lastError = error;
+        setIsUploading(false);
+        if (attempt < maxAttempts) {
+          showToast("Upload failed. Retrying...", "warning");
+        }
+      }
+    }
+
+    throw lastError || new Error("Failed to upload receipt.");
+  };
+
+  const cleanupUploadedReceipt = async () => {
+    setReceiptPath(null);
+    setReceiptUrl(null);
+  };
+
   const handlePaymentSent = async () => {
-    if (!receiptImage) {
+    if (!receiptImage || !receiptBlob) {
       showToast("Please upload a payment receipt before submitting.", "error");
       return;
     }
     if (state?.childId && paymentAmount > 0) {
       setIsProcessing(true);
       try {
+        const { path: uploadedPath } = await uploadReceipt();
         await submitPayment(
           state.childId!,
           paymentAmount,
-          receiptImage || undefined,
+          uploadedPath || undefined,
         );
         showToast(
           "Payment submitted successfully! Waiting for school confirmation.",
@@ -167,6 +311,7 @@ const PaymentMethodsScreen: React.FC = () => {
       } catch (error) {
         console.error(error);
         showToast("Failed to submit payment. Please try again.", "error");
+        await cleanupUploadedReceipt();
       } finally {
         setIsProcessing(false);
       }
@@ -395,6 +540,19 @@ const PaymentMethodsScreen: React.FC = () => {
           <p className="text-[10px] font-black text-text-secondary-light uppercase tracking-widest mb-2 px-1">
             Proof of Transfer
           </p>
+          {isUploading && (
+            <div className="mb-3 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2">
+              <p className="text-[10px] font-bold text-primary uppercase tracking-widest">
+                Uploading receipt... {uploadProgress}%
+              </p>
+              <div className="mt-2 h-1.5 w-full rounded-full bg-primary/10 overflow-hidden">
+                <div
+                  className="h-full bg-primary transition-all"
+                  style={{ width: `${uploadProgress}%` }}
+                ></div>
+              </div>
+            </div>
+          )}
           <input
             ref={receiptInputRef}
             type="file"
@@ -417,17 +575,32 @@ const PaymentMethodsScreen: React.FC = () => {
               </button>
             </div>
           ) : (
-            <button
-              onClick={handleSelectReceipt}
-              className="w-full h-48 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-800 flex flex-col items-center justify-center gap-2 hover:bg-gray-50 dark:hover:bg-white/5 transition-all text-text-secondary-light group"
-            >
-              <div className="size-10 rounded-full bg-gray-100 dark:bg-white/10 flex items-center justify-center transition-colors group-hover:bg-primary group-hover:text-white">
-                <span className="material-symbols-outlined">photo_camera</span>
-              </div>
-              <span className="text-xs font-bold uppercase tracking-tight">
-                Upload Payment Receipt
-              </span>
-            </button>
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={handleCaptureReceipt}
+                className="w-full h-20 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-800 flex items-center justify-center gap-3 hover:bg-gray-50 dark:hover:bg-white/5 transition-all text-text-secondary-light group"
+              >
+                <div className="size-10 rounded-full bg-gray-100 dark:bg-white/10 flex items-center justify-center transition-colors group-hover:bg-primary group-hover:text-white">
+                  <span className="material-symbols-outlined">photo_camera</span>
+                </div>
+                <span className="text-xs font-bold uppercase tracking-tight">
+                  Take Photo
+                </span>
+              </button>
+              <button
+                onClick={handlePickFromPhone}
+                className="w-full h-20 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-800 flex items-center justify-center gap-3 hover:bg-gray-50 dark:hover:bg-white/5 transition-all text-text-secondary-light group"
+              >
+                <div className="size-10 rounded-full bg-gray-100 dark:bg-white/10 flex items-center justify-center transition-colors group-hover:bg-primary group-hover:text-white">
+                  <span className="material-symbols-outlined">
+                    photo_library
+                  </span>
+                </div>
+                <span className="text-xs font-bold uppercase tracking-tight">
+                  Upload from Phone
+                </span>
+              </button>
+            </div>
           )}
         </div>
 

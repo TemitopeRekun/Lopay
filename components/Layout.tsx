@@ -1,6 +1,7 @@
 import React, { useRef, useState } from "react";
 import { useData } from "../context/DataContext";
 import { useUI } from "../context/UIContext";
+import { NativeBridge } from "../services/native";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -20,8 +21,10 @@ export const Layout: React.FC<LayoutProps> = ({
   );
   const [pullDistance, setPullDistance] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isCheckingNetwork, setIsCheckingNetwork] = useState(false);
   const startYRef = useRef<number | null>(null);
   const canPullRef = useRef(false);
+  const pullContainerRef = useRef<HTMLDivElement | null>(null);
 
   React.useEffect(() => {
     if (typeof window === "undefined") return;
@@ -38,11 +41,60 @@ export const Layout: React.FC<LayoutProps> = ({
     };
   }, []);
 
+  const checkNetworkStatus = async () => {
+    setIsCheckingNetwork(true);
+    try {
+      if (NativeBridge.isNative()) {
+        const status = await NativeBridge.getNetworkStatus();
+        setIsOnline(status.connected);
+      } else if (typeof navigator !== "undefined") {
+        setIsOnline(navigator.onLine);
+      }
+    } finally {
+      setIsCheckingNetwork(false);
+    }
+  };
+
+  React.useEffect(() => {
+    if (!NativeBridge.isNative()) return;
+
+    let cleanup: (() => void) | undefined;
+
+    checkNetworkStatus().catch(() => undefined);
+
+    NativeBridge.watchNetworkStatus((status) => {
+      setIsOnline(status.connected);
+    }).then((unsub) => {
+      cleanup = unsub;
+    });
+
+    return () => {
+      cleanup?.();
+    };
+  }, []);
+
+  const getScrollTop = (target: EventTarget | null) => {
+    let el =
+      target && "target" in (target as any)
+        ? ((target as any).target as HTMLElement | null)
+        : (target as HTMLElement | null);
+    const container = pullContainerRef.current;
+
+    while (el && el !== container) {
+      if (el.scrollHeight > el.clientHeight) {
+        return el.scrollTop;
+      }
+      el = el.parentElement;
+    }
+
+    return typeof window !== "undefined" ? window.scrollY : 0;
+  };
+
   const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
     if (isRefreshing) return;
     const touch = event.touches[0];
     startYRef.current = touch.clientY;
-    canPullRef.current = window.scrollY <= 0;
+    canPullRef.current = getScrollTop(event.target) <= 0;
     setPullDistance(0);
   };
 
@@ -93,6 +145,7 @@ export const Layout: React.FC<LayoutProps> = ({
 
     try {
       await refreshData();
+      await checkNetworkStatus();
     } finally {
       setIsRefreshing(false);
     }
@@ -103,7 +156,7 @@ export const Layout: React.FC<LayoutProps> = ({
 
   return (
     <div
-      className={`min-h-screen w-full bg-background-light dark:bg-background-dark text-text-primary-light dark:text-text-primary-dark ${className}`}
+      className={`min-h-screen w-full bg-background-light dark:bg-background-dark text-text-primary-light dark:text-text-primary-dark safe-area ${className}`}
     >
       <div
         className={`mx-auto max-w-md min-h-screen relative shadow-2xl bg-white dark:bg-background-dark overflow-hidden flex flex-col ${showBottomNav ? "pb-24" : ""}`}
@@ -113,6 +166,7 @@ export const Layout: React.FC<LayoutProps> = ({
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
+          ref={pullContainerRef}
         >
           <div
             className={`absolute top-0 left-0 right-0 z-20 flex items-center justify-center pointer-events-none transition-opacity duration-150 ${
@@ -135,7 +189,7 @@ export const Layout: React.FC<LayoutProps> = ({
               transition: isRefreshing ? "transform 150ms ease-out" : undefined,
             }}
           >
-            {!isOnline && (
+            {!isOnline && !isRefreshing && !isCheckingNetwork && (
               <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
                 <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 text-amber-700 border border-amber-500/30 px-3 py-1 text-[9px] font-black uppercase tracking-[0.2em]">
                   <span className="size-1.5 rounded-full bg-amber-500"></span>

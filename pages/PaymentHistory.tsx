@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useData } from "../context/DataContext";
 import { BottomNav } from "../components/BottomNav";
+import { Layout } from "../components/Layout";
 
 export const PaymentHistory: React.FC = () => {
   const navigate = useNavigate();
@@ -15,25 +16,26 @@ export const PaymentHistory: React.FC = () => {
   );
 
   return (
-    <div className="relative flex h-auto min-h-screen w-full flex-col bg-background-light dark:bg-background-dark pb-24">
-      <header className="sticky top-0 z-10 flex h-auto w-full flex-col bg-background-light/90 dark:bg-background-dark/90 backdrop-blur-sm">
-        <div className="flex items-center p-4 pb-3 justify-between">
-          <button
-            onClick={() => navigate("/dashboard")}
-            className="flex size-9 shrink-0 items-center justify-center text-primary-blue"
-          >
-            <span className="material-symbols-outlined text-3xl">
-              arrow_back_ios_new
-            </span>
-          </button>
-          <h1 className="text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center">
-            Payment History
-          </h1>
-          <div className="flex size-9 shrink-0 items-center"></div>
-        </div>
-      </header>
+    <Layout showBottomNav>
+      <div className="flex flex-col flex-1">
+        <header className="sticky top-0 z-10 flex h-auto w-full flex-col bg-background-light/90 dark:bg-background-dark/90 backdrop-blur-sm">
+          <div className="flex items-center p-4 pb-3 justify-between">
+            <button
+              onClick={() => navigate("/dashboard")}
+              className="flex size-9 shrink-0 items-center justify-center text-primary-blue"
+            >
+              <span className="material-symbols-outlined text-3xl">
+                arrow_back_ios_new
+              </span>
+            </button>
+            <h1 className="text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center">
+              Payment History
+            </h1>
+            <div className="flex size-9 shrink-0 items-center"></div>
+          </div>
+        </header>
 
-      <main className="flex flex-col gap-4 px-4 pb-8">
+        <main className="flex flex-col gap-4 px-4 pb-8">
         {/* Search */}
         <div className="py-2">
           <label className="flex flex-col min-w-40 h-12 w-full">
@@ -114,8 +116,9 @@ export const PaymentHistory: React.FC = () => {
             </div>
           ))}
         </div>
-      </main>
-      <BottomNav />
-    </div>
+        </main>
+        <BottomNav />
+      </div>
+    </Layout>
   );
 };

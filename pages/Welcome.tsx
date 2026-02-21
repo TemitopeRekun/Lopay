@@ -1,14 +1,19 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Layout } from "../components/Layout";
 
 export const Welcome: React.FC = () => {
   const navigate = useNavigate();
   const [mode, setMode] = useState<'signup' | 'login'>('signup');
 
   return (
-    <div className="relative flex h-auto min-h-screen w-full flex-col bg-background-light dark:bg-background-dark overflow-x-hidden" style={{ fontFamily: 'Manrope, sans-serif' }}>
-      <div className="flex flex-col grow justify-between">
-        <div className="flex flex-col items-center pt-16">
+    <Layout>
+      <div
+        className="relative flex h-auto min-h-screen w-full flex-col overflow-x-hidden"
+        style={{ fontFamily: "Manrope, sans-serif" }}
+      >
+        <div className="flex flex-col grow justify-between">
+          <div className="flex flex-col items-center pt-16">
           {/* Logo */}
           <div className="flex items-center justify-center gap-2 px-4 py-3">
             <span className="material-symbols-outlined text-4xl text-primary-green">account_balance</span>
@@ -95,8 +100,9 @@ export const Welcome: React.FC = () => {
               </button>
             </div>
           </div>
+          </div>
         </div>
       </div>
-    </div>
+    </Layout>
   );
 };

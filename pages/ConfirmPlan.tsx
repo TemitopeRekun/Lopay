@@ -1,7 +1,7 @@
-import React from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { useData } from '../context/DataContext';
-import { Child } from '../types';
+import React from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { useData } from "../context/DataContext";
+import { Layout } from "../components/Layout";
 
 export const ConfirmPlan: React.FC = () => {
   const location = useLocation();
@@ -71,13 +71,19 @@ export const ConfirmPlan: React.FC = () => {
   };
 
   return (
-    <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden pb-32 bg-background-light dark:bg-background-dark">
-      <div className="flex items-center p-4 pb-2 sticky top-0 z-10 bg-background-light/90 dark:bg-background-dark/90 backdrop-blur-md">
-        <button onClick={() => navigate(-1)} className="flex size-10 shrink-0 items-center justify-center text-slate-900 dark:text-slate-100">
-          <span className="material-symbols-outlined">arrow_back_ios_new</span>
-        </button>
-        <h2 className="flex-1 text-center text-lg font-bold leading-tight tracking-[-0.015em] -ml-10">Confirm Your Plan</h2>
-      </div>
+    <Layout>
+      <div className="flex flex-col flex-1 overflow-x-hidden pb-32">
+        <div className="flex items-center p-4 pb-2 sticky top-0 z-10 bg-background-light/90 dark:bg-background-dark/90 backdrop-blur-md">
+          <button
+            onClick={() => navigate(-1)}
+            className="flex size-10 shrink-0 items-center justify-center text-slate-900 dark:text-slate-100"
+          >
+            <span className="material-symbols-outlined">arrow_back_ios_new</span>
+          </button>
+          <h2 className="flex-1 text-center text-lg font-bold leading-tight tracking-[-0.015em] -ml-10">
+            Confirm Your Plan
+          </h2>
+        </div>
 
       <div className="flex p-4">
         <div className="flex w-full items-center gap-4">
@@ -159,15 +165,22 @@ export const ConfirmPlan: React.FC = () => {
         </div>
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 bg-background-light dark:bg-background-dark p-4 pt-3 border-t border-slate-200 dark:border-slate-800">
-        <button 
-          onClick={handleConfirm}
-          className="w-full rounded-xl bg-primary-blue py-4 text-center text-lg font-bold text-white shadow-lg shadow-blue-500/30 hover:shadow-blue-500/40 transition-shadow"
-        >
+        <div className="fixed bottom-0 left-0 right-0 bg-background-light dark:bg-background-dark p-4 pt-3 border-t border-slate-200 dark:border-slate-800">
+          <button
+            onClick={handleConfirm}
+            className="w-full rounded-xl bg-primary-blue py-4 text-center text-lg font-bold text-white shadow-lg shadow-blue-500/30 hover:shadow-blue-500/40 transition-shadow"
+          >
             Confirm & Start Plan
-        </button>
-        <p className="mt-4 text-center text-xs text-slate-500">By confirming, you agree to our <a className="font-medium text-primary-blue underline" href="#">Terms of Service</a>.</p>
+          </button>
+          <p className="mt-4 text-center text-xs text-slate-500">
+            By confirming, you agree to our{" "}
+            <a className="font-medium text-primary-blue underline" href="#">
+              Terms of Service
+            </a>
+            .
+          </p>
+        </div>
       </div>
-    </div>
+    </Layout>
   );
 };

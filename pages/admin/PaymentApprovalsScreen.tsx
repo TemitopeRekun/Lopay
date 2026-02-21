@@ -1,9 +1,10 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Layout } from "../../components/Layout";
 import { Header } from "../../components/Header";
 import { useAuth } from "../../context/AuthContext";
 import { useData } from "../../context/DataContext";
+import { BackendAPI } from "../../services/backend";
 import {
   useAdminPendingFirstPayments,
   useAdminPendingInstallments,
@@ -29,14 +30,17 @@ const PaymentApprovalsScreen: React.FC = () => {
     scope: "installment" | "first";
   } | null>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [signedReceiptUrls, setSignedReceiptUrls] = useState<
+    Record<string, string>
+  >({});
 
   const isOwner = userRole === "owner";
   const isSchoolOwner = userRole === "school_owner";
 
   const { data: adminPendingFirst = [] } =
-    useAdminPendingFirstPayments(isOwner);
+    useAdminPendingFirstPayments(isOwner, 30000);
   const { data: adminPendingInstallments = [] } =
-    useAdminPendingInstallments(isOwner);
+    useAdminPendingInstallments(isOwner, 30000);
   const settleFirstPayment = useSettleFirstPayment();
   const rejectFirstPayment = useRejectFirstPayment();
 
@@ -63,6 +67,80 @@ const PaymentApprovalsScreen: React.FC = () => {
     }
     return allStudents.filter((s) => s.status === "Pending");
   }, [isOwner, adminPendingFirst, allStudents]);
+
+  useEffect(() => {
+    const receiptPaymentIds = Array.from(
+      new Set(
+        [
+          ...pendingTransactions
+            .filter(
+              (t) =>
+                !!t.receiptUrl &&
+                !t.receiptSignedUrl &&
+                !t.receiptUrl?.startsWith("http"),
+            )
+            .map((t) => t.id),
+          ...pendingFirstEnrollments
+            .filter(
+              (t: any) =>
+                !!t.receiptUrl &&
+                !t.receiptSignedUrl &&
+                !t.receiptUrl?.startsWith("http"),
+            )
+            .map((t: any) => t.id),
+        ].filter(Boolean),
+      ),
+    );
+
+    if (receiptPaymentIds.length === 0) return;
+
+    let cancelled = false;
+
+    const signAll = async () => {
+      const entries = await Promise.all(
+        receiptPaymentIds.map(async (paymentId) => {
+          try {
+            const { path, signedUrl } =
+              await BackendAPI.documents.receipts.createDownloadUrl({
+                paymentId,
+              });
+            return [path, signedUrl || ""];
+          } catch (error) {
+            console.error("Failed to sign receipt url", error);
+            return ["", ""];
+          }
+        }),
+      );
+
+      if (cancelled) return;
+
+      setSignedReceiptUrls((prev) => {
+        const next = { ...prev };
+        entries.forEach(([path, url]) => {
+          if (path && url) {
+            next[path] = url;
+          }
+        });
+        return next;
+      });
+    };
+
+    signAll();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pendingTransactions, pendingFirstEnrollments]);
+
+  const resolveReceiptUrl = (
+    receiptUrl?: string | null,
+    receiptSignedUrl?: string | null,
+  ) => {
+    if (receiptSignedUrl) return receiptSignedUrl;
+    if (!receiptUrl) return null;
+    if (receiptUrl.startsWith("http")) return receiptUrl;
+    return signedReceiptUrls[receiptUrl] || null;
+  };
 
   const handleApproveClick = (id: string) => {
     if (!canApproveInstallments) return;
@@ -190,11 +268,18 @@ const PaymentApprovalsScreen: React.FC = () => {
                       Submitted Receipt
                     </p>
                     <button
-                      onClick={() => setSelectedReceipt(t.receiptUrl || null)}
+                      onClick={() =>
+                        setSelectedReceipt(
+                          resolveReceiptUrl(t.receiptUrl, t.receiptSignedUrl),
+                        )
+                      }
                       className="w-full aspect-video bg-gray-100 dark:bg-white/5 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 relative group"
                     >
                       <img
-                        src={t.receiptUrl}
+                        src={
+                          resolveReceiptUrl(t.receiptUrl, t.receiptSignedUrl) ||
+                          ""
+                        }
                         alt="Receipt"
                         className="w-full h-full object-cover"
                       />
@@ -274,12 +359,22 @@ const PaymentApprovalsScreen: React.FC = () => {
                       {t.receiptUrl ? (
                         <button
                           onClick={() =>
-                            setSelectedReceipt(t.receiptUrl || null)
+                            setSelectedReceipt(
+                              resolveReceiptUrl(
+                                t.receiptUrl,
+                                t.receiptSignedUrl,
+                              ) || null,
+                            )
                           }
                           className="w-full aspect-video bg-gray-100 dark:bg-white/5 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 relative group"
                         >
                           <img
-                            src={t.receiptUrl}
+                            src={
+                              resolveReceiptUrl(
+                                t.receiptUrl,
+                                t.receiptSignedUrl,
+                              ) || ""
+                            }
                             alt="Receipt"
                             className="w-full h-full object-cover"
                           />
@@ -402,7 +497,7 @@ const PaymentApprovalsScreen: React.FC = () => {
 
       {confirmAction && (
         <div
-          className="fixed inset-0 z-[95] bg-black/70 backdrop-blur-sm flex items-center justify-center p-6"
+          className="fixed inset-0 z-95 bg-black/70 backdrop-blur-sm flex items-center justify-center p-6"
           onClick={handleCancelConfirm}
         >
           <div

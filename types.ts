@@ -70,6 +70,7 @@ export interface Transaction {
   date: string;
   status: "Successful" | "Pending" | "Failed";
   receiptUrl?: string;
+  receiptSignedUrl?: string;
   type?: string;
   className?: string;
   platformFeeAmount?: number;
@@ -174,6 +175,7 @@ export interface ApiTransaction {
   className: string;
   schoolName: string;
   receiptUrl?: string;
+  receiptSignedUrl?: string;
   platformFeeAmount?: number;
   platformFeePercentage?: number;
 }
@@ -187,6 +189,7 @@ export interface ApiPendingPayment {
   className: string;
   schoolName: string;
   receiptUrl?: string;
+  receiptSignedUrl?: string;
   date: string;
   paymentDate: string;
   type: string;
@@ -204,6 +207,7 @@ export interface ApiPayment {
   paymentType: string;
   status?: string;
   receiptUrl?: string;
+  receiptSignedUrl?: string;
 }
 
 export interface ApiEnrollment {

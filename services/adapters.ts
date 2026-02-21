@@ -101,6 +101,7 @@ export const normalizeTransaction = (
     date: apiTx.date || apiTx.paymentDate || new Date().toISOString(),
     status: isSuccess ? "Successful" : isFailed ? "Failed" : "Pending",
     receiptUrl: apiTx.receiptUrl,
+    receiptSignedUrl: (apiTx as any).receiptSignedUrl,
     type: apiTx.type || (apiTx as any).paymentType,
     className: (apiTx as any).className,
     platformFeeAmount:

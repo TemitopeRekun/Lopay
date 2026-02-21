@@ -1,17 +1,27 @@
-import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { initializeApp } from "firebase/app";
+import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAOBO038w5ORRnBBS-mDIfG35qVvyrJ1As",
-  authDomain: "lopay-auth.firebaseapp.com",
-  projectId: "lopay-auth",
-  storageBucket: "lopay-auth.firebasestorage.app",
-  messagingSenderId: "891944287716",
-  appId: "1:891944287716:web:e79cf39ed1fcc6d60e1bf1"
+  apiKey: (import.meta as any).env?.VITE_FIREBASE_API_KEY,
+  authDomain: (import.meta as any).env?.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: (import.meta as any).env?.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: (import.meta as any).env?.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: (import.meta as any).env?.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: (import.meta as any).env?.VITE_FIREBASE_APP_ID,
 };
 
-let app: ReturnType<typeof initializeApp>;
-let auth: ReturnType<typeof getAuth>;
+const hasMissingFirebaseEnv = Object.values(firebaseConfig).some(
+  (value) => !value,
+);
+
+if (hasMissingFirebaseEnv) {
+  console.warn(
+    "Firebase env vars missing. Set VITE_FIREBASE_* in .env and .env.production.",
+  );
+}
+
+let app: ReturnType<typeof initializeApp> | undefined;
+let auth: ReturnType<typeof getAuth> | undefined;
 
 try {
   app = initializeApp(firebaseConfig);
@@ -20,4 +30,4 @@ try {
   console.error("Firebase initialization failed:", error);
 }
 
-export { auth };
+export { app, auth };

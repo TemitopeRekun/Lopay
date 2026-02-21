@@ -23,9 +23,10 @@ export const NotificationIconButton: React.FC<NotificationIconButtonProps> = ({
     <button onClick={onClick} className={`${baseClasses} ${shapeClasses}`}>
       <span className="material-symbols-outlined text-xl">notifications</span>
       {hasUnread && (
-        <span className="absolute top-2 right-2 size-2 bg-danger rounded-full border border-white dark:border-card-dark"></span>
+        <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-danger text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-white dark:border-card-dark">
+          {unreadCount > 99 ? "99+" : unreadCount}
+        </span>
       )}
     </button>
   );
 };
-

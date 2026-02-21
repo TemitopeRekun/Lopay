@@ -2,6 +2,7 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useData } from "../context/DataContext";
 import { BottomNav } from "../components/BottomNav";
+import { Layout } from "../components/Layout";
 
 export const Notifications: React.FC = () => {
   const navigate = useNavigate();
@@ -38,21 +39,22 @@ export const Notifications: React.FC = () => {
   };
 
   return (
-    <div className="relative mx-auto flex h-auto min-h-screen w-full max-w-md flex-col overflow-x-hidden bg-background-light dark:bg-background-dark pb-24">
-      <header className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-background-light/90 dark:bg-background-dark/90 p-4 pb-3 backdrop-blur-sm">
-        <button
-          onClick={() => navigate("/dashboard")}
-          className="flex size-8 shrink-0 items-center justify-start"
-        >
-          <span className="material-symbols-outlined text-3xl">
-            arrow_back_ios_new
-          </span>
-        </button>
-        <h1 className="flex-1 text-center text-lg font-bold leading-tight tracking-tight">
-          Notifications
-        </h1>
-        <div className="flex w-8 shrink-0"></div>
-      </header>
+    <Layout showBottomNav>
+      <div className="flex flex-col flex-1 overflow-x-hidden">
+        <header className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-background-light/90 dark:bg-background-dark/90 p-4 pb-3 backdrop-blur-sm">
+          <button
+            onClick={() => navigate("/dashboard")}
+            className="flex size-8 shrink-0 items-center justify-start"
+          >
+            <span className="material-symbols-outlined text-3xl">
+              arrow_back_ios_new
+            </span>
+          </button>
+          <h1 className="flex-1 text-center text-lg font-bold leading-tight tracking-tight">
+            Notifications
+          </h1>
+          <div className="flex w-8 shrink-0"></div>
+        </header>
 
       <div className="flex gap-2 p-4">
         <div className="flex h-9 shrink-0 cursor-pointer items-center justify-center gap-x-2 rounded-full bg-primary-blue px-4">
@@ -66,7 +68,7 @@ export const Notifications: React.FC = () => {
         </div>
       </div>
 
-      <main className="flex flex-col gap-px px-4 pb-4">
+        <main className="flex flex-col gap-px px-4 pb-4">
         <h2 className="px-2 pb-2 pt-2 text-sm font-bold uppercase tracking-wider text-slate-500">
           Recent
         </h2>
@@ -137,8 +139,9 @@ export const Notifications: React.FC = () => {
               </div>
             </div>
           ))}
-      </main>
-      <BottomNav />
-    </div>
+        </main>
+        <BottomNav />
+      </div>
+    </Layout>
   );
 };

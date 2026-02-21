@@ -139,7 +139,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({
     isError: errorStudents,
   } = useSchoolStudents(
     schoolContextKey,
-    isAuthenticated && (isSchoolContext || isPlatformOwner),
+    isAuthenticated && isSchoolContext,
   );
 
   const {
@@ -148,14 +148,14 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({
     isError: errorPending,
   } = usePendingPayments(
     schoolContextKey,
-    isAuthenticated && (isSchoolContext || isPlatformOwner),
+    isAuthenticated && isSchoolContext,
   );
 
   const {
     data: schoolStats = null,
     isLoading: loadingStats,
     isError: errorStats,
-  } = useSchoolStats(isAuthenticated && (isSchoolContext || isPlatformOwner));
+  } = useSchoolStats(isAuthenticated && isSchoolContext);
 
   const transactions = isPlatformOwner
     ? globalTransactions
@@ -277,7 +277,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({
     loadingTransactions ||
     loadingNotifications ||
     loadingSchools ||
-    ((isSchoolContext || isPlatformOwner) &&
+    (isSchoolContext &&
       (loadingStudents ||
         loadingPending ||
         loadingSchoolTransactions ||
@@ -290,9 +290,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({
     !!errorSchools ||
     !!errorGlobalTransactions ||
     !!errorSchoolTransactions ||
-    !!errorStudents ||
-    !!errorPending ||
-    !!errorStats;
+    (isSchoolContext && (!!errorStudents || !!errorPending || !!errorStats));
 
   return (
     <DataContext.Provider

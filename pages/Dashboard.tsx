@@ -200,7 +200,10 @@ const Dashboard: React.FC = () => {
       </div>
 
       <main className="flex flex-col gap-6 p-6">
-        {hasError && (
+        {hasError &&
+          !isLoading &&
+          childrenData.length === 0 &&
+          transactions.length === 0 && (
           <div className="flex items-center justify-between gap-3 rounded-2xl border border-danger/20 bg-danger/5 px-4 py-3">
             <div className="flex items-start gap-3">
               <span className="material-symbols-outlined text-danger">

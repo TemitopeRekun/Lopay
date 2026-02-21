@@ -12,7 +12,12 @@
   },
   "dependencies": {
     "@capacitor/android": "^6.0.0",
+    "@capacitor/camera": "^6.0.0",
     "@capacitor/core": "^6.0.0",
+    "@capacitor/filesystem": "^6.0.0",
+    "@capacitor/network": "^6.0.0",
+    "@capacitor/status-bar": "^6.0.0",
+    "@supabase/supabase-js": "^2.49.0",
     "@tanstack/react-query": "^5.90.21",
     "@tanstack/react-query-devtools": "^5.91.3",
     "axios": "^1.13.4",
@@ -22,6 +27,7 @@
     "react-router-dom": "^7.9.6"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.0",
     "@capacitor/cli": "^6.0.0",
     "@tailwindcss/container-queries": "^0.1.1",
     "@tailwindcss/forms": "^0.5.11",

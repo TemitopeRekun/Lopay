@@ -61,7 +61,7 @@ export const PlanCard: React.FC<PlanCardProps> = ({
                 }`}
               ></div>
             </div>
-            <div>
+              <div>
               <p className="font-black text-sm text-text-primary-light dark:text-text-primary-dark tracking-tight">
                 {child.name}
               </p>
@@ -253,7 +253,7 @@ export const PlanCard: React.FC<PlanCardProps> = ({
         </div>
       </div>
 
-      <div className="mt-2 p-4 bg-gray-50 dark:bg-white/5 border-top border-t border-gray-100 dark:border-gray-800 flex items-center justify-between">
+      <div className="mt-2 p-4 bg-gray-50 dark:bg-white/5 border-top border-t border-gray-100 dark:border-gray-800">
         {isCompleted ? (
           <div className="w-full flex items-center justify-center text-success font-bold gap-2 text-sm">
             <span className="material-symbols-outlined filled text-lg">
@@ -271,7 +271,16 @@ export const PlanCard: React.FC<PlanCardProps> = ({
             </span>
           </div>
         ) : (
-          <>
+          <div className="flex flex-col gap-3">
+            {hasFailedPayment ? (
+              <div className="w-full rounded-xl border border-danger/20 bg-danger/10 px-3 py-2 text-center">
+                <p className="text-[10px] text-danger font-bold leading-snug">
+                  {hasFailedFirstPayment && balance.paid === 0
+                    ? "Your first payment couldnâ€™t be verified (receipt not clear). Please pay again and upload a clearer receipt."
+                    : "Your last installment attempt was rejected (receipt not clear). Please pay again with a clearer image."}
+                </p>
+              </div>
+            ) : null}
             <div>
               <p className="text-[10px] text-text-secondary-light dark:text-text-secondary-dark uppercase font-bold">
                 {balance.paid === 0 ? "Activation Required" : "Next Payment"}
@@ -286,7 +295,7 @@ export const PlanCard: React.FC<PlanCardProps> = ({
               </p>
             </div>
             <div className="flex flex-col gap-2 w-full">
-              {hasFailedPayment ? (
+              {false ? (
                 <div className="w-full rounded-xl border border-danger/20 bg-danger/10 px-3 py-2 text-center">
                   <p className="text-[10px] text-danger font-bold leading-snug">
                     {hasFailedFirstPayment && balance.paid === 0
@@ -313,7 +322,7 @@ export const PlanCard: React.FC<PlanCardProps> = ({
                 </button>
               </div>
             </div>
-          </>
+          </div>
         )}
       </div>
     </div>
