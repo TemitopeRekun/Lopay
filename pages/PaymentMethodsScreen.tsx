@@ -173,31 +173,6 @@ const PaymentMethodsScreen: React.FC = () => {
     reader.readAsDataURL(file);
   };
 
-  const handleCaptureReceipt = async () => {
-    if (!NativeBridge.isNative()) {
-      handleSelectReceipt();
-      return;
-    }
-
-    const permission = await NativeBridge.requestCameraPermissions();
-    if (permission.camera !== "granted") {
-      showToast("Camera permission is required to take a photo.", "warning");
-      return;
-    }
-
-    try {
-      const photo = await NativeBridge.takePhoto();
-      if (!photo.dataUrl) {
-        showToast("No photo captured. Please try again.", "error");
-        return;
-      }
-      processReceiptDataUrl(photo.dataUrl, "receipt.jpg");
-    } catch (error) {
-      console.error(error);
-      showToast("Failed to open camera. Please try again.", "error");
-    }
-  };
-
   const handlePickFromPhone = async () => {
     if (!NativeBridge.isNative()) {
       handleSelectReceipt();
@@ -577,17 +552,6 @@ const PaymentMethodsScreen: React.FC = () => {
           ) : (
             <div className="flex flex-col gap-3">
               <button
-                onClick={handleCaptureReceipt}
-                className="w-full h-20 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-800 flex items-center justify-center gap-3 hover:bg-gray-50 dark:hover:bg-white/5 transition-all text-text-secondary-light group"
-              >
-                <div className="size-10 rounded-full bg-gray-100 dark:bg-white/10 flex items-center justify-center transition-colors group-hover:bg-primary group-hover:text-white">
-                  <span className="material-symbols-outlined">photo_camera</span>
-                </div>
-                <span className="text-xs font-bold uppercase tracking-tight">
-                  Take Photo
-                </span>
-              </button>
-              <button
                 onClick={handlePickFromPhone}
                 className="w-full h-20 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-800 flex items-center justify-center gap-3 hover:bg-gray-50 dark:hover:bg-white/5 transition-all text-text-secondary-light group"
               >
@@ -597,7 +561,7 @@ const PaymentMethodsScreen: React.FC = () => {
                   </span>
                 </div>
                 <span className="text-xs font-bold uppercase tracking-tight">
-                  Upload from Phone
+                  Upload File
                 </span>
               </button>
             </div>

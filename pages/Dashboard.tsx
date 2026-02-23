@@ -117,12 +117,69 @@ const Dashboard: React.FC = () => {
     return totalNextCollection;
   }, [singleNextEnrollment, totalNextCollection]);
 
-  const handleQuickPay = (childId: string, amount: number) => {
+  const handleQuickPay = (
+    child: (typeof validChildren)[number],
+    amount: number,
+    context?: { isFirstPaymentRetry?: boolean },
+  ) => {
+    if (context?.isFirstPaymentRetry) {
+      const rawFrequency = String(child.installmentFrequency || "MONTHLY")
+        .trim()
+        .toUpperCase();
+      const planType = rawFrequency === "WEEKLY" ? "Weekly" : "Monthly";
+      const numberOfPayments = planType === "Weekly" ? 12 : 3;
+
+      const failedFirstPayment = (child.payments || [])
+        .filter((p) => {
+          const type = (p.type || p.paymentType || "").toUpperCase();
+          const status = p.status ? String(p.status).toUpperCase() : "";
+          return (
+            type === "FIRST_PAYMENT" &&
+            (status === "FAILED" || status === "REJECTED" || status === "DECLINED")
+          );
+        })
+        .slice()
+        .sort((a, b) => {
+          const dateA = new Date(a.date || a.paymentDate || 0).getTime();
+          const dateB = new Date(b.date || b.paymentDate || 0).getTime();
+          return dateB - dateA;
+        })[0];
+
+      const failedAmount =
+        failedFirstPayment?.amount ??
+        failedFirstPayment?.amountPaid ??
+        0;
+
+      navigate("/confirm-plan", {
+        state: {
+          childName: child.name,
+          schoolName:
+            schoolNameById.get(child.schoolId || "") ||
+            child.school ||
+            "Unknown School",
+          grade: child.grade,
+          totalFee: child.totalFee || 0,
+          plan: {
+            type: planType,
+            amount: child.totalFee || 0,
+            frequencyLabel: planType,
+            numberOfPayments,
+          },
+          depositAmount: 0,
+          feeType: "Session",
+          schoolId: child.schoolId,
+          totalInitialPayment: failedAmount,
+          platformFeeAmount: 0,
+        },
+      });
+      return;
+    }
+
     navigate("/payment-methods", {
       state: {
         paymentType: "installment",
         amount: amount,
-        childId: childId,
+        childId: child.id,
         allowCustom: true,
       },
     });
@@ -303,7 +360,9 @@ const Dashboard: React.FC = () => {
                     "Unknown School"
                   }
                   entityLabel={entityType}
-                  onQuickPay={(c, amount) => handleQuickPay(c.id, amount)}
+                  onQuickPay={(c, amount, context) =>
+                    handleQuickPay(c, amount, context)
+                  }
                 />
               ))}
             </div>

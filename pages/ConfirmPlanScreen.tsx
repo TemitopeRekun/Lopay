@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { Layout } from "../components/Layout";
 import { Header } from "../components/Header";
@@ -6,16 +6,17 @@ import { PaymentPlan } from "../types";
 import { useAuth } from "../context/AuthContext";
 import { useData } from "../context/DataContext";
 import { useUI } from "../context/UIContext";
-import { PLATFORM_BANK } from "../services/backend";
+import { BackendAPI, PLATFORM_BANK } from "../services/backend";
+import { NativeBridge } from "../services/native";
 
 interface LocationState {
-  childName: string;
-  schoolName: string;
-  grade: string;
-  totalFee: number;
-  plan: PaymentPlan;
-  depositAmount: number;
-  feeType: "Semester" | "Session";
+  childName?: string;
+  schoolName?: string;
+  grade?: string;
+  totalFee?: number;
+  plan?: PaymentPlan;
+  depositAmount?: number;
+  feeType?: "Semester" | "Session";
   schoolId?: string;
   totalInitialPayment?: number;
   platformFeeAmount?: number;
@@ -29,19 +30,26 @@ const ConfirmPlanScreen: React.FC = () => {
   const { showToast } = useUI();
   const [isProcessing, setIsProcessing] = useState(false);
   const [receiptImage, setReceiptImage] = useState<string | null>(null);
+  const [receiptBlob, setReceiptBlob] = useState<Blob | null>(null);
+  const [receiptFileName, setReceiptFileName] = useState<string | null>(null);
+  const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [isUploading, setIsUploading] = useState(false);
+  const [receiptPath, setReceiptPath] = useState<string | null>(null);
+  const receiptInputRef = useRef<HTMLInputElement | null>(null);
 
   const state = location.state as LocationState;
 
   if (!state) return null;
 
   const {
-    childName,
-    schoolName,
-    grade,
-    totalFee,
+    childName = "Student",
+    schoolName = "Unknown School",
+    grade = "Unknown",
+    totalFee = 0,
     plan,
-    depositAmount,
-    feeType,
+    depositAmount = 0,
+    feeType = "Session",
     schoolId,
   } = state;
   const isStudent = userRole === "university_student";
@@ -52,7 +60,18 @@ const ConfirmPlanScreen: React.FC = () => {
     state.totalInitialPayment || depositAmount + platformFee;
 
   // Standard installment amount for later (remaining 75% / plan length)
-  const futureInstallmentAmount = (totalFee * 0.75) / plan.numberOfPayments;
+  const effectivePlan =
+    plan || {
+      type: "Monthly",
+      amount: totalFee,
+      frequencyLabel: "Monthly",
+      numberOfPayments: 3,
+    };
+
+  const futureInstallmentAmount =
+    effectivePlan.numberOfPayments > 0
+      ? (totalFee * 0.75) / effectivePlan.numberOfPayments
+      : 0;
 
   const monthsDuration = feeType === "Session" ? 7 : 3;
 
@@ -61,15 +80,177 @@ const ConfirmPlanScreen: React.FC = () => {
     showToast("Account number copied!", "success");
   };
 
-  const handleSnapReceipt = () => {
-    // Using a reliable placeholder image service instead of a potentially broken Unsplash link
-    setReceiptImage(
-      "https://dummyimage.com/600x800/e2e8f0/1e293b.png&text=Payment+Receipt",
-    );
+  const handleSelectReceipt = () => {
+    receiptInputRef.current?.click();
   };
 
-  const handleConfirm = () => {
-    if (!receiptImage) {
+  const processReceiptDataUrl = (dataUrl: string, fileName?: string) => {
+    setReceiptFileName(fileName || "receipt.jpg");
+    setReceiptUrl(null);
+    setReceiptPath(null);
+    setUploadProgress(0);
+
+    const img = new Image();
+    img.onload = () => {
+      const maxDimension = 1024;
+      const scale = Math.min(
+        1,
+        maxDimension / Math.max(img.width, img.height),
+      );
+      const targetWidth = Math.max(1, Math.round(img.width * scale));
+      const targetHeight = Math.max(1, Math.round(img.height * scale));
+
+      const canvas = document.createElement("canvas");
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        showToast("Failed to process receipt image.", "error");
+        return;
+      }
+
+      ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+
+      const preview = canvas.toDataURL("image/jpeg", 0.6);
+      setReceiptImage(preview);
+
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            showToast("Failed to compress receipt image.", "error");
+            return;
+          }
+          setReceiptBlob(blob);
+        },
+        "image/jpeg",
+        0.6,
+      );
+    };
+    img.onerror = () => {
+      showToast("Failed to process receipt image. Please try again.", "error");
+    };
+    img.src = dataUrl;
+  };
+
+  const handleReceiptFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) {
+      showToast("Please select a receipt image.", "warning");
+      return;
+    }
+    if (!file.type.startsWith("image/")) {
+      showToast("Receipt must be an image file.", "error");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result !== "string") {
+        showToast("Failed to read receipt image. Please try again.", "error");
+        return;
+      }
+      processReceiptDataUrl(reader.result, file.name);
+    };
+    reader.onerror = () => {
+      showToast("Failed to read receipt image. Please try again.", "error");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handlePickFromPhone = async () => {
+    if (!NativeBridge.isNative()) {
+      handleSelectReceipt();
+      return;
+    }
+
+    const permission = await NativeBridge.requestCameraPermissions();
+    if (permission.photos !== "granted") {
+      showToast("Photo access is required to select a receipt.", "warning");
+      return;
+    }
+
+    try {
+      await NativeBridge.requestFilesystemPermissions();
+      const photo = await NativeBridge.pickPhoto();
+      if (!photo.dataUrl) {
+        showToast("No photo selected. Please try again.", "error");
+        return;
+      }
+      processReceiptDataUrl(photo.dataUrl, "receipt.jpg");
+    } catch (error) {
+      console.error(error);
+      showToast("Failed to open photos. Please try again.", "error");
+    }
+  };
+
+  const uploadReceipt = async () => {
+    if (receiptPath) {
+      return { path: receiptPath };
+    }
+    if (!receiptBlob) {
+      throw new Error("Receipt image is missing.");
+    }
+
+    const safeName = (receiptFileName || "receipt.jpg")
+      .replace(/\s+/g, "-")
+      .replace(/[^a-zA-Z0-9\-_.]/g, "");
+    const normalizedFileName = safeName.endsWith(".jpg")
+      ? safeName
+      : `${safeName}.jpg`;
+
+    const maxAttempts = 2;
+    let lastError: unknown;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        setIsUploading(true);
+        setUploadProgress(0);
+
+        const { path, signedUrl } =
+          await BackendAPI.documents.receipts.createUploadUrl({
+            fileName: normalizedFileName,
+            contentType: "image/jpeg",
+          });
+
+        const uploadResponse = await fetch(signedUrl, {
+          method: "PUT",
+          body: receiptBlob,
+          headers: {
+            "Content-Type": "image/jpeg",
+          },
+        });
+
+        if (!uploadResponse.ok) {
+          showToast("Receipt upload failed. Please try again.", "error");
+          throw new Error("Receipt upload failed.");
+        }
+
+        setUploadProgress(100);
+        setReceiptUrl(path);
+        setReceiptPath(path);
+        setIsUploading(false);
+        showToast("Receipt uploaded successfully.", "success");
+        return { path };
+      } catch (error) {
+        lastError = error;
+        setIsUploading(false);
+        if (attempt < maxAttempts) {
+          showToast("Upload failed. Retrying...", "warning");
+        }
+      }
+    }
+
+    throw lastError || new Error("Failed to upload receipt.");
+  };
+
+  const cleanupUploadedReceipt = async () => {
+    setReceiptPath(null);
+    setReceiptUrl(null);
+  };
+
+  const handleConfirm = async () => {
+    if (!receiptImage || !receiptBlob) {
       showToast("Please upload a payment receipt to proceed.", "error");
       return;
     }
@@ -83,43 +264,53 @@ const ConfirmPlanScreen: React.FC = () => {
     // Calculate dates
     const startDate = new Date();
     const endDate = new Date(startDate);
-    if (plan.type === "Weekly") {
-      endDate.setDate(startDate.getDate() + plan.numberOfPayments * 7);
+    if (effectivePlan.type === "Weekly") {
+      endDate.setDate(startDate.getDate() + effectivePlan.numberOfPayments * 7);
     } else {
-      endDate.setMonth(startDate.getMonth() + plan.numberOfPayments);
+      endDate.setMonth(startDate.getMonth() + effectivePlan.numberOfPayments);
     }
 
-    setTimeout(async () => {
-      try {
-        await addChild(
-          {
-            childName,
-            schoolId,
-            className: grade,
-            installmentFrequency: plan.type,
-            firstPaymentPaid: initialActivationPayment,
-            termStartDate: startDate.toISOString(),
-            termEndDate: endDate.toISOString(),
-          },
-          receiptImage,
-        );
+    try {
+      const { path: uploadedPath } = await uploadReceipt();
 
-        navigate("/dashboard");
-      } catch (err: any) {
-        console.error(
-          "Confirmation failed detailed:",
-          err.response?.data || err.message,
-        );
-        const backendMessage = err.response?.data?.message;
-        // Handle array of error messages (e.g. class-validator)
-        const errorMessage = Array.isArray(backendMessage)
-          ? backendMessage.join(", ")
-          : backendMessage || err.message || "Failed to confirm enrollment.";
+      setTimeout(async () => {
+        try {
+          await addChild(
+            {
+              childName,
+              schoolId,
+              className: grade,
+            installmentFrequency: effectivePlan.type,
+              firstPaymentPaid: initialActivationPayment,
+              termStartDate: startDate.toISOString(),
+              termEndDate: endDate.toISOString(),
+            },
+            uploadedPath || receiptUrl || undefined,
+          );
 
-        showToast(`Enrollment Failed: ${errorMessage}`, "error");
-        setIsProcessing(false);
-      }
-    }, 2000);
+          navigate("/dashboard");
+        } catch (err: any) {
+          console.error(
+            "Confirmation failed detailed:",
+            err.response?.data || err.message,
+          );
+          const backendMessage = err.response?.data?.message;
+          // Handle array of error messages (e.g. class-validator)
+          const errorMessage = Array.isArray(backendMessage)
+            ? backendMessage.join(", ")
+            : backendMessage || err.message || "Failed to confirm enrollment.";
+
+          showToast(`Enrollment Failed: ${errorMessage}`, "error");
+          setIsProcessing(false);
+          await cleanupUploadedReceipt();
+        }
+      }, 2000);
+    } catch (error) {
+      console.error(error);
+      showToast("Failed to upload receipt. Please try again.", "error");
+      setIsProcessing(false);
+      await cleanupUploadedReceipt();
+    }
   };
 
   return (
@@ -219,6 +410,26 @@ const ConfirmPlanScreen: React.FC = () => {
           <h3 className="text-sm font-bold text-text-secondary-light uppercase tracking-wider mb-4 px-1">
             Proof of Transfer
           </h3>
+          {isUploading && (
+            <div className="mb-3 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2">
+              <p className="text-[10px] font-bold text-primary uppercase tracking-widest">
+                Uploading receipt... {uploadProgress}%
+              </p>
+              <div className="mt-2 h-1.5 w-full rounded-full bg-primary/10 overflow-hidden">
+                <div
+                  className="h-full bg-primary transition-all"
+                  style={{ width: `${uploadProgress}%` }}
+                ></div>
+              </div>
+            </div>
+          )}
+          <input
+            ref={receiptInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleReceiptFileChange}
+            className="hidden"
+          />
           {receiptImage ? (
             <div className="relative rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-800 h-32">
               <img
@@ -227,7 +438,14 @@ const ConfirmPlanScreen: React.FC = () => {
                 className="w-full h-full object-cover"
               />
               <button
-                onClick={() => setReceiptImage(null)}
+                onClick={() => {
+                  setReceiptImage(null);
+                  setReceiptBlob(null);
+                  setReceiptFileName(null);
+                  setReceiptUrl(null);
+                  setReceiptPath(null);
+                  setUploadProgress(0);
+                }}
                 className="absolute top-2 right-2 bg-black/50 text-white rounded-full p-1"
               >
                 <span className="material-symbols-outlined text-xs">close</span>
@@ -235,11 +453,11 @@ const ConfirmPlanScreen: React.FC = () => {
             </div>
           ) : (
             <button
-              onClick={handleSnapReceipt}
+              onClick={handlePickFromPhone}
               className="w-full h-32 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-800 flex flex-col items-center justify-center gap-2 hover:bg-gray-50 dark:hover:bg-white/5 transition-all text-text-secondary-light group"
             >
               <div className="size-10 rounded-full bg-gray-100 dark:bg-white/10 flex items-center justify-center transition-colors group-hover:bg-primary group-hover:text-white">
-                <span className="material-symbols-outlined">photo_camera</span>
+                <span className="material-symbols-outlined">photo_library</span>
               </div>
               <span className="text-xs font-bold uppercase tracking-tight">
                 Upload Payment Receipt
@@ -269,7 +487,7 @@ const ConfirmPlanScreen: React.FC = () => {
                   {futureInstallmentAmount.toLocaleString(undefined, {
                     maximumFractionDigits: 2,
                   })}{" "}
-                  {plan.frequencyLabel}
+                  {effectivePlan.frequencyLabel}
                 </span>
               </div>
               <div className="flex justify-between items-center">

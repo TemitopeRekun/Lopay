@@ -626,6 +626,7 @@ export const useUpdateSchool = () => {
     mutationFn: (data: School) => BackendAPI.admin.updateSchool(data), // Assuming ID is in data
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.schools });
+      queryClient.invalidateQueries({ queryKey: ["schoolBankDetails"] });
     },
   });
 };

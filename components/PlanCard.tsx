@@ -12,7 +12,11 @@ interface PlanCardProps {
   mode: "parent" | "school";
   schoolName?: string;
   entityLabel?: string;
-  onQuickPay?: (child: Child, amount: number) => void;
+  onQuickPay?: (
+    child: Child,
+    amount: number,
+    context?: { isFirstPaymentRetry?: boolean },
+  ) => void;
 }
 
 export const PlanCard: React.FC<PlanCardProps> = ({
@@ -61,7 +65,7 @@ export const PlanCard: React.FC<PlanCardProps> = ({
                 }`}
               ></div>
             </div>
-              <div>
+            <div>
               <p className="font-black text-sm text-text-primary-light dark:text-text-primary-dark tracking-tight">
                 {child.name}
               </p>
@@ -173,21 +177,22 @@ export const PlanCard: React.FC<PlanCardProps> = ({
   const hasFailedPayment = latestIsFailed
     ? true
     : latestIsSuccess
-      ? false
-      : (hasFailedFirstPayment && balance.paid === 0) ||
-        (hasFailedInstallment && !hasPendingInstallment);
+    ? false
+    : (hasFailedFirstPayment && balance.paid === 0) ||
+      (hasFailedInstallment && !hasPendingInstallment);
+  const isFirstPaymentRetry = hasFailedFirstPayment && balance.paid === 0;
 
   const badgeStatus = hasFailedPayment
     ? "Failed"
     : hasPendingPayment
-      ? "Pending"
-      : isCompleted
-        ? "Completed"
-        : isActive
-          ? "Active"
-          : isDefaulted
-            ? "Defaulted"
-            : "Not Active";
+    ? "Pending"
+    : isCompleted
+    ? "Completed"
+    : isActive
+    ? "Active"
+    : isDefaulted
+    ? "Defaulted"
+    : "Not Active";
 
   const entity = entityLabel || "School";
 
@@ -201,7 +206,7 @@ export const PlanCard: React.FC<PlanCardProps> = ({
               alt={child.name}
               className="size-12 rounded-full object-cover bg-gray-100 ring-2 ring-gray-50 dark:ring-gray-800"
             />
-            {isActivating && (
+            {(isActivating || hasPendingPayment) && (
               <div className="absolute -bottom-1 -right-1 size-5 bg-white dark:bg-slate-900 rounded-full flex items-center justify-center shadow-sm">
                 <span className="material-symbols-outlined text-xs text-primary animate-spin">
                   sync
@@ -273,54 +278,45 @@ export const PlanCard: React.FC<PlanCardProps> = ({
         ) : (
           <div className="flex flex-col gap-3">
             {hasFailedPayment ? (
-              <div className="w-full rounded-xl border border-danger/20 bg-danger/10 px-3 py-2 text-center">
-                <p className="text-[10px] text-danger font-bold leading-snug">
+              <div className="w-full rounded-xl border border-danger/20 bg-danger/10 px-3 py-2">
+                <p className="text-[10px] text-danger font-bold leading-snug text-center">
                   {hasFailedFirstPayment && balance.paid === 0
-                    ? "Your first payment couldnâ€™t be verified (receipt not clear). Please pay again and upload a clearer receipt."
-                    : "Your last installment attempt was rejected (receipt not clear). Please pay again with a clearer image."}
+                    ? "Your first payment couldn’t be verified (receipt not clear). Please upload a clearer receipt."
+                    : "Your last installment attempt was rejected (receipt not clear). Please upload a clearer image."}
                 </p>
               </div>
             ) : null}
-            <div>
-              <p className="text-[10px] text-text-secondary-light dark:text-text-secondary-dark uppercase font-bold">
-                {balance.paid === 0 ? "Activation Required" : "Next Payment"}
-              </p>
-              <p className="font-bold text-sm text-text-primary-light dark:text-text-primary-dark">
-                ₦{nextAmount.toLocaleString()}
-                <span className="text-[10px] font-normal opacity-70 ml-1">
-                  {balance.paid === 0
-                    ? "Due Now"
-                    : `due ${child.nextDueDate || "Pending"}`}
-                </span>
-              </p>
-            </div>
-            <div className="flex flex-col gap-2 w-full">
-              {false ? (
-                <div className="w-full rounded-xl border border-danger/20 bg-danger/10 px-3 py-2 text-center">
-                  <p className="text-[10px] text-danger font-bold leading-snug">
-                    {hasFailedFirstPayment && balance.paid === 0
-                      ? "Your first payment couldn’t be verified (receipt not clear). Please pay again and upload a clearer receipt."
-                      : "Your last installment attempt was rejected (receipt not clear). Please pay again with a clearer image."}
-                  </p>
-                </div>
-              ) : null}
-              <div className="flex items-center gap-2 self-end">
-                <button
-                  onClick={() => {
-                    if (onQuickPay) {
-                      onQuickPay(child, nextAmount);
-                    }
-                  }}
-                  className={`${
-                    balance.paid === 0 ? "bg-primary" : "bg-success"
-                  } text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow-md shadow-primary/20 active:scale-95 transition-all hover:opacity-90 flex items-center gap-2`}
-                >
-                  <span className="material-symbols-outlined text-sm">
-                    account_balance
+            <div className="flex items-center justify-between w-full">
+              <div>
+                <p className="text-[10px] text-text-secondary-light dark:text-text-secondary-dark uppercase font-bold">
+                  {balance.paid === 0 ? "Activation Required" : "Next Payment"}
+                </p>
+                <p className="font-bold text-sm text-text-primary-light dark:text-text-primary-dark">
+                  ₦{nextAmount.toLocaleString()}
+                  <span className="text-[10px] font-normal opacity-70 ml-1">
+                    {balance.paid === 0
+                      ? "Due Now"
+                      : `due ${child.nextDueDate || "Pending"}`}
                   </span>
-                  Pay {entity}
-                </button>
+                </p>
               </div>
+              <button
+                onClick={() => {
+                  if (onQuickPay) {
+                    onQuickPay(child, nextAmount, {
+                      isFirstPaymentRetry,
+                    });
+                  }
+                }}
+                className={`${
+                  balance.paid === 0 ? "bg-primary" : "bg-success"
+                } text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow-md shadow-primary/20 active:scale-95 transition-all hover:opacity-90 flex items-center gap-2`}
+              >
+                <span className="material-symbols-outlined text-sm">
+                  account_balance
+                </span>
+                Pay {entity}
+              </button>
             </div>
           </div>
         )}

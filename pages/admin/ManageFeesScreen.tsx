@@ -53,7 +53,10 @@ const ManageFeesScreen: React.FC = () => {
       feesData.forEach((item: any) => {
         feeMap[item.className] = item.feeAmount.toString();
       });
-      setFees(feeMap);
+      setFees((prev) => ({
+        ...feeMap,
+        ...prev,
+      }));
       setInitialFees(feeMap);
     }
   }, [feesData]);
@@ -188,9 +191,9 @@ const ManageFeesScreen: React.FC = () => {
                     </span>
                     <input
                       type="text"
-                      value={fees[grade] || ""}
+                      value={fees[grade] ?? initialFees[grade] ?? ""}
                       onChange={(e) => handleFeeChange(grade, e.target.value)}
-                      placeholder="0.00"
+                      placeholder={initialFees[grade] || "0.00"}
                       className="w-full bg-transparent border-none p-0 pl-4 outline-none font-bold text-text-primary-light dark:text-text-primary-dark text-lg"
                     />
                   </div>

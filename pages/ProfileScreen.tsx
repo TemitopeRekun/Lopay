@@ -6,7 +6,12 @@ import { BottomNav } from "../components/BottomNav";
 import { useAuth } from "../context/AuthContext";
 import { useData } from "../context/DataContext";
 import { useUI } from "../context/UIContext";
-import { useUser, useUpdateUser } from "../hooks/useQueries";
+import {
+  useUser,
+  useUpdateUser,
+  useUpdateSchool,
+  useSchoolBankDetails,
+} from "../hooks/useQueries";
 
 const ProfileScreen: React.FC = () => {
   const {
@@ -18,6 +23,8 @@ const ProfileScreen: React.FC = () => {
     setActingRole,
     updateUser: updateAuthUser,
     isOwnerAccount,
+    effectiveRole,
+    activeSchoolId,
   } = useAuth();
   const { schools } = useData();
   const { showToast } = useUI();
@@ -25,13 +32,15 @@ const ProfileScreen: React.FC = () => {
 
   // Fetch acting user data if impersonating
   const { data: actingUser } = useUser(actingUserId);
+  const updateSchool = useUpdateSchool();
   const updateUser = useUpdateUser();
 
   // Determine effective user
   const effectiveUser = actingUserId ? actingUser : user;
 
   const isImpersonating = !!actingUserId;
-  const isSchoolOwner = userRole === "school_owner";
+  const isSchoolOwner = effectiveRole === "school_owner";
+  const schoolId = effectiveUser?.schoolId || activeSchoolId || null;
 
   // Edit state for bank details
   const [isEditingBank, setIsEditingBank] = useState(false);
@@ -41,20 +50,78 @@ const ProfileScreen: React.FC = () => {
     accountNumber: "",
   });
 
+  const userSchool = useMemo(() => {
+    if (schoolId) {
+      return schools.find((s) => s.id === schoolId) || null;
+    }
+
+    if (isSchoolOwner && effectiveUser?.email) {
+      const email = effectiveUser.email.trim().toLowerCase();
+      return (
+        schools.find((s) => (s.email || "").trim().toLowerCase() === email) ||
+        null
+      );
+    }
+
+    return null;
+  }, [schoolId, schools, isSchoolOwner, effectiveUser?.email]);
+
+  const schoolIdForBankDetails = userSchool?.id || schoolId || null;
+
+  const { data: schoolBankDetails } = useSchoolBankDetails(
+    schoolIdForBankDetails,
+    isSchoolOwner && !!schoolIdForBankDetails,
+  );
+
+  const schoolBank = isSchoolOwner
+    ? {
+        bankName: schoolBankDetails?.bankName ?? userSchool?.bankName,
+        accountName: schoolBankDetails?.accountName ?? userSchool?.accountName,
+        accountNumber:
+          schoolBankDetails?.accountNumber ?? userSchool?.accountNumber,
+      }
+    : null;
+
+  const displayName = useMemo(() => {
+    const name = effectiveUser?.name;
+    const hasUserName = !!name && name !== "Unknown User";
+
+    if (isSchoolOwner) {
+      return (
+        userSchool?.name ||
+        userSchool?.ownerName ||
+        (hasUserName ? name : undefined) ||
+        "School Owner"
+      );
+    }
+
+    if (hasUserName) return name;
+    return userSchool?.ownerName || userSchool?.name || "User";
+  }, [
+    effectiveUser?.name,
+    isSchoolOwner,
+    userSchool?.ownerName,
+    userSchool?.name,
+  ]);
+
   // Initialize edit state when entering edit mode
   const startEditing = () => {
     setEditBankData({
-      bankName: effectiveUser?.bankName || "",
-      accountName: effectiveUser?.accountName || "",
-      accountNumber: effectiveUser?.accountNumber || "",
+      bankName:
+        isSchoolOwner && schoolBank?.bankName
+          ? schoolBank.bankName
+          : effectiveUser?.bankName || "",
+      accountName:
+        isSchoolOwner && schoolBank?.accountName
+          ? schoolBank.accountName
+          : effectiveUser?.accountName || "",
+      accountNumber:
+        isSchoolOwner && schoolBank?.accountNumber
+          ? schoolBank.accountNumber
+          : effectiveUser?.accountNumber || "",
     });
     setIsEditingBank(true);
   };
-
-  const userSchool = useMemo(() => {
-    if (!effectiveUser?.schoolId) return null;
-    return schools.find((s) => s.id === effectiveUser.schoolId);
-  }, [effectiveUser, schools]);
 
   const handleSwitch = () => {
     if (switchRole) switchRole();
@@ -73,20 +140,21 @@ const ProfileScreen: React.FC = () => {
   const handleSaveBank = async () => {
     if (!effectiveUser) return;
 
+    const currentBank = isSchoolOwner ? schoolBank : effectiveUser;
     const updatedData = {
-      ...editBankData,
+      bankName: editBankData.bankName || currentBank?.bankName || "",
+      accountName: editBankData.accountName || currentBank?.accountName || "",
+      accountNumber:
+        editBankData.accountNumber || currentBank?.accountNumber || "",
     };
 
     try {
-      if (isImpersonating && actingUserId) {
-        // Use admin mutation to update other user
-        await updateUser.mutateAsync({
-          ...effectiveUser,
+      if (isSchoolOwner && userSchool) {
+        await updateSchool.mutateAsync({
+          ...userSchool,
           ...updatedData,
-          id: actingUserId,
         });
       } else {
-        // Update self via AuthContext
         await updateAuthUser({
           ...effectiveUser,
           ...updatedData,
@@ -127,7 +195,7 @@ const ProfileScreen: React.FC = () => {
               visibility
             </span>
             <p className="text-[10px] font-black uppercase tracking-widest">
-              Viewing {effectiveUser?.name || "User"}'s Profile
+              Viewing {displayName}'s Profile
             </p>
           </div>
           <button
@@ -146,7 +214,7 @@ const ProfileScreen: React.FC = () => {
           <div className="relative mb-4">
             <div className="size-24 rounded-[32px] overflow-hidden border-4 border-white dark:border-gray-800 shadow-2xl rotate-3">
               <img
-                src={`https://ui-avatars.com/api/?name=${encodeURIComponent(effectiveUser?.name || "User")}&background=4A90E2&color=fff&size=256&bold=true`}
+                src={`https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=4A90E2&color=fff&size=256&bold=true`}
                 alt="Profile"
                 className="w-full h-full object-cover"
               />
@@ -159,7 +227,7 @@ const ProfileScreen: React.FC = () => {
           </div>
 
           <h2 className="text-xl font-black text-text-primary-light dark:text-text-primary-dark tracking-tight text-center">
-            {effectiveUser?.name}
+            {displayName}
           </h2>
           <div className="flex flex-col items-center gap-1 mt-1 mb-4">
             <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark font-medium">
@@ -242,7 +310,11 @@ const ProfileScreen: React.FC = () => {
                           })
                         }
                         className="w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-gray-800 rounded-xl p-3 text-sm font-bold"
-                        placeholder="e.g. Access Bank"
+                        placeholder={
+                          (isSchoolOwner
+                            ? schoolBank?.bankName
+                            : effectiveUser?.bankName) || "e.g. Access Bank"
+                        }
                       />
                     </div>
                     <div>
@@ -259,7 +331,12 @@ const ProfileScreen: React.FC = () => {
                           })
                         }
                         className="w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-gray-800 rounded-xl p-3 text-sm font-bold"
-                        placeholder="Full legal account name"
+                        placeholder={
+                          (isSchoolOwner
+                            ? schoolBank?.accountName
+                            : effectiveUser?.accountName) ||
+                          "Full legal account name"
+                        }
                       />
                     </div>
                     <div>
@@ -277,7 +354,12 @@ const ProfileScreen: React.FC = () => {
                           })
                         }
                         className="w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-gray-800 rounded-xl p-3 text-sm font-bold tracking-widest"
-                        placeholder="10 digit account number"
+                        placeholder={
+                          (isSchoolOwner
+                            ? schoolBank?.accountNumber
+                            : effectiveUser?.accountNumber) ||
+                          "10 digit account number"
+                        }
                       />
                     </div>
                   </div>
@@ -304,7 +386,9 @@ const ProfileScreen: React.FC = () => {
                         Bank Name
                       </span>
                       <span className="text-sm font-bold">
-                        {effectiveUser?.bankName || "Not Set"}
+                        {(isSchoolOwner
+                          ? schoolBank?.bankName
+                          : effectiveUser?.bankName) || "Not Set"}
                       </span>
                     </div>
                     <div className="text-right flex flex-col gap-0.5">
@@ -321,7 +405,9 @@ const ProfileScreen: React.FC = () => {
                       Account Name
                     </span>
                     <span className="text-sm font-bold truncate">
-                      {effectiveUser?.accountName || "Not Set"}
+                      {(isSchoolOwner
+                        ? schoolBank?.accountName
+                        : effectiveUser?.accountName) || "Not Set"}
                     </span>
                   </div>
                   <div className="pt-2 border-t border-white/5 flex items-center justify-between">
@@ -330,13 +416,19 @@ const ProfileScreen: React.FC = () => {
                         Account Number
                       </span>
                       <span className="text-2xl font-mono font-black tracking-widest text-primary">
-                        {effectiveUser?.accountNumber || "0000000000"}
+                        {(isSchoolOwner
+                          ? schoolBank?.accountNumber
+                          : effectiveUser?.accountNumber) || "Not Set"}
                       </span>
                     </div>
                     <button
-                      onClick={() =>
-                        copyToClipboard(effectiveUser?.accountNumber || "")
-                      }
+                      onClick={() => {
+                        const accountNumber = isSchoolOwner
+                          ? schoolBank?.accountNumber
+                          : effectiveUser?.accountNumber;
+                        if (!accountNumber) return;
+                        copyToClipboard(accountNumber);
+                      }}
                       className="size-10 bg-white/10 rounded-xl flex items-center justify-center hover:bg-white/20 transition-colors"
                     >
                       <span className="material-symbols-outlined text-sm">

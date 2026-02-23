@@ -265,6 +265,8 @@ export const normalizeChild = (apiEnrollment: ApiEnrollment): Child => {
     )}&background=random`,
     remainingBalance,
     schoolId: apiEnrollment.schoolId || "",
+    installmentFrequency: apiAny.installmentFrequency,
+    installmentAmount: rawInstallmentAmountFromApi,
     hasPendingInstallment,
     hasFailedFirstPayment,
     hasFailedInstallment,
@@ -276,6 +278,7 @@ export const normalizeSchool = (apiSchool: ApiSchool): School => {
   return {
     id: apiSchool.id,
     name: apiSchool.name,
+    ownerName: apiSchool.ownerName,
     address: apiSchool.address || "",
     email: apiSchool.email || "",
     phone: apiSchool.phone || "",

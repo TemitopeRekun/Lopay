@@ -1,5 +1,5 @@
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Layout } from '../components/Layout';
 import { Header } from '../components/Header';
@@ -19,6 +19,23 @@ const NotificationScreen: React.FC = () => {
   const [recentlyReadIds, setRecentlyReadIds] = useState<Set<string>>(
     () => new Set(),
   );
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (menuRef.current && !menuRef.current.contains(target)) {
+        setMenuOpen(false);
+      }
+    };
+    if (menuOpen) {
+      document.addEventListener("click", handler);
+    }
+    return () => {
+      document.removeEventListener("click", handler);
+    };
+  }, [menuOpen]);
 
   const getIcon = (type: string, status: string) => {
      if (status === 'success') return 'check_circle';
@@ -126,14 +143,50 @@ const NotificationScreen: React.FC = () => {
                     {unreadCount} Unread
                   </div>
                 )}
-                <button
-                  type="button"
-                  onClick={handleMarkAllRead}
-                  disabled={unreadCount === 0}
-                  className="px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-gray-100 dark:bg-white/5 text-text-secondary-light disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 dark:hover:bg-white/10 transition-colors"
-                >
-                  Mark all read
-                </button>
+                <div className="relative" ref={menuRef}>
+                  <button
+                    type="button"
+                    onClick={() => setMenuOpen((v) => !v)}
+                    className="size-9 rounded-full bg-gray-100 dark:bg-white/10 flex items-center justify-center text-text-secondary-light hover:bg-gray-200 dark:hover:bg-white/15 transition"
+                  >
+                    <span className="material-symbols-outlined text-base">
+                      more_vert
+                    </span>
+                  </button>
+                  {menuOpen && (
+                    <div className="absolute right-0 top-full mt-2 w-44 rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-card-dark shadow-lg overflow-hidden z-10">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (unreadCount === 0) return;
+                          handleMarkAllRead();
+                          setMenuOpen(false);
+                        }}
+                        className={`w-full flex items-center gap-2 px-3 py-2 text-sm ${
+                          unreadCount === 0
+                            ? "text-gray-400 cursor-not-allowed"
+                            : "text-text-primary-light dark:text-text-primary-dark hover:bg-gray-50 dark:hover:bg-white/5"
+                        }`}
+                      >
+                        <span className="material-symbols-outlined text-base">
+                          done_all
+                        </span>
+                        Mark all as read
+                      </button>
+                      <div className="h-px bg-gray-100 dark:bg-gray-800" />
+                      <button
+                        type="button"
+                        disabled
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-400 cursor-not-allowed"
+                      >
+                        <span className="material-symbols-outlined text-base">
+                          delete
+                        </span>
+                        Delete all (soon)
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
           </div>
 

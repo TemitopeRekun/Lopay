@@ -54,6 +54,8 @@ export interface Child {
   // Additional fields from API
   remainingBalance?: number;
   schoolId?: string;
+  installmentFrequency?: string;
+  installmentAmount?: number;
   hasPendingInstallment?: boolean;
   hasFailedFirstPayment?: boolean;
   hasFailedInstallment?: boolean;
@@ -92,6 +94,7 @@ export interface Notification {
 export interface School {
   id: string;
   name: string;
+  ownerName?: string;
   address: string;
   email: string;
   contactEmail?: string;
@@ -238,6 +241,7 @@ export interface ApiEnrollment {
 export interface ApiSchool {
   id: string;
   name: string;
+  ownerName?: string;
   email?: string;
   address?: string;
   phone?: string;
