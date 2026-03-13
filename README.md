@@ -1,237 +1,175 @@
-# LoPay Backend
+<div align="center">
 
-> **👋 Frontend Developers!**  
-> Please read the **[API Integration Guide (API_GUIDE.md)](./API_GUIDE.md)** first.  
-> It contains the "Human-Friendly" instructions, endpoint recipes, and troubleshooting tips you need to connect to this backend.
+# Lopay 💳
 
-LoPay is a **school fee installment payment platform** designed to enable parents to pay school fees flexibly while ensuring schools receive confirmed payments and the platform earns a fixed service fee.
+**A school fee installment payment platform — built with financial integrity as a first-class concern.**
 
-This backend is engineered with **security, trust, and financial integrity** as first-class concerns.
+[![GitHub](https://img.shields.io/badge/GitHub-TemitopeRekun/Lopay-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/TemitopeRekun/Lopay)
 
----
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)
+![NestJS](https://img.shields.io/badge/NestJS-E0234E?style=flat-square&logo=nestjs&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat-square&logo=postgresql&logoColor=white)
+![React](https://img.shields.io/badge/React-20232A?style=flat-square&logo=react&logoColor=61DAFB)
+![Firebase](https://img.shields.io/badge/Firebase-FFCA28?style=flat-square&logo=firebase&logoColor=black)
 
-## 🚀 Project Overview
-
-LoPay addresses critical challenges in education finance:
-
-- **Parents** often struggle with lump-sum school fee payments.
-- **Schools** require guaranteed, traceable payments.
-- **Platforms** need controlled onboarding and robust fraud prevention.
-
-**Key Value Propositions:**
-
-- Controlled school onboarding.
-- Flexible installment-based payments.
-- Manual payment confirmations for security.
-- Role-based access control (RBAC).
-- Immutable financial records.
+</div>
 
 ---
 
-## 🧑‍💼 User Roles
+## What is Lopay?
 
-### 👑 SUPER_ADMIN (Platform Owner)
+Lopay solves a real problem in education finance:
 
-_The administrator of the LoPay platform._
+- **Parents** struggle to pay large school fees in one lump sum
+- **Schools** need guaranteed, traceable, confirmed payments
+- **The platform** needs controlled onboarding and robust fraud prevention
 
-- **Access:** Login only (no public signup).
-- **Responsibilities:**
-  - Onboards schools and creates school owner accounts.
-  - Receives all **first payments**.
-  - Disburses the 25% share to schools.
-  - Views global analytics (Total schools, students, revenue, platform earnings).
+Lopay bridges all three with a structured installment system, strict financial logic enforced at the API level, and a multi-role access architecture designed for trust and auditability.
 
-### 🏫 SCHOOL_OWNER
-
-_The administrator for a specific school._
-
-- **Creation:** Account created by SUPER_ADMIN.
-- **Constraints:** Owns exactly **one school**; cannot change school identity.
-- **Capabilities:**
-  - Manage class fees.
-  - Confirm payments.
-  - Receive installment payments.
-  - View school analytics.
-  - Mark enrollments as defaulted.
-
-### 👨‍👩‍👧 PARENT
-
-_The end-user making payments._
-
-- **Access:** Public signup.
-- **Capabilities:**
-  - Create child profiles.
-  - Enroll children into schools.
-  - Make first and installment payments.
-  - View payment history and receive notifications.
-
-### 🎓 UNIVERSITY_STUDENT
-
-_A tertiary-level student paying their own tuition._
-
-- **Access:** Public signup.
-- **Capabilities:**
-  - Select their institution.
-  - Set up a tuition plan for their semester or session fees.
-  - Make installment payments for their own tuition.
-  - View payment history.
+> **Note:** This repository contains the frontend application. The backend API is maintained in a separate private repository (`lopay-backend`) — see the [API Integration Guide](./API_GUIDE.md) for endpoint documentation.
 
 ---
 
-## 💳 Financial Integrity & Payment Rules
+## Key Features
 
-### Fee Structure
+### 💰 Financial Integrity Engine
+- **Fee snapshots at enrollment** — fees are captured at the moment of enrollment, never recalculated after the fact
+- **Immutable payment records** — payments are appended, never mutated, providing a complete audit trail
+- **Server-side business logic** — the platform fee formula (2.5% + minimum 25% first payment) is calculated and enforced at the API level, never client-side
 
-1.  **Platform Fee:** **2.5% of the total school fee**. Fixed at enrollment.
-2.  **School First Payment:** Minimum of **25% of the total school fee**.
+### 📊 Payment Lifecycle State Machine
 
-### Minimum First Payment Formula
+All payments follow a strict, backend-controlled status flow:
 
-The system enforces a minimum deposit to ensure the platform fee is collected upfront:
-
-> `minimumDeposit = (25% of school fee) + (2.5% platform fee)`
-
-### Payment Lifecycle
-
-All payments follow a strict status lifecycle controlled by backend logic:
-
-> `PENDING` → `ACTIVE` → `COMPLETED` (or `DEFAULTED`)
-
-1.  **Enrollment & First Payment:**
-    - Parent selects school/class.
-    - System calculates minimum payment.
-    - Enrollment created with fee snapshots.
-    - Status: `PENDING` until confirmed by School.
-2.  **Installment Payments:**
-    - Parent submits installment.
-    - Status: `PENDING`.
-    - School confirms payment → Balance updates.
-
----
-
-## 🛠 Tech Stack
-
-| Layer          | Technology            |
-| :------------- | :-------------------- |
-| **Framework**  | NestJS (Node.js)      |
-| **Language**   | TypeScript            |
-| **Database**   | PostgreSQL            |
-| **ORM**        | Prisma                |
-| **Auth**       | Firebase Auth + JWT   |
-| **Validation** | class-validator + Joi |
-
----
-
-## ⚙️ Configuration & Setup
-
-### Environment Variables
-
-Create a `.env` file in the root directory. You **must** define the following variables for the application to start (validation is enforced):
-
-```env
-# Server Config
-NODE_ENV=development  # development | production | test
-PORT=3000
-
-# Database
-DATABASE_URL="postgresql://user:password@localhost:5432/lopay?schema=public"
-
-# Authentication (Backend JWT)
-JWT_SECRET="your-strong-jwt-secret-here"
-
-# Firebase Admin SDK (Get these from Firebase Console > Project Settings > Service Accounts)
-FIREBASE_PROJECT_ID="your-project-id"
-FIREBASE_CLIENT_EMAIL="firebase-adminsdk-xxxxx@your-project-id.iam.gserviceaccount.com"
-FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n..."
+```
+PENDING → ACTIVE → COMPLETED
+               ↘ DEFAULTED
 ```
 
-### Installation
+### 👥 Multi-Role Access Control (RBAC)
 
-```bash
-npm install
-```
+| Role | Access | Key Capability |
+|---|---|---|
+| **SUPER_ADMIN** | Login only (no public signup) | Onboards schools, receives first payments, views global analytics |
+| **SCHOOL_OWNER** | Created by Super Admin | Confirms payments, manages class fees, marks defaults |
+| **PARENT** | Public signup | Enrolls children, makes first & installment payments |
+| **UNIVERSITY_STUDENT** | Public signup | Sets up tuition plans, makes installment payments |
 
-### Running the app
-
-```bash
-# development
-npm run start
-
-# watch mode
-npm run start:dev
-
-# production mode
-npm run start:prod
-```
-
-| **Framework** | NestJS |
-| **Language** | TypeScript |
-| **ORM** | Prisma |
-| **Database** | PostgreSQL |
-| **Authentication** | Firebase Admin + JWT |
-| **Architecture** | Modular (Domain-based) |
+### 🔐 Security Architecture
+- **Dual authentication**: Firebase Admin SDK for identity verification + JWT for API session management
+- **Identity from server only**: User identity derived strictly from `req.user` — never from the request body
+- **Guards**: `JwtAuthGuard` (validates user) + `RolesGuard` (enforces RBAC permissions)
 
 ---
 
-## 🔐 Security & Architecture
+## Tech Stack
 
-### Authentication & Authorization
+| Layer | Technology |
+|---|---|
+| **Frontend** | React Native · TypeScript · Vite · Capacitor |
+| **Structure** | `components/` · `context/` · `hooks/` · `pages/` · `services/` · `utils/` |
+| **Backend** | NestJS (domain-based modular architecture) · Node.js · TypeScript |
+| **Database** | PostgreSQL · Prisma ORM |
+| **Authentication** | Firebase Admin SDK (identity) · JWT (API sessions) |
+| **Validation** | class-validator · Joi |
 
-- **Auth:** Firebase Admin verifies identity; JWT issued for API access.
-- **JWT Payload:** `{ userId, role, schoolId? }`
-- **Guards:** `JwtAuthGuard` (validates user), `RolesGuard` (enforces permissions).
-- **Security Note:** User identity is derived strictly from `req.user`, never from the request body.
+---
 
-### Database Design Principles
+## Fee Structure
 
-- **Snapshots:** Financial data (fees) is snapshotted at enrollment.
-- **Immutability:** Financial records are never mutated, only appended.
-- **Audit:** Full history is preserved to prevent recalculation errors.
+```
+Platform Fee:           2.5% of total school fee (fixed at enrollment)
+Minimum First Payment:  25% of school fee + 2.5% platform fee
+```
+
+**Formula:**
+```
+minimumDeposit = (0.25 × schoolFee) + (0.025 × schoolFee)
+               = 0.275 × schoolFee
+```
+
+---
+
+## Project Structure (Frontend)
+
+```
+Lopay/
+├── android/          # Android native build files
+├── assets/           # Static assets (images, fonts, icons)
+├── components/       # Reusable UI components
+├── context/          # React Context providers (auth, state)
+├── hooks/            # Custom React hooks
+├── pages/            # Screen-level components
+├── services/         # API service layer (Axios/fetch wrappers)
+├── utils/            # Helper functions and constants
+├── App.tsx           # Root application component
+├── types.ts          # Shared TypeScript types
+├── types.admin.ts    # Admin-specific TypeScript types
+└── capacitor.config.json
+```
 
 ---
 
 ## Getting Started
 
+### Prerequisites
+
+- Node.js 18+
+- npm or yarn
+- Android Studio (for Android development)
+- Backend API running (see [API_GUIDE.md](./API_GUIDE.md))
+
 ### Installation
 
 ```bash
-$ npm install
+# Clone the repository
+git clone https://github.com/TemitopeRekun/Lopay.git
+cd Lopay
+
+# Install dependencies
+npm install
+
+# Set up environment variables
+cp .env .env.local
+# Add your backend API URL and Firebase config
 ```
 
-### Running the Application
+### Running the App
 
 ```bash
-# development
-$ npm run start
+# Web development
+npm run dev
 
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
-```
-
-### Testing
-
-```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+# Android build via Capacitor
+npx cap sync android
+npx cap open android
 ```
 
 ---
 
-## 🚧 Roadmap
+## Roadmap
 
-- [ ] Paystack / Flutterwave integration
-- [ ] Automated settlement
-- [ ] Admin dashboards
-- [ ] Penalty handling
-- [ ] Credit scoring
-- [ ] Mobile apps
-- [ ] Webhooks
+- [x] Multi-role authentication (Firebase Admin + JWT)
+- [x] School enrollment & fee management
+- [x] Installment payment lifecycle
+- [x] Payment confirmation flow (school-side)
+- [ ] Paystack / Flutterwave payment gateway integration
+- [ ] Automated settlement engine
+- [ ] Admin analytics dashboard
+- [ ] Penalty handling for defaults
+- [ ] Credit scoring module
+- [ ] Push notifications
+- [ ] Webhooks for payment events
+
+---
+
+## API Documentation
+
+See [API_GUIDE.md](./API_GUIDE.md) for full endpoint documentation, authentication flow, request/response examples, and integration guide for frontend developers.
+
+---
+
+## Author
+
+**Temitope Ogunrekun**  
+[temi.dev](https://temi.dev) · [linkedin.com/in/temi-dev](https://linkedin.com/in/temi-dev) · [github.com/TemitopeRekun](https://github.com/TemitopeRekun)
