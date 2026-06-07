@@ -10,7 +10,6 @@ import { auth } from "../services/firebase";
 import {
   User,
   UserRole,
-  ApiLoginResponse,
   ApiUser,
   RegisterData,
 } from "../types";
@@ -72,6 +71,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 
   const login = async (email: string, password?: string) => {
     try {
+      if (!auth) throw new Error("Firebase Auth is not initialised");
       const firebaseUserCredential = await signInWithEmailAndPassword(
         auth,
         email,

@@ -37,10 +37,12 @@ const PaymentApprovalsScreen: React.FC = () => {
   const isOwner = userRole === "owner";
   const isSchoolOwner = userRole === "school_owner";
 
+  // Live updates arrive over the socket (see useRealtime); the hooks keep a
+  // slow safety-net poll on their own.
   const { data: adminPendingFirst = [] } =
-    useAdminPendingFirstPayments(isOwner, 30000);
+    useAdminPendingFirstPayments(isOwner);
   const { data: adminPendingInstallments = [] } =
-    useAdminPendingInstallments(isOwner, 30000);
+    useAdminPendingInstallments(isOwner);
   const settleFirstPayment = useSettleFirstPayment();
   const rejectFirstPayment = useRejectFirstPayment();
 

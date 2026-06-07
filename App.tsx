@@ -11,6 +11,7 @@ import { queryClient } from "./services/queryClient";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { DataProvider } from "./context/DataContext";
 import { UIProvider } from "./context/UIContext";
+import { useRealtime } from "./hooks/useRealtime";
 import { Capacitor } from "@capacitor/core";
 import { StatusBar, Style } from "@capacitor/status-bar";
 import AuthScreen from "./pages/AuthScreen";
@@ -51,7 +52,6 @@ class ErrorBoundary extends React.Component<
   ErrorBoundaryProps,
   ErrorBoundaryState
 > {
-  props: ErrorBoundaryProps;
   state: ErrorBoundaryState = { hasError: false };
 
   static getDerivedStateFromError() {
@@ -175,6 +175,15 @@ const HomeRedirect = () => {
   }
 };
 
+/**
+ * Headless component: keeps the realtime socket connected while authenticated
+ * and routes pushed events into React Query / the Zustand stores.
+ */
+const RealtimeManager = () => {
+  useRealtime();
+  return null;
+};
+
 const AppRoutes = () => {
   const [showSplash, setShowSplash] = useState(true);
 
@@ -286,8 +295,7 @@ const AppRoutes = () => {
         <Route
           path="/add-child"
           element={
-          <ProtectedRoute allowedRoles={["parent", "university_student"]}>
-            <AddChildScreen />
+            <ProtectedRoute allowedRoles={["parent", "university_student"]}>
               <AddChildScreen />
             </ProtectedRoute>
           }
@@ -391,6 +399,7 @@ const App: React.FC = () => {
       <UIProvider>
         <AuthProvider>
           <DataProvider>
+            <RealtimeManager />
             <HashRouter>
               <ErrorBoundary>
                 <AppRoutes />

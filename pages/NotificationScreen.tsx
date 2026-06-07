@@ -37,7 +37,7 @@ const NotificationScreen: React.FC = () => {
     };
   }, [menuOpen]);
 
-  const getIcon = (type: string, status: string) => {
+  const getIcon = (_type: string, status: string) => {
      if (status === 'success') return 'check_circle';
      if (status === 'warning') return 'notifications';
      if (status === 'error') return 'error';

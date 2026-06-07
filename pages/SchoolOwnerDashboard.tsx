@@ -18,7 +18,6 @@ const SchoolOwnerDashboard: React.FC = () => {
     activeSchoolId,
   } = useAuth();
   const {
-    transactions,
     schoolTransactions,
     pendingPayments,
     allStudents: childrenData,
@@ -58,11 +57,6 @@ const SchoolOwnerDashboard: React.FC = () => {
 
     return result;
   }, [schoolStudents, searchQuery]);
-
-  const pendingFirstEnrollmentsCount = useMemo(
-    () => schoolStudents.filter((s) => s.status === "Pending").length,
-    [schoolStudents],
-  );
 
   const pendingCount = useMemo(() => pendingPayments.length, [pendingPayments]);
 
@@ -105,13 +99,13 @@ const SchoolOwnerDashboard: React.FC = () => {
         return acc;
       }
 
-      const total = Number.isFinite(c.totalFee) ? c.totalFee : 0;
-      const paid = Number.isFinite(c.paidAmount) ? c.paidAmount : 0;
+      const total = Number.isFinite(c.totalFee) ? (c.totalFee as number) : 0;
+      const paid = Number.isFinite(c.paidAmount) ? (c.paidAmount as number) : 0;
       const derivedRemaining = total - paid;
-      const remainingFromChild = Number.isFinite(c.remainingBalance)
-        ? c.remainingBalance
+      const remainingFromChild: number = Number.isFinite(c.remainingBalance)
+        ? (c.remainingBalance as number)
         : derivedRemaining;
-      const remaining = remainingFromChild > 0 ? remainingFromChild : 0;
+      const remaining: number = remainingFromChild > 0 ? remainingFromChild : 0;
 
       return acc + remaining;
     }, 0);

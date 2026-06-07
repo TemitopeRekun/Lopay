@@ -1,13 +1,11 @@
 
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
 import { Header } from '../components/Header';
 import { Layout } from '../components/Layout';
 import { useUI } from '../context/UIContext';
 
 export const ManagePaymentMethods: React.FC = () => {
-  const navigate = useNavigate();
   const { showToast } = useUI();
 
   const handleAddMethod = () => {

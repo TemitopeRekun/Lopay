@@ -13,7 +13,6 @@ import { useUsers } from "../hooks/useQueries";
 const Dashboard: React.FC = () => {
   const {
     user: currentUser,
-    userRole,
     setActingRole,
     actingUserId,
     isOwnerAccount,

@@ -7,15 +7,16 @@ import {
   normalizeTransaction,
   normalizeUser,
 } from "../services/adapters";
-import {
-  User,
-  Child,
-  Transaction,
-  Notification,
-  School,
-  SchoolFee,
-} from "../types";
+import { School } from "../types";
 import { useUI } from "../context/UIContext";
+
+/**
+ * Slow safety-net poll for "live" data. Real-time freshness now comes from the
+ * WebSocket (see hooks/useRealtime.ts), which invalidates these queries the
+ * moment the backend pushes a change. This long interval only covers the rare
+ * case where the socket is down (offline / reconnecting).
+ */
+const FALLBACK_POLL_MS = 1000 * 60 * 5;
 
 // --- Keys ---
 export const QUERY_KEYS = {
@@ -67,7 +68,8 @@ export const useNotifications = (userId?: string, enabled: boolean = true) => {
       return (Array.isArray(data) ? data : []).map(normalizeNotification);
     },
     enabled: enabled && !!userId,
-    refetchInterval: 60000,
+    // Notifications arrive live over the socket; this is just a fallback.
+    refetchInterval: FALLBACK_POLL_MS,
   });
 };
 
@@ -114,7 +116,7 @@ export const useSchoolStats = (enabled: boolean = true) => {
     queryFn: BackendAPI.school.getStats,
     enabled,
     staleTime: 1000 * 30,
-    refetchInterval: enabled ? 1000 * 30 : false,
+    refetchInterval: enabled ? FALLBACK_POLL_MS : false,
     refetchOnWindowFocus: true,
   });
 };
@@ -143,7 +145,7 @@ export const usePendingPayments = (
     },
     enabled,
     staleTime: 1000 * 30,
-    refetchInterval: enabled ? 1000 * 30 : false,
+    refetchInterval: enabled ? FALLBACK_POLL_MS : false,
     refetchOnWindowFocus: true,
   });
 };
@@ -227,7 +229,7 @@ export const useAdminPendingFirstPayments = (
         .filter((t) => t.status === "Pending");
     },
     enabled,
-    refetchInterval: enabled ? pollIntervalMs ?? false : false,
+    refetchInterval: enabled ? pollIntervalMs ?? FALLBACK_POLL_MS : false,
     refetchOnWindowFocus: true,
   });
 };
@@ -245,7 +247,7 @@ export const useAdminPendingInstallments = (
         .filter((t) => t.status === "Pending");
     },
     enabled,
-    refetchInterval: enabled ? pollIntervalMs ?? false : false,
+    refetchInterval: enabled ? pollIntervalMs ?? FALLBACK_POLL_MS : false,
     refetchOnWindowFocus: true,
   });
 };
@@ -259,7 +261,7 @@ export const useAdminPlatformRevenue = (enabled: boolean = true) => {
     },
     enabled,
     staleTime: 1000 * 30,
-    refetchInterval: enabled ? 1000 * 30 : false,
+    refetchInterval: enabled ? FALLBACK_POLL_MS : false,
     refetchOnWindowFocus: true,
   });
 };
@@ -270,7 +272,7 @@ export const useAdminStudentsSummary = (enabled: boolean = true) => {
     queryFn: BackendAPI.admin.getStudentsSummary,
     enabled,
     staleTime: 1000 * 30,
-    refetchInterval: enabled ? 1000 * 60 : false,
+    refetchInterval: enabled ? FALLBACK_POLL_MS : false,
     refetchOnWindowFocus: true,
   });
 };
@@ -300,7 +302,7 @@ export const useAdminOverview = (enabled: boolean = true) => {
     },
     enabled,
     staleTime: 1000 * 30,
-    refetchInterval: enabled ? 1000 * 60 : false,
+    refetchInterval: enabled ? FALLBACK_POLL_MS : false,
     refetchOnWindowFocus: true,
   });
 };
@@ -392,11 +394,13 @@ export const usePayInstallment = () => {
       enrollmentId: string;
       amount: number;
       receiptUrl?: string;
+      idempotencyKey?: string;
     }) =>
       BackendAPI.parent.payInstallment(
         data.enrollmentId,
         data.amount,
         data.receiptUrl,
+        data.idempotencyKey,
       ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.children });

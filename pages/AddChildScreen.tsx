@@ -5,7 +5,6 @@ import { Header } from "../components/Header";
 import { useAuth } from "../context/AuthContext";
 import { useData } from "../context/DataContext";
 import { useSchoolFees } from "../hooks/useQueries";
-import { BackendAPI } from "../services/backend";
 
 const ALL_GRADES = [
   "Reception 1",

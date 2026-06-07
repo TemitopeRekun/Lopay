@@ -1,13 +1,11 @@
 
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/Layout';
 import { Header } from '../../components/Header';
 import { useData } from '../../context/DataContext';
 import { useUI } from '../../context/UIContext';
 
 const DefaultersScreen: React.FC = () => {
-  const navigate = useNavigate();
   const { allStudents } = useData();
   const { showToast } = useUI();
 

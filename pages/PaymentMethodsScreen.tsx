@@ -8,18 +8,22 @@ import { useUI } from "../context/UIContext";
 import { useSchoolBankDetails } from "../hooks/useQueries";
 import { BackendAPI, getPlatformActivationBankDetails } from "../services/backend";
 import { NativeBridge } from "../services/native";
+import { newIdempotencyKey } from "../utils/idempotency";
 
 const PaymentMethodsScreen: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { role: userRole, user: currentUser } = useAuth();
+  const { role: userRole } = useAuth();
   const { submitPayment, childrenData, schools } = useData();
   const { showToast } = useUI();
+  // One stable key per installment intent so retries/double-taps don't create
+  // duplicate payments on the backend.
+  const [idempotencyKey] = useState(() => newIdempotencyKey());
   const [isProcessing, setIsProcessing] = useState(false);
   const [receiptImage, setReceiptImage] = useState<string | null>(null);
   const [receiptBlob, setReceiptBlob] = useState<Blob | null>(null);
   const [receiptFileName, setReceiptFileName] = useState<string | null>(null);
-  const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
+  const [, setReceiptUrl] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [isUploading, setIsUploading] = useState(false);
   const [receiptPath, setReceiptPath] = useState<string | null>(null);
@@ -277,6 +281,7 @@ const PaymentMethodsScreen: React.FC = () => {
           state.childId!,
           paymentAmount,
           uploadedPath || undefined,
+          idempotencyKey,
         );
         showToast(
           "Payment submitted successfully! Waiting for school confirmation.",
@@ -344,6 +349,8 @@ const PaymentMethodsScreen: React.FC = () => {
       );
     }
   }
+
+  if (!activeBankDetails) return null;
 
   return (
     <Layout>

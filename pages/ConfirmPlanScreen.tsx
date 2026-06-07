@@ -8,6 +8,7 @@ import { useData } from "../context/DataContext";
 import { useUI } from "../context/UIContext";
 import { BackendAPI, PLATFORM_BANK } from "../services/backend";
 import { NativeBridge } from "../services/native";
+import { newIdempotencyKey } from "../utils/idempotency";
 
 interface LocationState {
   childName?: string;
@@ -28,6 +29,9 @@ const ConfirmPlanScreen: React.FC = () => {
   const { addChild } = useData();
   const { role: userRole } = useAuth();
   const { showToast } = useUI();
+  // One stable key per enrollment intent so retries/double-taps don't create
+  // duplicate enrollments on the backend.
+  const [idempotencyKey] = useState(() => newIdempotencyKey());
   const [isProcessing, setIsProcessing] = useState(false);
   const [receiptImage, setReceiptImage] = useState<string | null>(null);
   const [receiptBlob, setReceiptBlob] = useState<Blob | null>(null);
@@ -286,6 +290,7 @@ const ConfirmPlanScreen: React.FC = () => {
               termEndDate: endDate.toISOString(),
             },
             uploadedPath || receiptUrl || undefined,
+            idempotencyKey,
           );
 
           navigate("/dashboard");

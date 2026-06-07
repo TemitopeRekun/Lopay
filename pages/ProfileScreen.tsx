@@ -8,7 +8,6 @@ import { useData } from "../context/DataContext";
 import { useUI } from "../context/UIContext";
 import {
   useUser,
-  useUpdateUser,
   useUpdateSchool,
   useSchoolBankDetails,
 } from "../hooks/useQueries";
@@ -33,7 +32,6 @@ const ProfileScreen: React.FC = () => {
   // Fetch acting user data if impersonating
   const { data: actingUser } = useUser(actingUserId);
   const updateSchool = useUpdateSchool();
-  const updateUser = useUpdateUser();
 
   // Determine effective user
   const effectiveUser = actingUserId ? actingUser : user;

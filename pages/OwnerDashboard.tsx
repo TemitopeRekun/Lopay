@@ -157,13 +157,6 @@ const OwnerDashboard: React.FC = () => {
     return [];
   }, [isOwner, adminPendingFirst]);
 
-  const pendingFirstEnrollmentsCount = useMemo(() => {
-    if (isOwner) {
-      return adminPendingFirst.length;
-    }
-    return 0;
-  }, [isOwner, adminPendingFirst]);
-
   const pendingApprovalsCount = useMemo(() => {
     if (isOwner) {
       if (typeof adminOverview?.pendingApprovals === "number") {

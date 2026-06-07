@@ -23,7 +23,9 @@
     "firebase": "^12.8.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "react-router-dom": "^7.9.6"
+    "react-router-dom": "^7.9.6",
+    "socket.io-client": "^4.8.3",
+    "zustand": "^5.0.14"
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.0",
@@ -32,6 +34,8 @@
     "@tailwindcss/forms": "^0.5.11",
     "@tailwindcss/postcss": "^4.2.0",
     "@types/node": "^22.14.0",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.0.0",
     "autoprefixer": "^10.4.24",
     "postcss": "^8.5.6",

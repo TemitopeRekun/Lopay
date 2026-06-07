@@ -249,7 +249,7 @@ export const normalizeChild = (apiEnrollment: ApiEnrollment): Child => {
   });
 
   return {
-    id: apiEnrollment.id || apiEnrollment.childId || apiEnrollment.child?.id,
+    id: apiEnrollment.id || apiEnrollment.childId || apiEnrollment.child?.id || '',
     parentId: "",
     name: childName,
     school: apiEnrollment.schoolName || "Unknown School",

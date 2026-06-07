@@ -1,13 +1,11 @@
 
 import React, { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { Header } from '../components/Header';
 import { useAuth } from '../context/AuthContext';
 import { useTransactions, useChildren } from '../hooks/useQueries';
 
 export const CalendarScreen: React.FC = () => {
-  const navigate = useNavigate();
   const { user } = useAuth();
   const { data: transactions = [] } = useTransactions(user?.id);
   const { data: childrenData = [] } = useChildren();

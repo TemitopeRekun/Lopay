@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
-import { useNavigate, Link, useLocation, Navigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import { useNavigate, Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
 import { Layout } from '../components/Layout';
@@ -23,7 +23,6 @@ const AuthScreen: React.FC = () => {
   const { login, register, isAuthenticated, role: userRole } = useAuth();
   const { schools } = useData();
   const navigate = useNavigate();
-  const location = useLocation();
 
   if (isAuthenticated) {
     if (userRole === 'owner') return <Navigate to="/owner-dashboard" replace />;

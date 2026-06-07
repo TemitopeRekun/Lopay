@@ -26,6 +26,7 @@ export interface RegisterData {
   fullName: string;
   phoneNumber: string;
   role: string;
+  schoolId?: string;
 }
 
 export interface EnrollmentData {
@@ -33,6 +34,7 @@ export interface EnrollmentData {
   childName?: string;
   schoolId: string;
   className: string;
+  grade?: string;
   installmentFrequency: string;
   firstPaymentPaid: number;
   termStartDate: string;

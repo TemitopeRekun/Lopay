@@ -10,7 +10,7 @@ const HistoryScreen: React.FC = () => {
   const { role: userRole } = useAuth();
   const { transactions } = useData();
   const [filter, setFilter] = useState<'All' | 'Successful' | 'Pending' | 'Failed'>('All');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery] = useState('');
 
   const filteredTransactions = transactions.filter(t => {
       const matchesFilter = filter === 'All' ? true : t.status === filter;

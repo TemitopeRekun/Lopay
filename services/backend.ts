@@ -1,4 +1,5 @@
 import axios from "axios";
+import { getAuth } from "firebase/auth";
 import {
   ApiLoginResponse,
   ApiSchoolStats,
@@ -7,7 +8,6 @@ import {
   ApiTransaction,
   ApiNotification,
   ApiUser,
-  ApiSchool,
   ApiSchoolBankDetails,
 } from "../types";
 import {
@@ -17,17 +17,16 @@ import {
   ApiPlatformRevenue,
 } from "../types.admin";
 
-const API_URL =
+export const API_URL =
   (import.meta as any).env?.VITE_API_URL ?? "http://localhost:3001";
 
 export const apiClient = axios.create({
-  baseURL: API_URL,
+  baseURL: `${API_URL}/api/v1`,
   headers: {
     "Content-Type": "application/json",
   },
 });
 
-// Automatically add the token to every request if it exists, except for public endpoints
 apiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem("accessToken");
   if (token && config.url !== "/schools") {
@@ -36,14 +35,60 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
+// Flag to prevent multiple concurrent refresh attempts
+let isRefreshing = false;
+let refreshQueue: Array<(token: string) => void> = [];
+
+const processQueue = (token: string) => {
+  refreshQueue.forEach((resolve) => resolve(token));
+  refreshQueue = [];
+};
+
 apiClient.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     const status = error?.response?.status;
+    const originalRequest = error.config;
 
-    if (status === 401) {
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new Event("lopay:unauthorized"));
+    if (status === 401 && !originalRequest._retried) {
+      originalRequest._retried = true;
+
+      // Try to silently refresh the Firebase token and re-issue our backend JWT
+      if (isRefreshing) {
+        return new Promise((resolve) => {
+          refreshQueue.push((token: string) => {
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+            resolve(apiClient(originalRequest));
+          });
+        });
+      }
+
+      isRefreshing = true;
+
+      try {
+        const firebaseUser = getAuth().currentUser;
+        if (!firebaseUser) throw new Error("No Firebase user");
+
+        const freshFirebaseToken = await firebaseUser.getIdToken(true);
+        const res = await axios.post<ApiLoginResponse>(
+          `${API_URL}/api/v1/auth/login`,
+          { idToken: freshFirebaseToken },
+        );
+
+        const newJwt = res.data.accessToken;
+        localStorage.setItem("accessToken", newJwt);
+        processQueue(newJwt);
+
+        originalRequest.headers.Authorization = `Bearer ${newJwt}`;
+        return apiClient(originalRequest);
+      } catch {
+        // Refresh failed — force logout
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("lopay:unauthorized"));
+        }
+        return Promise.reject(error);
+      } finally {
+        isRefreshing = false;
       }
     }
 
@@ -310,6 +355,7 @@ export const BackendAPI = {
       receiptUrl?: string;
       termStartDate: string;
       termEndDate: string;
+      idempotencyKey?: string;
     }) => {
       const response = await apiClient.post("/enrollments", data);
       return response.data;
@@ -318,11 +364,13 @@ export const BackendAPI = {
       enrollmentId: string,
       amountPaid: number,
       receiptUrl?: string,
+      idempotencyKey?: string,
     ) => {
       const response = await apiClient.post("/enrollments/pay-installment", {
         enrollmentId,
         amountPaid,
         receiptUrl,
+        idempotencyKey,
       });
       return response.data;
     },

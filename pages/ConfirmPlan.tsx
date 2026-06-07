@@ -58,6 +58,7 @@ export const ConfirmPlan: React.FC = () => {
       await addChild({
         childName,
         schoolId,
+        className: grade,
         grade,
         installmentFrequency: planType,
         firstPaymentPaid: totalInitialPayment,

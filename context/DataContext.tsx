@@ -24,11 +24,9 @@ import {
   Notification,
   School,
   Transaction,
-  User,
   EnrollmentData,
   ApiSchoolStats,
 } from "../types";
-import { BackendAPI } from "../services/backend";
 import { useQueryClient } from "@tanstack/react-query";
 
 interface DataContextType {
@@ -51,11 +49,16 @@ interface DataContextType {
   refreshParentView: () => Promise<void>;
   refreshSchoolView: () => Promise<void>;
   refreshOwnerView: () => Promise<void>;
-  addChild: (data: EnrollmentData, receiptUrl?: string) => Promise<void>;
+  addChild: (
+    data: EnrollmentData,
+    receiptUrl?: string,
+    idempotencyKey?: string,
+  ) => Promise<void>;
   submitPayment: (
     childId: string,
     amount: number,
     receiptUrl?: string,
+    idempotencyKey?: string,
   ) => Promise<void>;
   markNotificationRead: (id: string) => Promise<void>;
 
@@ -232,19 +235,26 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({
   const addChild = async (
     enrollmentData: EnrollmentData,
     receiptUrl?: string,
+    idempotencyKey?: string,
   ) => {
-    await enrollChildMutation.mutateAsync({ ...enrollmentData, receiptUrl });
+    await enrollChildMutation.mutateAsync({
+      ...enrollmentData,
+      receiptUrl,
+      idempotencyKey,
+    });
   };
 
   const submitPayment = async (
     childId: string,
     amount: number,
     receiptUrl?: string,
+    idempotencyKey?: string,
   ) => {
     await payInstallmentMutation.mutateAsync({
       enrollmentId: childId,
       amount,
       receiptUrl,
+      idempotencyKey,
     });
   };
 
