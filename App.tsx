@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, lazy, Suspense } from "react";
 import {
   HashRouter,
   Routes,
@@ -14,31 +14,35 @@ import { UIProvider } from "./context/UIContext";
 import { useRealtime } from "./hooks/useRealtime";
 import { Capacitor } from "@capacitor/core";
 import { StatusBar, Style } from "@capacitor/status-bar";
-import AuthScreen from "./pages/AuthScreen";
-import WelcomeScreen from "./pages/WelcomeScreen";
-import Dashboard from "./pages/Dashboard";
-import AddChildScreen from "./pages/AddChildScreen";
-import CalculatorScreen from "./pages/CalculatorScreen";
-import ConfirmPlanScreen from "./pages/ConfirmPlanScreen";
-import HistoryScreen from "./pages/HistoryScreen";
-import NotificationScreen from "./pages/NotificationScreen";
-import PaymentMethodsScreen from "./pages/PaymentMethodsScreen";
-import ProfileScreen from "./pages/ProfileScreen";
-import OwnerDashboard from "./pages/OwnerDashboard";
-import SchoolOwnerDashboard from "./pages/SchoolOwnerDashboard";
-import AddSchoolScreen from "./pages/admin/AddSchoolScreen";
-import BroadcastScreen from "./pages/admin/BroadcastScreen";
-import DefaultersScreen from "./pages/admin/DefaultersScreen";
-import SchoolListScreen from "./pages/admin/SchoolListScreen";
-import CalendarScreen from "./pages/CalendarScreen";
-import SettingsScreen from "./pages/SettingsScreen";
-import SupportScreen from "./pages/SupportScreen";
-import UsersListScreen from "./pages/admin/UsersListScreen";
-import ManagePaymentMethods from "./pages/ManagePaymentMethods";
-import TermsOfService from "./pages/TermsOfService";
-import PrivacyPolicy from "./pages/PrivacyPolicy";
-import PaymentApprovalsScreen from "./pages/admin/PaymentApprovalsScreen";
-import ManageFeesScreen from "./pages/admin/ManageFeesScreen";
+
+// Lazy-loaded route components — each chunk is fetched only when first visited.
+// The Suspense fallback (SplashScreen) shows during the brief network fetch.
+const AuthScreen          = lazy(() => import("./pages/AuthScreen"));
+const WelcomeScreen       = lazy(() => import("./pages/WelcomeScreen"));
+const Dashboard           = lazy(() => import("./pages/Dashboard"));
+const AddChildScreen      = lazy(() => import("./pages/AddChildScreen"));
+const CalculatorScreen    = lazy(() => import("./pages/CalculatorScreen"));
+const ConfirmPlanScreen   = lazy(() => import("./pages/ConfirmPlanScreen"));
+const HistoryScreen       = lazy(() => import("./pages/HistoryScreen"));
+const NotificationScreen  = lazy(() => import("./pages/NotificationScreen"));
+const PaymentMethodsScreen = lazy(() => import("./pages/PaymentMethodsScreen"));
+const ProfileScreen       = lazy(() => import("./pages/ProfileScreen"));
+const OwnerDashboard      = lazy(() => import("./pages/OwnerDashboard"));
+const SchoolOwnerDashboard = lazy(() => import("./pages/SchoolOwnerDashboard"));
+const AddSchoolScreen     = lazy(() => import("./pages/admin/AddSchoolScreen"));
+const BroadcastScreen     = lazy(() => import("./pages/admin/BroadcastScreen"));
+const DefaultersScreen    = lazy(() => import("./pages/admin/DefaultersScreen"));
+const SchoolListScreen    = lazy(() => import("./pages/admin/SchoolListScreen"));
+const CalendarScreen      = lazy(() => import("./pages/CalendarScreen"));
+const SettingsScreen      = lazy(() => import("./pages/SettingsScreen"));
+const SupportScreen       = lazy(() => import("./pages/SupportScreen"));
+const UsersListScreen     = lazy(() => import("./pages/admin/UsersListScreen"));
+const ManagePaymentMethods = lazy(() => import("./pages/ManagePaymentMethods"));
+const TermsOfService      = lazy(() => import("./pages/TermsOfService"));
+const PrivacyPolicy       = lazy(() => import("./pages/PrivacyPolicy"));
+const PaymentApprovalsScreen = lazy(() => import("./pages/admin/PaymentApprovalsScreen"));
+const ManageFeesScreen    = lazy(() => import("./pages/admin/ManageFeesScreen"));
+const AuditLogsScreen     = lazy(() => import("./pages/admin/AuditLogsScreen"));
 
 type ErrorBoundaryProps = {
   children: React.ReactNode;
@@ -197,7 +201,7 @@ const AppRoutes = () => {
   if (showSplash) return <SplashScreen />;
 
   return (
-    <>
+    <Suspense fallback={<SplashScreen />}>
       <Routes>
         <Route path="/" element={<HomeRedirect />} />
         <Route path="/home" element={<HomeRedirect />} />
@@ -291,6 +295,14 @@ const AppRoutes = () => {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/admin/audit-logs"
+          element={
+            <ProtectedRoute allowedRoles={["owner"]}>
+              <AuditLogsScreen />
+            </ProtectedRoute>
+          }
+        />
 
         <Route
           path="/add-child"
@@ -381,7 +393,7 @@ const AppRoutes = () => {
           }
         />
       </Routes>
-    </>
+    </Suspense>
   );
 };
 

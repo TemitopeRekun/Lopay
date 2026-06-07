@@ -96,6 +96,21 @@ apiClient.interceptors.response.use(
   },
 );
 
+export interface AuditLogEntry {
+  id: string;
+  action: string;
+  entityType: string;
+  entityId: string;
+  actorUserId: string | null;
+  actorRole: string | null;
+  schoolId: string | null;
+  before: Record<string, unknown> | null;
+  after: Record<string, unknown> | null;
+  metadata: Record<string, unknown> | null;
+  reason: string | null;
+  createdAt: string;
+}
+
 export const BackendAPI = {
   auth: {
     login: async (idToken: string) => {
@@ -214,13 +229,11 @@ export const BackendAPI = {
     },
     getSchoolStudents: async (
       schoolId: string,
-      params?: { search?: string; className?: string },
+      params?: { search?: string; className?: string; page?: number; limit?: number },
     ) => {
       const response = await apiClient.get<ApiEnrollment[]>(
         `/admin/schools/${schoolId}/students`,
-        {
-          params: { ...params, limit: 1000 },
-        },
+        { params },
       );
       return response.data;
     },
@@ -234,6 +247,17 @@ export const BackendAPI = {
       const response = await apiClient.post(
         `/admin/reject-first-payment/${paymentId}`,
       );
+      return response.data;
+    },
+    getAuditLogs: async (params?: {
+      entityType?: string;
+      entityId?: string;
+      schoolId?: string;
+      actorUserId?: string;
+      take?: number;
+      skip?: number;
+    }) => {
+      const response = await apiClient.get<AuditLogEntry[]>("/audit-logs", { params });
       return response.data;
     },
   },
@@ -251,12 +275,10 @@ export const BackendAPI = {
       );
       return response.data;
     },
-    getStudents: async (params?: { search?: string; className?: string }) => {
+    getStudents: async (params?: { search?: string; className?: string; page?: number; limit?: number }) => {
       const response = await apiClient.get<ApiEnrollment[]>(
         "/school-payments/students",
-        {
-          params: { ...params, limit: 1000 },
-        },
+        { params },
       );
       return response.data;
     },
@@ -298,18 +320,24 @@ export const BackendAPI = {
       return response.data;
     },
     updateStudentStatus: async (studentId: string, status: string) => {
-      // Assuming endpoint exists based on requirement
       const response = await apiClient.patch(
         `/school-payments/students/${studentId}/status`,
         { status },
       );
       return response.data;
     },
+    reversePayment: async (paymentId: string, reason?: string) => {
+      const response = await apiClient.post("/school-payments/reverse", {
+        paymentId,
+        reason,
+      });
+      return response.data;
+    },
   },
   public: {
     getSchools: async () => {
       const response = await apiClient.get<import("../types").School[]>(
-        "/schools?limit=1000",
+        "/schools",
       );
       return response.data;
     },
@@ -341,7 +369,7 @@ export const BackendAPI = {
   parent: {
     getChildren: async () => {
       const response = await apiClient.get<ApiEnrollment[]>(
-        `/enrollments/my-children?limit=1000&t=${new Date().getTime()}`,
+        `/enrollments/my-children?t=${new Date().getTime()}`,
       );
       return response.data;
     },
