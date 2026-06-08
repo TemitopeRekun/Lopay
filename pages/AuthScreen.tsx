@@ -20,7 +20,7 @@ const AuthScreen: React.FC = () => {
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { login, register, isAuthenticated, role: userRole } = useAuth();
+  const { login, loginWithGoogle, register, isAuthenticated, role: userRole } = useAuth();
   const { schools } = useData();
   const navigate = useNavigate();
 
@@ -284,6 +284,30 @@ const AuthScreen: React.FC = () => {
             className="w-full h-16 bg-primary text-white rounded-2xl font-bold text-lg shadow-xl shadow-primary/20 hover:scale-[1.01] active:scale-[0.99] transition-all disabled:opacity-70 disabled:cursor-not-allowed"
           >
             {isSubmitting ? 'Processing...' : (mode === 'signup' ? 'Create My Account' : 'Sign In to LOPAY')}
+          </button>
+
+          {/* Divider */}
+          <div className="flex items-center gap-3 py-1">
+            <div className="flex-1 h-px bg-gray-200 dark:bg-gray-800" />
+            <span className="text-[10px] font-bold text-text-secondary-light uppercase tracking-widest">or</span>
+            <div className="flex-1 h-px bg-gray-200 dark:bg-gray-800" />
+          </div>
+
+          <button
+            type="button"
+            disabled={isSubmitting}
+            onClick={async () => {
+              setError('');
+              try {
+                await loginWithGoogle();
+              } catch (err: any) {
+                setError(err?.message || 'Google sign-in failed.');
+              }
+            }}
+            className="w-full h-14 bg-white dark:bg-card-dark border-2 border-gray-200 dark:border-gray-800 rounded-2xl font-bold text-base flex items-center justify-center gap-3 hover:border-gray-300 active:scale-[0.99] transition-all disabled:opacity-70"
+          >
+            <img src="https://www.google.com/favicon.ico" alt="" className="size-5" />
+            Continue with Google
           </button>
         </form>
 

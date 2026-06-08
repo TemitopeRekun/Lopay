@@ -5,8 +5,7 @@ import React, {
   useEffect,
   ReactNode,
 } from "react";
-import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../services/firebase";
+import { authClient } from "../services/authClient";
 import {
   User,
   UserRole,
@@ -23,6 +22,7 @@ interface AuthContextType {
   isOwnerAccount: boolean;
   token: string | null;
   login: (email: string, password?: string) => Promise<User>;
+  loginWithGoogle: () => Promise<void>;
   logout: () => void;
   register: (data: RegisterData) => Promise<boolean>;
   updateUser: (user: Partial<User>) => Promise<void>;
@@ -54,51 +54,82 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const [actingUserId, setActingUserId] = useState<string | null>(null);
   const [activeSchoolId, setActiveSchoolId] = useState<string | null>(null);
 
-  // Hydrate user from localStorage on mount if token exists
+  // Hydrate from localStorage immediately (fast/offline), then refresh from the
+  // Better Auth session in the background — this also captures a session created
+  // by the Google redirect return. A failed refresh is non-destructive.
   useEffect(() => {
     const savedUser = localStorage.getItem("user");
     if (token && savedUser) {
       try {
-        const parsed = JSON.parse(savedUser);
-        // Ensure role is normalized
-        setUser(normalizeUser(parsed));
+        setUser(normalizeUser(JSON.parse(savedUser)));
       } catch (e) {
         console.error("Failed to parse saved user", e);
         localStorage.removeItem("user");
       }
     }
+    hydrateFromSession().catch(() => {
+      /* no active session — keep any localStorage user; routes guard the rest */
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /**
+   * Pull the current Better Auth session, normalize the user, and persist the
+   * bearer token + user for the axios client. The bearer plugin returns a fresh
+   * `set-auth-token` header on this call, which authClient's onSuccess stores.
+   */
+  const hydrateFromSession = async (): Promise<User> => {
+    const { data } = await authClient.getSession();
+    if (!data?.user) {
+      throw new Error("No active session");
+    }
+    const u = data.user as {
+      id: string;
+      email: string;
+      name?: string;
+      role?: string;
+      schoolId?: string | null;
+    };
+    const apiUser: ApiUser = {
+      id: u.id,
+      email: u.email,
+      fullName: u.name,
+      role: u.role,
+      schoolId: u.schoolId ?? undefined,
+    } as ApiUser;
+
+    const normalizedUser = normalizeUser(apiUser);
+    setToken(localStorage.getItem("accessToken"));
+    setUser(normalizedUser);
+    setActingRoleState(null);
+    setActingUserId(null);
+    setActiveSchoolId(null);
+    localStorage.setItem("user", JSON.stringify(apiUser));
+    return normalizedUser;
+  };
 
   const login = async (email: string, password?: string) => {
     try {
-      if (!auth) throw new Error("Firebase Auth is not initialised");
-      const firebaseUserCredential = await signInWithEmailAndPassword(
-        auth,
+      const { error } = await authClient.signIn.email({
         email,
-        password || "",
-      );
-      const idToken = await firebaseUserCredential.user.getIdToken();
-
-      const response = await BackendAPI.auth.login(idToken);
-
-      const normalizedUser = normalizeUser(response.user as unknown as ApiUser);
-
-      setToken(response.accessToken);
-      setUser(normalizedUser);
-
-      // Reset acting state on login
-      setActingRoleState(null);
-      setActingUserId(null);
-      setActiveSchoolId(null);
-
-      localStorage.setItem("accessToken", response.accessToken);
-      localStorage.setItem("user", JSON.stringify(response.user));
-
-      return normalizedUser;
+        password: password || "",
+      });
+      if (error) {
+        throw new Error(error.message || "Invalid email or password");
+      }
+      return await hydrateFromSession();
     } catch (error) {
       console.error("Login failed", error);
       throw error;
     }
+  };
+
+  const loginWithGoogle = async () => {
+    // Web: redirect flow. Returns to the app; AuthProvider hydrates on mount.
+    await authClient.signIn.social({
+      provider: "google",
+      callbackURL: `${window.location.origin}/#/home`,
+    });
   };
 
   const logout = () => {
@@ -107,6 +138,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     setActingRoleState(null);
     setActingUserId(null);
     setActiveSchoolId(null);
+
+    // Revoke the server session (best-effort), then clear local state.
+    authClient.signOut().catch(() => undefined);
 
     localStorage.removeItem("accessToken");
     localStorage.removeItem("user");
@@ -134,13 +168,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 
   const register = async (data: RegisterData) => {
     try {
-      await BackendAPI.auth.register(data);
-
-      // Auto-login if password is provided
-      if (data.password) {
-        await login(data.email, data.password);
+      // role/phoneNumber are Better Auth additionalFields; self-registration is
+      // always a PARENT (the domain Parent row is created by a server-side hook).
+      const { error } = await authClient.signUp.email({
+        email: data.email,
+        password: data.password || "",
+        name: data.fullName,
+        role: "PARENT",
+        phoneNumber: data.phoneNumber,
+      } as any);
+      if (error) {
+        throw new Error(error.message || "Registration failed");
       }
-
+      // autoSignIn is enabled server-side; hydrate the new session.
+      await hydrateFromSession();
       return true;
     } catch (error) {
       console.error("Registration failed", error);
@@ -210,6 +251,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         isOwnerAccount,
         token,
         login,
+        loginWithGoogle,
         logout,
         register,
         updateUser,

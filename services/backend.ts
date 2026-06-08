@@ -1,7 +1,5 @@
 import axios from "axios";
-import { getAuth } from "firebase/auth";
 import {
-  ApiLoginResponse,
   ApiSchoolStats,
   ApiPendingPayment,
   ApiEnrollment,
@@ -35,63 +33,18 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
-// Flag to prevent multiple concurrent refresh attempts
-let isRefreshing = false;
-let refreshQueue: Array<(token: string) => void> = [];
-
-const processQueue = (token: string) => {
-  refreshQueue.forEach((resolve) => resolve(token));
-  refreshQueue = [];
-};
-
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     const status = error?.response?.status;
-    const originalRequest = error.config;
-
-    if (status === 401 && !originalRequest._retried) {
-      originalRequest._retried = true;
-
-      // Try to silently refresh the Firebase token and re-issue our backend JWT
-      if (isRefreshing) {
-        return new Promise((resolve) => {
-          refreshQueue.push((token: string) => {
-            originalRequest.headers.Authorization = `Bearer ${token}`;
-            resolve(apiClient(originalRequest));
-          });
-        });
-      }
-
-      isRefreshing = true;
-
-      try {
-        const firebaseUser = getAuth().currentUser;
-        if (!firebaseUser) throw new Error("No Firebase user");
-
-        const freshFirebaseToken = await firebaseUser.getIdToken(true);
-        const res = await axios.post<ApiLoginResponse>(
-          `${API_URL}/api/v1/auth/login`,
-          { idToken: freshFirebaseToken },
-        );
-
-        const newJwt = res.data.accessToken;
-        localStorage.setItem("accessToken", newJwt);
-        processQueue(newJwt);
-
-        originalRequest.headers.Authorization = `Bearer ${newJwt}`;
-        return apiClient(originalRequest);
-      } catch {
-        // Refresh failed — force logout
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(new Event("lopay:unauthorized"));
-        }
-        return Promise.reject(error);
-      } finally {
-        isRefreshing = false;
+    // Better Auth sessions are long-lived (7 days) and the bearer token is
+    // refreshed on every authClient call. A 401 means the session is genuinely
+    // gone — force logout rather than attempting a silent token exchange.
+    if (status === 401) {
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("lopay:unauthorized"));
       }
     }
-
     return Promise.reject(error);
   },
 );
@@ -111,26 +64,9 @@ export interface AuditLogEntry {
   createdAt: string;
 }
 
+// Auth (sign-in/up/out) is handled by the Better Auth client (services/authClient.ts),
+// not this axios client. BackendAPI covers the domain endpoints only.
 export const BackendAPI = {
-  auth: {
-    login: async (idToken: string) => {
-      const response = await apiClient.post<ApiLoginResponse>("/auth/login", {
-        idToken,
-      });
-      return response.data;
-    },
-    register: async (data: {
-      email: string;
-      password?: string;
-      confirmPassword?: string;
-      fullName: string;
-      phoneNumber: string;
-      role: string;
-    }) => {
-      const response = await apiClient.post("/auth/register", data);
-      return response.data;
-    },
-  },
   users: {
     get: async (id: string) => {
       const response = await apiClient.get(`/users/${id}`);
@@ -258,8 +194,12 @@ export const BackendAPI = {
       take?: number;
       skip?: number;
     }) => {
-      const response = await apiClient.get<AuditLogEntry[]>("/audit-logs", { params });
-      return response.data;
+      // Backend returns a paginated envelope { items, total, take, skip }.
+      const response = await apiClient.get<{ items: AuditLogEntry[]; total: number }>(
+        "/audit-logs",
+        { params },
+      );
+      return response.data.items;
     },
     /** Nigerian bank list for the onboarding settlement-bank dropdown. */
     getBanks: async () => {
