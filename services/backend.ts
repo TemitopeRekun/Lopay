@@ -150,6 +150,7 @@ export const BackendAPI = {
       address: string;
       phone: string;
       bankName: string;
+      bankCode: string;
       accountName: string;
       accountNumber: string;
     }) => {
@@ -258,6 +259,28 @@ export const BackendAPI = {
       skip?: number;
     }) => {
       const response = await apiClient.get<AuditLogEntry[]>("/audit-logs", { params });
+      return response.data;
+    },
+    /** Nigerian bank list for the onboarding settlement-bank dropdown. */
+    getBanks: async () => {
+      const response = await apiClient.get<
+        { name: string; code: string; currency: string }[]
+      >("/admin/paystack/banks");
+      return response.data;
+    },
+    /** Verify an account number against a bank code → registered account name. */
+    resolveAccount: async (accountNumber: string, bankCode: string) => {
+      const response = await apiClient.post<{
+        accountName: string;
+        accountNumber: string;
+      }>("/admin/paystack/resolve-account", { accountNumber, bankCode });
+      return response.data;
+    },
+    /** (Re)create a Paystack subaccount for a school missing one. */
+    createSubaccount: async (schoolId: string) => {
+      const response = await apiClient.post<{ subaccountCode: string; active: boolean }>(
+        `/admin/schools/${schoolId}/paystack-subaccount`,
+      );
       return response.data;
     },
   },
@@ -386,6 +409,39 @@ export const BackendAPI = {
       idempotencyKey?: string;
     }) => {
       const response = await apiClient.post("/enrollments", data);
+      return response.data;
+    },
+    /** Initiate a first payment via Paystack split. Returns access code + reference. */
+    initiateFirstPayment: async (data: {
+      childId?: string;
+      childName?: string;
+      schoolId: string;
+      className: string;
+      installmentFrequency: string;
+      firstPaymentPaid: number;
+      termStartDate: string;
+      termEndDate: string;
+      idempotencyKey?: string;
+    }) => {
+      const response = await apiClient.post<{
+        reference: string;
+        accessCode: string;
+        authorizationUrl: string;
+        amountCharged: number;
+        depositToSchool: number;
+        platformFee: number;
+        paystackFee: number;
+        idempotent?: boolean;
+        status?: string;
+      }>("/enrollments/initiate-first-payment", data);
+      return response.data;
+    },
+    /** Reconcile a Paystack transaction on return (idempotent with the webhook). */
+    verifyPaystack: async (reference: string) => {
+      const response = await apiClient.get<{ status: string; reference: string }>(
+        "/payments/paystack/verify",
+        { params: { reference } },
+      );
       return response.data;
     },
     payInstallment: async (
