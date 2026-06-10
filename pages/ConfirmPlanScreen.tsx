@@ -114,13 +114,14 @@ const ConfirmPlanScreen: React.FC = () => {
     }
 
     try {
-      // 1. Initialize the split transaction on the backend.
+      // 1. Initialize the split transaction on the backend. Round to whole kobo
+      // so the charged amount and the displayed split agree to the kobo.
       const init = await BackendAPI.parent.initiateFirstPayment({
         childName,
         schoolId,
         className: grade,
         installmentFrequency: effectivePlan.type.toUpperCase(),
-        firstPaymentPaid: firstPayment,
+        firstPaymentPaid: Math.round(firstPayment * 100) / 100,
         termStartDate: startDate.toISOString(),
         termEndDate: endDate.toISOString(),
         idempotencyKey,
@@ -134,10 +135,37 @@ const ConfirmPlanScreen: React.FC = () => {
         return;
       }
 
-      // 3. Reconcile immediately (webhook also does this independently).
-      await BackendAPI.parent.verifyPaystack(init.reference);
-      showToast("Payment successful! Enrollment activated.", "success");
-      navigate("/dashboard");
+      // 3. Reconcile via the server — the webhook is the source of truth, so we
+      // only claim success when the server actually verifies it. A network error
+      // here doesn't mean the charge failed (it likely succeeded and the webhook
+      // will activate the enrollment), so we surface a "confirming" state rather
+      // than a false failure.
+      let verified: { status?: string } | null = null;
+      try {
+        verified = await BackendAPI.parent.verifyPaystack(init.reference);
+      } catch {
+        showToast(
+          "Payment received — we're confirming your enrollment. Check your dashboard shortly.",
+          "warning",
+        );
+        navigate("/dashboard");
+        return;
+      }
+
+      if (verified?.status === "success") {
+        showToast("Payment successful! Enrollment activated.", "success");
+        navigate("/dashboard");
+      } else if (verified?.status === "failed") {
+        showToast("Payment failed. Please try again.", "error");
+        setIsProcessing(false);
+      } else {
+        showToast(
+          "Payment is being confirmed. You'll be notified once it's complete.",
+          "warning",
+        );
+        navigate("/dashboard");
+      }
+      return;
     } catch (err: any) {
       const backendMessage = err?.response?.data?.message;
       const errorMessage = Array.isArray(backendMessage)

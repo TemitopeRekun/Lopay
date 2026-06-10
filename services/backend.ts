@@ -434,6 +434,8 @@ export const BackendAPI = {
           signedUrl: string;
           token?: string;
           expiresIn?: number;
+          maxUploadBytes?: number;
+          requiredHeaders?: Record<string, string>;
         };
       },
       createDownloadUrl: async (data: { paymentId: string }) => {

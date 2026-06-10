@@ -10,18 +10,24 @@ const ACTION_LABELS: Record<string, string> = {
   PAYMENT_CONFIRMED: "Confirmed",
   PAYMENT_REJECTED: "Rejected",
   PAYMENT_REVERSED: "Reversed",
+  FIRST_PAYMENT_CONFIRMED: "First Confirmed",
   FIRST_PAYMENT_SETTLED: "Settled",
   FIRST_PAYMENT_REJECTED: "First Rejected",
+  FIRST_PAYMENT_PAID: "First Paid",
   ENROLLMENT_DEFAULTED: "Defaulted",
+  PAYMENT_DISPUTED: "Disputed",
 };
 
 const ACTION_COLORS: Record<string, string> = {
   PAYMENT_CONFIRMED: "text-success bg-success/10",
   PAYMENT_REJECTED: "text-danger bg-danger/10",
   PAYMENT_REVERSED: "text-warning bg-warning/10",
+  FIRST_PAYMENT_CONFIRMED: "text-success bg-success/10",
   FIRST_PAYMENT_SETTLED: "text-success bg-success/10",
   FIRST_PAYMENT_REJECTED: "text-danger bg-danger/10",
+  FIRST_PAYMENT_PAID: "text-success bg-success/10",
   ENROLLMENT_DEFAULTED: "text-danger bg-danger/10",
+  PAYMENT_DISPUTED: "text-warning bg-warning/10",
 };
 
 const AuditLogsScreen: React.FC = () => {

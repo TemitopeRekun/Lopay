@@ -226,7 +226,7 @@ const PaymentMethodsScreen: React.FC = () => {
         setIsUploading(true);
         setUploadProgress(0);
 
-        const { path, signedUrl } =
+        const { path, signedUrl, requiredHeaders } =
           await BackendAPI.documents.receipts.createUploadUrl({
             fileName: normalizedFileName,
             contentType: "image/jpeg",
@@ -237,6 +237,9 @@ const PaymentMethodsScreen: React.FC = () => {
           body: receiptBlob,
           headers: {
             "Content-Type": "image/jpeg",
+            // Headers the backend bound into the signed URL (e.g. a max
+            // content-length range) must be echoed verbatim or GCS rejects it.
+            ...(requiredHeaders ?? {}),
           },
         });
 
