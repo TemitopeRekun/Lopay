@@ -2,14 +2,12 @@
 import React, { useState } from 'react';
 import { useNavigate, Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useData } from '../context/DataContext';
 import { Layout } from '../components/Layout';
 
 const AuthScreen: React.FC = () => {
   const [mode, setMode] = useState<'login' | 'signup'>('signup');
-  const [roleSelection, setRoleSelection] = useState<'parent' | 'school_owner' | 'university_student'>('parent');
-  const [selectedSchoolId, setSelectedSchoolId] = useState('');
-  
+  const [roleSelection, setRoleSelection] = useState<'parent'>('parent');
+
   const [email, setEmail] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
@@ -21,7 +19,6 @@ const AuthScreen: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { login, loginWithGoogle, register, isAuthenticated, role: userRole } = useAuth();
-  const { schools } = useData();
   const navigate = useNavigate();
 
   if (isAuthenticated) {
@@ -65,7 +62,7 @@ const AuthScreen: React.FC = () => {
                 password,
                 confirmPassword,
                 role: roleSelection,
-                schoolId: selectedSchoolId
+                schoolId: ''
             });
             // Navigation handled by useEffect
         } catch (err: any) {
@@ -76,19 +73,12 @@ const AuthScreen: React.FC = () => {
   };
 
   const roleOptions = [
-    { 
-        id: 'parent', 
-        title: 'Parent', 
-        desc: 'Paying for my child in Primary/Secondary school', 
-        icon: 'family_restroom', 
-        color: 'bg-primary' 
-    },
-    { 
-        id: 'university_student', 
-        title: 'Student', 
-        desc: 'Paying for my own university tuition', 
-        icon: 'school', 
-        color: 'bg-purple-500' 
+    {
+        id: 'parent',
+        title: 'Parent',
+        desc: 'Paying for my child in Primary/Secondary school',
+        icon: 'family_restroom',
+        color: 'bg-primary'
     },
   ] as const;
 
@@ -182,22 +172,6 @@ const AuthScreen: React.FC = () => {
             </div>
           )}
 
-          {mode === 'signup' && roleSelection === 'university_student' && (
-            <div className="space-y-1.5 animate-fade-in-up">
-              <label className="text-xs font-bold text-text-secondary-light uppercase px-1">Select Institution</label>
-              <select 
-                required
-                value={selectedSchoolId}
-                onChange={(e) => setSelectedSchoolId(e.target.value)}
-                className="w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-gray-800 rounded-2xl p-4 outline-none focus:ring-2 focus:ring-primary/50 text-base appearance-none"
-              >
-                <option value="" disabled>Choose your school...</option>
-                {schools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-            </div>
-          )}
-
-          
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-text-secondary-light uppercase px-1">Email Address</label>
             <input

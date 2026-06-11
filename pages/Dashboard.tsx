@@ -16,7 +16,6 @@ const Dashboard: React.FC = () => {
     setActingRole,
     actingUserId,
     isOwnerAccount,
-    effectiveRole,
   } = useAuth();
   const {
     childrenData = [],
@@ -50,8 +49,7 @@ const Dashboard: React.FC = () => {
     return map;
   }, [schools]);
 
-  const isStudent = effectiveRole === "university_student";
-  const entityType = isStudent ? "Institution" : "School";
+  const entityType = "School";
 
   const actingAs = actingUserId
     ? allUsers.find((u) => u.id === actingUserId)
@@ -226,7 +224,7 @@ const Dashboard: React.FC = () => {
         className={`sticky top-0 z-10 flex items-center justify-between bg-white dark:bg-background-dark p-6 pb-2 border-b border-gray-100 dark:border-gray-800 ${actingUserId ? "top-[42px]" : ""}`}
       >
         <h1 className="text-2xl font-bold tracking-tight text-text-primary-light dark:text-text-primary-dark">
-          {isStudent ? "My Tuition" : "Dashboard"}
+          Dashboard
         </h1>
         <div className="flex items-center gap-3">
           <NotificationIconButton
@@ -288,7 +286,7 @@ const Dashboard: React.FC = () => {
             <div className="w-48 h-48 bg-gray-50 dark:bg-white/5 rounded-full flex items-center justify-center mb-6 relative overflow-hidden">
               <div className="absolute inset-0 bg-primary/10 rounded-full animate-pulse"></div>
               <span className="material-symbols-outlined text-8xl text-primary opacity-80">
-                {isStudent ? "school" : "family_restroom"}
+                family_restroom
               </span>
             </div>
             <h2 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark mb-2">
@@ -296,16 +294,15 @@ const Dashboard: React.FC = () => {
               {(actingAs?.name || currentUser?.name || "User").split(" ")[0]}!
             </h2>
             <p className="text-text-secondary-light dark:text-text-secondary-dark max-w-xs mb-8">
-              {isStudent
-                ? "You haven't set up any tuition plans yet. Split your semester or session fees into installments."
-                : "Your dashboard is empty. Add a child and set up a payment plan to get started."}
+              Your dashboard is empty. Add a child and set up a payment plan to
+              get started.
             </p>
             <button
               onClick={() => navigate("/add-child")}
               className="flex items-center gap-2 px-8 py-4 bg-primary text-white rounded-xl font-bold shadow-lg shadow-primary/30 hover:scale-105 transition-transform"
             >
               <span className="material-symbols-outlined">add_circle</span>
-              {isStudent ? "Setup Tuition Plan" : "Start a New Plan"}
+              Start a New Plan
             </button>
           </div>
         ) : (
@@ -313,7 +310,7 @@ const Dashboard: React.FC = () => {
             <div className="flex flex-col items-stretch justify-start rounded-2xl bg-slate-900 text-white p-6 shadow-xl relative overflow-hidden">
               <div className="absolute top-0 right-0 w-32 h-32 bg-primary/20 rounded-full blur-3xl -mr-10 -mt-10"></div>
               <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">
-                {isStudent ? "Next Payment Due" : "Next Collection Due"}
+                Next Collection Due
               </p>
               <p className="text-4xl font-extrabold tracking-tight mb-2">
                 ₦
@@ -344,7 +341,7 @@ const Dashboard: React.FC = () => {
             <div className="flex flex-col gap-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-bold text-text-secondary-light uppercase tracking-wider">
-                  {isStudent ? "Active Academic Plans" : "Plan Status"}
+                  Plan Status
                 </h2>
               </div>
 

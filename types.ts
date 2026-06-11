@@ -1,8 +1,7 @@
 export type UserRole =
   | "parent"
   | "owner"
-  | "school_owner"
-  | "university_student";
+  | "school_owner";
 
 export interface User {
   id: string;

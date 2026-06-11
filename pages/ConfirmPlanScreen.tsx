@@ -3,7 +3,6 @@ import { useNavigate, useLocation, Link } from "react-router-dom";
 import { Layout } from "../components/Layout";
 import { Header } from "../components/Header";
 import { PaymentPlan } from "../types";
-import { useAuth } from "../context/AuthContext";
 import { useUI } from "../context/UIContext";
 import { BackendAPI } from "../services/backend";
 import { openPaystackPopup } from "../services/paystack";
@@ -28,7 +27,6 @@ const naira = (n: number) =>
 const ConfirmPlanScreen: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { role: userRole } = useAuth();
   const { showToast } = useUI();
   // One stable key per enrollment intent so retries/double-taps don't double-charge.
   const [idempotencyKey] = useState(() => newIdempotencyKey());
@@ -47,8 +45,7 @@ const ConfirmPlanScreen: React.FC = () => {
     schoolId,
   } = state ?? {};
 
-  const isStudent = userRole === "university_student";
-  const entityType = isStudent ? "Institution" : "School";
+  const entityType = "School";
 
   const platformFee = state?.platformFeeAmount ?? 0;
   const minimumPayment = state?.totalInitialPayment || depositAmount + platformFee;

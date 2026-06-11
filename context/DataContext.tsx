@@ -89,8 +89,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({
   const baseRole = user?.role;
   const isPlatformOwner = baseRole === "owner" && effectiveRole === "owner";
 
-  const isParent =
-    effectiveRole === "parent" || effectiveRole === "university_student";
+  const isParent = effectiveRole === "parent";
 
   const isSchoolContext =
     effectiveRole === "school_owner" || baseRole === "school_owner";

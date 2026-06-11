@@ -53,7 +53,6 @@ PENDING → ACTIVE → COMPLETED
 | **SUPER_ADMIN** | Login only (no public signup) | Onboards schools, receives first payments, views global analytics |
 | **SCHOOL_OWNER** | Created by Super Admin | Confirms payments, manages class fees, marks defaults |
 | **PARENT** | Public signup | Enrolls children, makes first & installment payments |
-| **UNIVERSITY_STUDENT** | Public signup | Sets up tuition plans, makes installment payments |
 
 ### 🔐 Security Architecture
 - **Dual authentication**: Firebase Admin SDK for identity verification + JWT for API session management

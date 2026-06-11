@@ -171,7 +171,6 @@ const HomeRedirect = () => {
       return <Navigate to="/owner-dashboard" replace />;
     case "school_owner":
       return <Navigate to="/school-owner-dashboard" replace />;
-    case "university_student":
     case "parent":
       return <Navigate to="/dashboard" replace />;
     default:
@@ -213,9 +212,7 @@ const AppRoutes = () => {
         <Route
           path="/dashboard"
           element={
-            <ProtectedRoute
-              allowedRoles={["parent", "university_student", "owner"]}
-            >
+            <ProtectedRoute allowedRoles={["parent", "owner"]}>
               <Dashboard />
             </ProtectedRoute>
           }
@@ -307,7 +304,7 @@ const AppRoutes = () => {
         <Route
           path="/add-child"
           element={
-            <ProtectedRoute allowedRoles={["parent", "university_student"]}>
+            <ProtectedRoute allowedRoles={["parent"]}>
               <AddChildScreen />
             </ProtectedRoute>
           }
@@ -315,7 +312,7 @@ const AppRoutes = () => {
         <Route
           path="/calculator"
           element={
-            <ProtectedRoute allowedRoles={["parent", "university_student"]}>
+            <ProtectedRoute allowedRoles={["parent"]}>
               <CalculatorScreen />
             </ProtectedRoute>
           }
@@ -323,7 +320,7 @@ const AppRoutes = () => {
         <Route
           path="/confirm-plan"
           element={
-            <ProtectedRoute allowedRoles={["parent", "university_student"]}>
+            <ProtectedRoute allowedRoles={["parent"]}>
               <ConfirmPlanScreen />
             </ProtectedRoute>
           }

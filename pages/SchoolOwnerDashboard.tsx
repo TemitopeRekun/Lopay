@@ -22,6 +22,7 @@ const SchoolOwnerDashboard: React.FC = () => {
     pendingPayments,
     allStudents: childrenData,
     schools,
+    notifications,
     isLoading,
     schoolStats,
     hasError,
@@ -59,6 +60,11 @@ const SchoolOwnerDashboard: React.FC = () => {
   }, [schoolStudents, searchQuery]);
 
   const pendingCount = useMemo(() => pendingPayments.length, [pendingPayments]);
+
+  const unreadNotificationsCount = useMemo(
+    () => (notifications ? notifications.filter((n) => !n.read).length : 0),
+    [notifications],
+  );
 
   const uniqueTransactions = useMemo(() => {
     const seen = new Set<string>();
@@ -194,7 +200,7 @@ const SchoolOwnerDashboard: React.FC = () => {
           </div>
         </div>
         <NotificationIconButton
-          unreadCount={0}
+          unreadCount={unreadNotificationsCount}
           onClick={() => navigate("/notifications")}
           variant="round"
         />

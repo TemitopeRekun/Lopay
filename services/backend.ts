@@ -459,12 +459,12 @@ export const PLATFORM_BANK = {
   accountNumber: "9090390581",
 };
 
-export const getPlatformActivationBankDetails = (isStudent: boolean) => {
+export const getPlatformActivationBankDetails = () => {
   return {
     accountName: PLATFORM_BANK.accountName,
     bankName: PLATFORM_BANK.bankName,
     accountNumber: PLATFORM_BANK.accountNumber,
     isLopayEscrow: true,
-    institutionName: isStudent ? "Lopay Tuition Hub" : "Lopay Activation Hub",
+    institutionName: "Lopay Activation Hub",
   };
 };

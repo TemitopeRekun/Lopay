@@ -172,8 +172,6 @@ const ProfileScreen: React.FC = () => {
         return "Platform Admin";
       case "school_owner":
         return "School Bursar";
-      case "university_student":
-        return "University Student";
       default:
         return "Parent Account";
     }

@@ -42,8 +42,6 @@ export const normalizeUser = (apiUser: ApiUser): User => {
     }
   } else if (apiRole.includes("school") || apiRole === "owner") {
     role = "school_owner";
-  } else if (apiRole.includes("student")) {
-    role = "university_student";
   }
 
   return {

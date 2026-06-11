@@ -2,7 +2,6 @@ import React, { useState, useMemo, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Layout } from "../components/Layout";
 import { Header } from "../components/Header";
-import { useAuth } from "../context/AuthContext";
 import { useData } from "../context/DataContext";
 import { useUI } from "../context/UIContext";
 import { useSchoolBankDetails } from "../hooks/useQueries";
@@ -13,7 +12,6 @@ import { newIdempotencyKey } from "../utils/idempotency";
 const PaymentMethodsScreen: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { role: userRole } = useAuth();
   const { submitPayment, childrenData, schools } = useData();
   const { showToast } = useUI();
   // One stable key per installment intent so retries/double-taps don't create
@@ -37,7 +35,6 @@ const PaymentMethodsScreen: React.FC = () => {
     isCustomOnly?: boolean;
   } | null;
   const isPaymentFlow = state?.paymentType === "installment";
-  const isStudent = userRole === "university_student";
 
   const child = useMemo(() => {
     return childrenData.find((c) => c.id === state?.childId);
@@ -87,9 +84,9 @@ const PaymentMethodsScreen: React.FC = () => {
     }
 
     return {
-      ...getPlatformActivationBankDetails(isStudent),
+      ...getPlatformActivationBankDetails(),
     };
-  }, [isFirstPaymentFlow, institutionBank, isStudent]);
+  }, [isFirstPaymentFlow, institutionBank]);
 
   const canEditAmount =
     !!activeBankDetails && !activeBankDetails.isLopayEscrow && state?.allowCustom;
@@ -303,23 +300,19 @@ const PaymentMethodsScreen: React.FC = () => {
     }
   };
 
-  const entityType = isStudent ? "Institution" : "School";
+  const entityType = "School";
 
-  const primaryHeadingLabel =
-    isFirstPaymentFlow && !isStudent
-      ? "First payment (platform account)"
-      : !isFirstPaymentFlow && !isStudent && school
-        ? `Ongoing installments (${school.name} account)`
-        : activeBankDetails && activeBankDetails.isLopayEscrow
-          ? "Platform account"
-          : "School account";
+  const primaryHeadingLabel = isFirstPaymentFlow
+    ? "First payment (platform account)"
+    : school
+      ? `Ongoing installments (${school.name} account)`
+      : activeBankDetails && activeBankDetails.isLopayEscrow
+        ? "Platform account"
+        : "School account";
 
-  const paymentInfoCopy =
-    !isStudent && isFirstPaymentFlow
-      ? "This first payment is processed by LoPay. Please pay into the LoPay platform account shown below."
-      : !isStudent && !isFirstPaymentFlow
-        ? "These installments are paid directly to your school. Please pay into the school's account shown below."
-        : "";
+  const paymentInfoCopy = isFirstPaymentFlow
+    ? "This first payment is processed by LoPay. Please pay into the LoPay platform account shown below."
+    : "These installments are paid directly to your school. Please pay into the school's account shown below.";
 
   if (!activeBankDetails) {
     if (needsSchoolBankDetails && isLoadingSchoolBankDetails) {
