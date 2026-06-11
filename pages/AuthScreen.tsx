@@ -38,6 +38,13 @@ const AuthScreen: React.FC = () => {
             setIsSubmitting(false);
             return;
         }
+        // Accept Nigerian formats: 08012345678, +2348012345678, 2348012345678.
+        const normalizedPhone = phoneNumber.replace(/[\s-]/g, '');
+        if (!/^(\+?234|0)\d{10}$/.test(normalizedPhone)) {
+            setError('Enter a valid phone number (e.g. 08012345678).');
+            setIsSubmitting(false);
+            return;
+        }
         if (password !== confirmPassword) {
             setError('Passwords do not match.');
             setIsSubmitting(false);

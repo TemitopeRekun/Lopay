@@ -286,18 +286,36 @@ export const normalizeSchool = (apiSchool: ApiSchool): School => {
   };
 };
 
+// Derive a presentational status (drives the list icon + colour) from the
+// notification title. The backend doesn't persist a status, and titles are
+// produced by our own code, so keyword matching is reliable here.
+const inferNotificationStatus = (
+  title: string,
+): "success" | "warning" | "error" | "info" => {
+  const t = title.toLowerCase();
+  if (/(fail|failed|reject|declin|unsuccessful|reversed)/.test(t)) return "error";
+  if (/(default|overdue|due|reminder|pending)/.test(t)) return "warning";
+  if (/(confirm|complet|received|success|activat|paid|settled)/.test(t))
+    return "success";
+  return "info";
+};
+
 export const normalizeNotification = (
   apiNotif: ApiNotification,
 ): Notification => {
   return {
     id: apiNotif.id,
-    type: "alert", // Default, maybe infer from title?
+    // There is no broadcast/announcement feature yet — every notification is a
+    // payment/enrollment event. Typing them as "payment" makes the Payments
+    // filter work and leaves Announcements correctly empty until broadcasts
+    // exist (at which point a persisted backend `type` should drive this).
+    type: "payment",
     title: apiNotif.title,
     message: apiNotif.message,
     timestamp: apiNotif.createdAt,
     read: apiNotif.isRead,
     link: apiNotif.link,
-    status: "info",
+    status: inferNotificationStatus(apiNotif.title),
   };
 };
 

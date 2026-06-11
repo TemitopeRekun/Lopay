@@ -61,7 +61,9 @@ const AddChildScreen: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !fee || !school) return;
+    // Require the grade explicitly: an empty className would otherwise reach the
+    // backend (which rejects it) only after the calculator/payment flow starts.
+    if (!name || !school || !level || !fee) return;
 
     navigate("/calculator", {
       state: {

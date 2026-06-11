@@ -418,6 +418,10 @@ export const BackendAPI = {
       const response = await apiClient.patch(`/notifications/${id}/read`);
       return response.data;
     },
+    markAllRead: async () => {
+      const response = await apiClient.patch(`/notifications/read-all`);
+      return response.data;
+    },
   },
   documents: {
     receipts: {

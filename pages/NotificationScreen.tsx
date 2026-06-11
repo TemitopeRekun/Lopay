@@ -7,7 +7,8 @@ import { BottomNav } from '../components/BottomNav';
 import { useData } from '../context/DataContext';
 
 const NotificationScreen: React.FC = () => {
-  const { notifications, markNotificationRead } = useData();
+  const { notifications, markNotificationRead, markAllNotificationsRead } =
+    useData();
   const [filter, setFilter] =
     useState<"All" | "Payments" | "Announcements">("All");
   const [selectedNotification, setSelectedNotification] = useState<
@@ -95,7 +96,8 @@ const NotificationScreen: React.FC = () => {
 
     setPendingReadIds((prev) => new Set([...prev, ...unreadIds]));
     try {
-      await Promise.all(unreadIds.map((id) => markNotificationRead(id)));
+      // Single bulk request rather than one PATCH per unread notification.
+      await markAllNotificationsRead();
       setRecentlyReadIds((prev) => new Set([...prev, ...unreadIds]));
       window.setTimeout(() => {
         setRecentlyReadIds((prev) => {

@@ -444,6 +444,16 @@ export const useMarkNotificationRead = () => {
   });
 };
 
+export const useMarkAllNotificationsRead = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: BackendAPI.notifications.markAllRead,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.notifications });
+    },
+  });
+};
+
 export const useUpdateFee = () => {
   const queryClient = useQueryClient();
   const { showToast } = useUI();

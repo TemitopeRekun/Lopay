@@ -10,6 +10,7 @@ import {
   useEnrollChild,
   usePayInstallment,
   useMarkNotificationRead,
+  useMarkAllNotificationsRead,
   useConfirmPayment,
   useConfirmFirstPayment,
   useDeclinePayment,
@@ -61,6 +62,7 @@ interface DataContextType {
     idempotencyKey?: string,
   ) => Promise<void>;
   markNotificationRead: (id: string) => Promise<void>;
+  markAllNotificationsRead: () => Promise<void>;
 
   // School Owner Actions
   confirmPayment: (paymentId: string) => Promise<void>;
@@ -169,6 +171,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({
   const enrollChildMutation = useEnrollChild();
   const payInstallmentMutation = usePayInstallment();
   const markReadMutation = useMarkNotificationRead();
+  const markAllReadMutation = useMarkAllNotificationsRead();
   const confirmPaymentMutation = useConfirmPayment();
   const confirmFirstPaymentMutation = useConfirmFirstPayment();
   const declinePaymentMutation = useDeclinePayment();
@@ -261,6 +264,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({
     await markReadMutation.mutateAsync(id);
   };
 
+  const markAllNotificationsRead = async () => {
+    await markAllReadMutation.mutateAsync();
+  };
+
   const confirmPayment = async (paymentId: string) => {
     await confirmPaymentMutation.mutateAsync(paymentId);
   };
@@ -323,6 +330,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({
         addChild,
         submitPayment,
         markNotificationRead,
+        markAllNotificationsRead,
         confirmPayment,
         confirmFirstPayment,
         declinePayment,
