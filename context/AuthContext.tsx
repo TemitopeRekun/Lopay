@@ -213,7 +213,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     schoolId?: string,
     userId?: string,
   ) => {
-    // Only allow if authenticated (and ideally if owner, but we trust the UI to check permissions)
+    // Acting role is UI-only state (lets an admin preview a parent/school-owner
+    // view). It is NOT a privilege grant: every API request still carries the
+    // user's real role from the session, and the backend authorizes against that
+    // real role — never this acting role — so this cannot escalate access.
     if (!user) return;
 
     setActingRoleState(role);
