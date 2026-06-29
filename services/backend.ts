@@ -1,4 +1,5 @@
 import axios from "axios";
+import { getAuthMode } from "./platform";
 import {
   ApiSchoolStats,
   ApiPendingPayment,
@@ -18,17 +19,25 @@ import {
 export const API_URL =
   (import.meta as any).env?.VITE_API_URL ?? "http://localhost:3001";
 
+const authMode = getAuthMode();
+
 export const apiClient = axios.create({
   baseURL: `${API_URL}/api/v1`,
   headers: {
     "Content-Type": "application/json",
   },
+  // Cookie mode: send the httpOnly Better Auth session cookie cross-origin
+  // (the backend enables CORS credentials when CORS_ORIGINS is set).
+  withCredentials: authMode === "cookie",
 });
 
 apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem("accessToken");
-  if (token && config.url !== "/schools") {
-    config.headers.Authorization = `Bearer ${token}`;
+  // Bearer mode only: cookie mode authenticates via the session cookie above.
+  if (authMode === "bearer") {
+    const token = localStorage.getItem("accessToken");
+    if (token && config.url !== "/schools") {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
   }
   return config;
 });
@@ -68,6 +77,17 @@ export interface AuditLogEntry {
 // not this axios client. BackendAPI covers the domain endpoints only.
 export const BackendAPI = {
   users: {
+    // Self-service profile (the logged-in user). Scoped server-side to the
+    // session — no id in the path, and role/email cannot be changed here.
+    getMe: async () => {
+      const response = await apiClient.get(`/users/me`);
+      return response.data;
+    },
+    updateMe: async (data: { fullName?: string; phoneNumber?: string }) => {
+      const response = await apiClient.patch(`/users/me`, data);
+      return response.data;
+    },
+    // Admin user management (SUPER_ADMIN only).
     get: async (id: string) => {
       const response = await apiClient.get(`/users/${id}`);
       return response.data;
