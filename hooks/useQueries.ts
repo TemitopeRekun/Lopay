@@ -9,6 +9,8 @@ import {
 } from "../services/adapters";
 import { School } from "../types";
 import { useUI } from "../context/UIContext";
+import { getErrorMessage } from "../utils/errors";
+import { logger } from "../utils/logger";
 
 /**
  * Slow safety-net poll for "live" data. Real-time freshness now comes from the
@@ -50,7 +52,7 @@ export const useChildren = (enabled: boolean = true) => {
     queryFn: async () => {
       const data = await BackendAPI.parent.getChildren();
       if (!Array.isArray(data)) {
-        console.error("Unexpected children data format:", data);
+        logger.error("Unexpected children data format:", data);
         return [];
       }
       return data.map(normalizeChild);
@@ -180,7 +182,7 @@ export const useSchoolStudents = (
     queryFn: async () => {
       const data = await BackendAPI.school.getStudents();
       if (!Array.isArray(data)) {
-        console.error("Unexpected school students data format:", data);
+        logger.error("Unexpected school students data format:", data);
         return [];
       }
       return data.map(normalizeChild);
@@ -319,7 +321,7 @@ export const useAdminSchoolStudents = (
       if (!schoolId) return [];
       const data = await BackendAPI.admin.getSchoolStudents(schoolId);
       if (!Array.isArray(data)) {
-        console.error("Unexpected admin school students data format:", data);
+        logger.error("Unexpected admin school students data format:", data);
         return [];
       }
       return data.map(normalizeChild);
@@ -377,10 +379,7 @@ export const useEnrollChild = () => {
       });
     },
     onError: (error: unknown) => {
-      const message =
-        error && typeof error === "object" && "message" in error
-          ? String((error as any).message)
-          : "Failed to enroll. Please try again.";
+      const message = getErrorMessage(error, "Failed to enroll. Please try again.");
       showToast(message, "error");
     },
   });
@@ -425,10 +424,7 @@ export const usePayInstallment = () => {
       });
     },
     onError: (error: unknown) => {
-      const message =
-        error && typeof error === "object" && "message" in error
-          ? String((error as any).message)
-          : "Payment failed. Please try again.";
+      const message = getErrorMessage(error, "Payment failed. Please try again.");
       showToast(message, "error");
     },
   });
@@ -476,10 +472,7 @@ export const useUpdateFee = () => {
       }
     },
     onError: (error: unknown) => {
-      const message =
-        error && typeof error === "object" && "message" in error
-          ? String((error as any).message)
-          : "Failed to update fees. Please try again.";
+      const message = getErrorMessage(error, "Failed to update fees. Please try again.");
       showToast(message, "error");
     },
   });
@@ -504,10 +497,7 @@ export const useConfirmPayment = () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.notifications });
     },
     onError: (error: unknown) => {
-      const message =
-        error && typeof error === "object" && "message" in error
-          ? String((error as any).message)
-          : "Failed to confirm payment. Please try again.";
+      const message = getErrorMessage(error, "Failed to confirm payment. Please try again.");
       showToast(message, "error");
     },
   });
@@ -535,10 +525,7 @@ export const useConfirmFirstPayment = () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.notifications });
     },
     onError: (error: unknown) => {
-      const message =
-        error && typeof error === "object" && "message" in error
-          ? String((error as any).message)
-          : "Failed to confirm first payment. Please try again.";
+      const message = getErrorMessage(error, "Failed to confirm first payment. Please try again.");
       showToast(message, "error");
     },
   });
@@ -614,10 +601,7 @@ export const useDeclinePayment = () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.notifications });
     },
     onError: (error: unknown) => {
-      const message =
-        error && typeof error === "object" && "message" in error
-          ? String((error as any).message)
-          : "Failed to decline payment. Please try again.";
+      const message = getErrorMessage(error, "Failed to decline payment. Please try again.");
       showToast(message, "error");
     },
   });
