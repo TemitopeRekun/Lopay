@@ -12,6 +12,7 @@ import {
   User,
   UserRole,
 } from "../types";
+import { logger } from "../utils/logger";
 
 const toNumber = (value: unknown): number => {
   if (typeof value === "number") {
@@ -115,7 +116,7 @@ export const normalizeTransaction = (
 
 export const normalizeChild = (apiEnrollment: ApiEnrollment): Child => {
   if (!apiEnrollment) {
-    console.error("normalizeChild called with null/undefined");
+    logger.error("normalizeChild called with null/undefined");
     return {} as Child;
   }
 
@@ -139,7 +140,7 @@ export const normalizeChild = (apiEnrollment: ApiEnrollment): Child => {
     "Unknown Child";
 
   if (!apiEnrollment.id && !apiEnrollment.childId && !apiEnrollment.child?.id) {
-    console.error("Missing ID in enrollment:", apiEnrollment);
+    logger.error("Missing ID in enrollment:", apiEnrollment);
   }
 
   let remainingBalance = toNumber(apiEnrollment.remainingBalance);
