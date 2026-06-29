@@ -1,5 +1,6 @@
 import { io, Socket } from "socket.io-client";
 import { API_URL } from "./backend";
+import { getAuthMode } from "./platform";
 
 /**
  * The realtime envelope the backend EventsGateway emits on the `"realtime"`
@@ -33,8 +34,17 @@ export const connectSocket = (): Socket => {
     return socket;
   }
 
+  // Auth path mirrors the HTTP client (see services/platform.ts): bearer sends a
+  // token in the handshake; cookie sends the httpOnly session cookie via
+  // withCredentials. The handshake token is resolved lazily on every (re)connect
+  // so reconnections pick up a token the axios layer silently refreshed.
+  const cookieMode = getAuthMode() === "cookie";
   socket = io(API_URL, {
-    auth: (cb) => cb({ token: localStorage.getItem("accessToken") ?? "" }),
+    ...(cookieMode
+      ? { withCredentials: true }
+      : {
+          auth: (cb) => cb({ token: localStorage.getItem("accessToken") ?? "" }),
+        }),
     transports: ["websocket", "polling"],
     reconnection: true,
     reconnectionAttempts: Infinity,

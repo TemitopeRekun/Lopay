@@ -193,10 +193,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     try {
       if (!user) throw new Error("No user logged in");
 
-      // Call backend to update user
-      const result = await BackendAPI.users.update({
-        ...updatedData,
-        id: user.id,
+      // Self-service profile update — scoped to the current session server-side
+      // (PATCH /users/me), so no id is sent and role/email can't be changed here.
+      const result = await BackendAPI.users.updateMe({
+        fullName: updatedData.name, // FE `User.name` ↔ API `fullName`
+        phoneNumber: updatedData.phoneNumber,
       });
 
       const normalized = normalizeUser(result as unknown as ApiUser);
@@ -249,7 +250,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     <AuthContext.Provider
       value={{
         user,
-        isAuthenticated: !!user && !!token,
+        // `user` is the auth source of truth (set by hydrateFromSession in BOTH
+        // bearer and cookie mode); the bearer token is an implementation detail
+        // of one path, so don't gate auth on it.
+        isAuthenticated: !!user,
         role: effectiveRole, // Expose the effective role as the primary role
         isOwnerAccount,
         token,

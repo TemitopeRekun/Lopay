@@ -59,11 +59,13 @@ const invalidate = (queryClient: QueryClient, keys: readonly string[][]) => {
  * old interval polling.
  */
 export const useRealtime = () => {
-  const { token, isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    if (!isAuthenticated || !token) {
+    // Gate on auth only: the socket layer (services/socket.ts) supplies the
+    // right credential per auth mode (bearer token vs cookie).
+    if (!isAuthenticated) {
       disconnectSocket();
       useRealtimeStore.getState().setStatus("disconnected");
       return;
@@ -114,5 +116,5 @@ export const useRealtime = () => {
       socket.off("disconnect", handleDisconnect);
       socket.off("realtime", handleRealtime);
     };
-  }, [token, isAuthenticated, queryClient]);
+  }, [isAuthenticated, queryClient]);
 };

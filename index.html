@@ -24,21 +24,12 @@
       href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
       rel="stylesheet"
     />
-    <script type="importmap">
-      {
-        "imports": {
-          "react/": "https://aistudiocdn.com/react@^19.2.0/",
-          "react": "https://aistudiocdn.com/react@^19.2.0",
-          "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-          "react-dom": "https://aistudiocdn.com/react-dom@^19.2.0",
-          "react-router-dom": "https://aistudiocdn.com/react-router-dom@^7.9.6",
-          "@google/genai": "https://esm.run/@google/genai",
-          "vite": "https://esm.sh/vite@^7.3.1",
-          "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
-          "path": "https://esm.sh/path@^0.12.7"
-        }
-      }
-    </script>
+    <!--
+      No third-party CDN import map. react / react-dom / react-router-dom are
+      bundled locally from node_modules by Vite (see package.json deps). The old
+      map pulled them (plus an unused AI SDK) from public CDNs — a supply-chain
+      risk that is also disallowed by the SPA CSP (script-src 'self').
+    -->
   </head>
   <body
     class="bg-background-light dark:bg-background-dark text-text-primary-light dark:text-text-primary-dark font-display antialiased transition-colors duration-200"
