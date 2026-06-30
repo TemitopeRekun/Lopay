@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Layout } from "../../components/Layout";
 import { Header } from "../../components/Header";
+import { Pagination } from "../../components/Pagination";
 import { useAuth } from "../../context/AuthContext";
 import { useData } from "../../context/DataContext";
 import { BackendAPI } from "../../services/backend";
@@ -37,12 +38,24 @@ const PaymentApprovalsScreen: React.FC = () => {
   const isOwner = userRole === "owner";
   const isSchoolOwner = userRole === "school_owner";
 
+  // Server-side pagination: the admin pending lists are capped per page (M4).
+  const [page, setPage] = useState(1);
+
   // Live updates arrive over the socket (see useRealtime); the hooks keep a
   // slow safety-net poll on their own.
-  const { data: adminPendingFirst = [] } =
-    useAdminPendingFirstPayments(isOwner);
-  const { data: adminPendingInstallments = [] } =
-    useAdminPendingInstallments(isOwner);
+  const { data: pendingFirstPage } = useAdminPendingFirstPayments(
+    isOwner,
+    page,
+  );
+  const { data: pendingInstallmentsPage } = useAdminPendingInstallments(
+    isOwner,
+    page,
+  );
+  const adminPendingFirst = pendingFirstPage?.items ?? [];
+  const adminPendingInstallments = pendingInstallmentsPage?.items ?? [];
+  // Owner sees the paginated "first payments" list; school-owner installments
+  // come from the (unchanged) school endpoints via DataContext.
+  const totalPages = pendingFirstPage?.totalPages ?? 1;
   const settleFirstPayment = useSettleFirstPayment();
   const rejectFirstPayment = useRejectFirstPayment();
 
@@ -468,6 +481,14 @@ const PaymentApprovalsScreen: React.FC = () => {
               );
             })}
           </div>
+        )}
+
+        {isOwner && (
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+          />
         )}
       </div>
 
