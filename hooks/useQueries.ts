@@ -95,7 +95,9 @@ export const useGlobalTransactions = (enabled: boolean = true) => {
         includeReceiptSignedUrls: true,
         receiptType: "ALL",
       });
-      return (Array.isArray(data) ? data : []).map(normalizeTransaction);
+      // Backend now returns a paginated envelope; tolerate either shape.
+      const items = Array.isArray(data) ? data : (data?.items ?? []);
+      return items.map(normalizeTransaction);
     },
     enabled,
   });
@@ -220,15 +222,22 @@ export const useSchoolBankDetails = (
 
 export const useAdminPendingFirstPayments = (
   enabled: boolean = true,
+  page: number = 1,
   pollIntervalMs?: number,
 ) => {
   return useQuery({
-    queryKey: QUERY_KEYS.adminPendingFirstPayments,
+    queryKey: [...QUERY_KEYS.adminPendingFirstPayments, page],
     queryFn: async () => {
-      const data = await BackendAPI.admin.getPendingFirstPayments();
-      return (Array.isArray(data) ? data : [])
-        .map(normalizeTransaction)
-        .filter((t) => t.status === "Pending");
+      const data = await BackendAPI.admin.getPendingFirstPayments({ page });
+      const items = Array.isArray(data) ? data : (data?.items ?? []);
+      return {
+        items: items
+          .map(normalizeTransaction)
+          .filter((t) => t.status === "Pending"),
+        total: Array.isArray(data) ? items.length : (data?.total ?? 0),
+        totalPages: Array.isArray(data) ? 1 : (data?.totalPages ?? 1),
+        page: Array.isArray(data) ? 1 : (data?.page ?? page),
+      };
     },
     enabled,
     refetchInterval: enabled ? pollIntervalMs ?? FALLBACK_POLL_MS : false,
@@ -238,15 +247,22 @@ export const useAdminPendingFirstPayments = (
 
 export const useAdminPendingInstallments = (
   enabled: boolean = true,
+  page: number = 1,
   pollIntervalMs?: number,
 ) => {
   return useQuery({
-    queryKey: QUERY_KEYS.adminPendingInstallments,
+    queryKey: [...QUERY_KEYS.adminPendingInstallments, page],
     queryFn: async () => {
-      const data = await BackendAPI.admin.getPendingInstallments();
-      return (Array.isArray(data) ? data : [])
-        .map(normalizeTransaction)
-        .filter((t) => t.status === "Pending");
+      const data = await BackendAPI.admin.getPendingInstallments({ page });
+      const items = Array.isArray(data) ? data : (data?.items ?? []);
+      return {
+        items: items
+          .map(normalizeTransaction)
+          .filter((t) => t.status === "Pending"),
+        total: Array.isArray(data) ? items.length : (data?.total ?? 0),
+        totalPages: Array.isArray(data) ? 1 : (data?.totalPages ?? 1),
+        page: Array.isArray(data) ? 1 : (data?.page ?? page),
+      };
     },
     enabled,
     refetchInterval: enabled ? pollIntervalMs ?? FALLBACK_POLL_MS : false,
@@ -320,11 +336,9 @@ export const useAdminSchoolStudents = (
     queryFn: async () => {
       if (!schoolId) return [];
       const data = await BackendAPI.admin.getSchoolStudents(schoolId);
-      if (!Array.isArray(data)) {
-        logger.error("Unexpected admin school students data format:", data);
-        return [];
-      }
-      return data.map(normalizeChild);
+      // Paginated envelope (M4); tolerate a bare array for back-compat.
+      const items = Array.isArray(data) ? data : (data?.items ?? []);
+      return items.map(normalizeChild);
     },
     enabled: enabled && !!schoolId,
   });

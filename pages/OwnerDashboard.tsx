@@ -33,10 +33,11 @@ const OwnerDashboard: React.FC = () => {
   }, [userRole, effectiveRole, setActingRole]);
 
   const {
-    data: adminPendingFirst = [],
+    data: adminPendingFirstPage,
     isError: pendingFirstError,
     refetch: refetchPendingFirst,
   } = useAdminPendingFirstPayments(isOwner);
+  const adminPendingFirst = adminPendingFirstPage?.items ?? [];
   const {
     data: platformRevenueData,
     isError: platformRevenueError,

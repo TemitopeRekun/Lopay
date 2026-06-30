@@ -165,6 +165,18 @@ export interface ApiLoginResponse {
   user: ApiUser;
 }
 
+/**
+ * Standard paginated list envelope returned by the admin list endpoints
+ * (Milestone 4 — Scale). Mirrors the backend `common/pagination.ts` shape.
+ */
+export interface Paginated<T> {
+  items: T[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
 export interface ApiTransaction {
   id: string;
   amount: number;

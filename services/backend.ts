@@ -5,6 +5,7 @@ import {
   ApiPendingPayment,
   ApiEnrollment,
   ApiTransaction,
+  Paginated,
   ApiNotification,
   ApiUser,
   ApiSchoolBankDetails,
@@ -137,17 +138,23 @@ export const BackendAPI = {
       });
       return response.data;
     },
-    getPendingFirstPayments: async () => {
-      const response = await apiClient.get<ApiPendingPayment[]>(
+    getPendingFirstPayments: async (params?: {
+      page?: number;
+      limit?: number;
+    }) => {
+      const response = await apiClient.get<Paginated<ApiPendingPayment>>(
         "/admin/pending-first-payments",
-        { params: { includeReceiptSignedUrls: true } },
+        { params: { includeReceiptSignedUrls: true, ...params } },
       );
       return response.data;
     },
-    getPendingInstallments: async () => {
-      const response = await apiClient.get<ApiPendingPayment[]>(
+    getPendingInstallments: async (params?: {
+      page?: number;
+      limit?: number;
+    }) => {
+      const response = await apiClient.get<Paginated<ApiPendingPayment>>(
         "/admin/pending-installments",
-        { params: { includeReceiptSignedUrls: true } },
+        { params: { includeReceiptSignedUrls: true, ...params } },
       );
       return response.data;
     },
@@ -159,8 +166,10 @@ export const BackendAPI = {
     getAllTransactions: async (params?: {
       includeReceiptSignedUrls?: boolean;
       receiptType?: "ALL" | "FIRST_PAYMENT" | "INSTALLMENT";
+      page?: number;
+      limit?: number;
     }) => {
-      const response = await apiClient.get<ApiTransaction[]>(
+      const response = await apiClient.get<Paginated<ApiTransaction>>(
         "/admin/transactions",
         { params },
       );
@@ -188,7 +197,7 @@ export const BackendAPI = {
       schoolId: string,
       params?: { search?: string; className?: string; page?: number; limit?: number },
     ) => {
-      const response = await apiClient.get<ApiEnrollment[]>(
+      const response = await apiClient.get<Paginated<ApiEnrollment>>(
         `/admin/schools/${schoolId}/students`,
         { params },
       );
