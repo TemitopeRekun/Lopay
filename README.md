@@ -2,15 +2,14 @@
 
 # Lopay 💳
 
-**A school fee installment payment platform — built with financial integrity as a first-class concern.**
+**A school-fee installment payment platform — built with financial integrity as a first-class concern.**
 
 [![GitHub](https://img.shields.io/badge/GitHub-TemitopeRekun/Lopay-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/TemitopeRekun/Lopay)
 
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)
-![NestJS](https://img.shields.io/badge/NestJS-E0234E?style=flat-square&logo=nestjs&logoColor=white)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat-square&logo=postgresql&logoColor=white)
 ![React](https://img.shields.io/badge/React-20232A?style=flat-square&logo=react&logoColor=61DAFB)
-![Firebase](https://img.shields.io/badge/Firebase-FFCA28?style=flat-square&logo=firebase&logoColor=black)
+![Vite](https://img.shields.io/badge/Vite-646CFF?style=flat-square&logo=vite&logoColor=white)
+![Capacitor](https://img.shields.io/badge/Capacitor-119EFF?style=flat-square&logo=capacitor&logoColor=white)
 
 </div>
 
@@ -24,151 +23,107 @@ Lopay solves a real problem in education finance:
 - **Schools** need guaranteed, traceable, confirmed payments
 - **The platform** needs controlled onboarding and robust fraud prevention
 
-Lopay bridges all three with a structured installment system, strict financial logic enforced at the API level, and a multi-role access architecture designed for trust and auditability.
+This repository is the **client app** — a React + Vite web app packaged for
+Android with Capacitor. It talks to the LoPay backend (`lopay-backend`, a NestJS
+service) over `/api/v1`. All money logic is enforced server-side; the client
+never computes fees or trusts its own state for balances.
 
-> **Note:** This repository contains the frontend application. The backend API is maintained in a separate private repository (`lopay-backend`) — see the [API Integration Guide](./API_GUIDE.md) for endpoint documentation.
+> **Backend contract:** endpoint types are generated from the backend's committed
+> OpenAPI spec into [`src/api.generated.ts`](./src/api.generated.ts) via
+> `npm run generate:types`, and a contract test keeps the client in step with the
+> spec. See the [API Guide](./API_GUIDE.md).
 
 ---
 
-## Key Features
+## Key features
 
-### 💰 Financial Integrity Engine
-- **Fee snapshots at enrollment** — fees are captured at the moment of enrollment, never recalculated after the fact
-- **Immutable payment records** — payments are appended, never mutated, providing a complete audit trail
-- **Server-side business logic** — the platform fee formula (2.5% + minimum 25% first payment) is calculated and enforced at the API level, never client-side
+- **Financial integrity** — fees are snapshotted at enrollment; balances and the
+  2.5% platform fee / 25% minimum first payment are enforced by the API, never
+  the client.
+- **Paystack payments** — first payments go through the Paystack inline popup
+  (`@paystack/inline-js`); installments are receipt-based and school-confirmed.
+- **Realtime** — payment/enrollment changes push over Socket.IO so dashboards
+  refresh without polling.
+- **Push notifications** — device tokens registered via Capacitor for FCM.
+- **Role-based UX** — distinct flows for admin, school owner, and parent.
 
-### 📊 Payment Lifecycle State Machine
+## Roles
 
-All payments follow a strict, backend-controlled status flow:
-
-```
-PENDING → ACTIVE → COMPLETED
-               ↘ DEFAULTED
-```
-
-### 👥 Multi-Role Access Control (RBAC)
-
-| Role | Access | Key Capability |
+| Role | Access | Key capability |
 |---|---|---|
-| **SUPER_ADMIN** | Login only (no public signup) | Onboards schools, receives first payments, views global analytics |
-| **SCHOOL_OWNER** | Created by Super Admin | Confirms payments, manages class fees, marks defaults |
-| **PARENT** | Public signup | Enrolls children, makes first & installment payments |
+| **SUPER_ADMIN** | Login only (no signup) | Onboards schools, receives first payments, global analytics |
+| **SCHOOL_OWNER** | Created by an admin | Confirms/reverses payments, manages class fees, marks defaults |
+| **PARENT** | Public signup | Enrols children, makes first & installment payments |
 
-### 🔐 Security Architecture
-- **Dual authentication**: Firebase Admin SDK for identity verification + JWT for API session management
-- **Identity from server only**: User identity derived strictly from `req.user` — never from the request body
-- **Guards**: `JwtAuthGuard` (validates user) + `RolesGuard` (enforces RBAC permissions)
-
----
-
-## Tech Stack
+## Tech stack
 
 | Layer | Technology |
 |---|---|
-| **Frontend** | React Native · TypeScript · Vite · Capacitor |
-| **Structure** | `components/` · `context/` · `hooks/` · `pages/` · `services/` · `utils/` |
-| **Backend** | NestJS (domain-based modular architecture) · Node.js · TypeScript |
-| **Database** | PostgreSQL · Prisma ORM |
-| **Authentication** | Firebase Admin SDK (identity) · JWT (API sessions) |
-| **Validation** | class-validator · Joi |
+| UI | React 19 · TypeScript · Vite · Tailwind |
+| Native shell | Capacitor (Android) |
+| Server state | TanStack Query |
+| UI state | Zustand (`store/`) |
+| HTTP | axios (`services/`) |
+| Auth | Better Auth client (session cookie / bearer) |
+| Payments | `@paystack/inline-js` |
 
----
-
-## Fee Structure
+## Fee model
 
 ```
-Platform Fee:           2.5% of total school fee (fixed at enrollment)
-Minimum First Payment:  25% of school fee + 2.5% platform fee
+Platform fee:          2.5% of the total school fee (fixed at enrollment)
+Minimum first payment: 25% of the school fee + the 2.5% platform fee
+                     = 0.275 × schoolFee
 ```
 
-**Formula:**
-```
-minimumDeposit = (0.25 × schoolFee) + (0.025 × schoolFee)
-               = 0.275 × schoolFee
-```
-
----
-
-## Project Structure (Frontend)
+## Project structure
 
 ```
 Lopay/
-├── android/          # Android native build files
-├── assets/           # Static assets (images, fonts, icons)
-├── components/       # Reusable UI components
-├── context/          # React Context providers (auth, state)
-├── hooks/            # Custom React hooks
-├── pages/            # Screen-level components
-├── services/         # API service layer (Axios/fetch wrappers)
-├── utils/            # Helper functions and constants
-├── App.tsx           # Root application component
-├── types.ts          # Shared TypeScript types
-├── types.admin.ts    # Admin-specific TypeScript types
+├── android/            # Capacitor Android project
+├── components/         # Reusable UI (incl. ToastHost, Pagination)
+├── context/            # React context providers (auth, data)
+├── hooks/              # Data + realtime hooks (TanStack Query)
+├── pages/              # Screen-level components
+├── services/           # API layer: backend.ts, adapters.ts, apiTypes.ts
+├── store/              # Zustand stores (uiStore)
+├── src/api.generated.ts# Types generated from the backend OpenAPI spec
+├── App.tsx · types.ts · types.admin.ts
 └── capacitor.config.json
 ```
 
----
+## Getting started
 
-## Getting Started
-
-### Prerequisites
-
-- Node.js 18+
-- npm or yarn
-- Android Studio (for Android development)
-- Backend API running (see [API_GUIDE.md](./API_GUIDE.md))
-
-### Installation
+Prerequisites: Node 22+, and the backend running (see [`../LOCAL_DEV.md`](../LOCAL_DEV.md)).
 
 ```bash
-# Clone the repository
-git clone https://github.com/TemitopeRekun/Lopay.git
-cd Lopay
-
-# Install dependencies
 npm install
-
-# Set up environment variables
-cp .env .env.local
-# Add your backend API URL and Firebase config
+cp .env .env.local           # set VITE_API_URL (default http://localhost:3001)
+npm run dev                  # web dev server (http://localhost:5173)
 ```
 
-### Running the App
+Android via Capacitor:
 
 ```bash
-# Web development
-npm run dev
-
-# Android build via Capacitor
-npx cap sync android
-npx cap open android
+npm run static-build         # vite build + cap copy
+npm run android:open         # open in Android Studio
 ```
 
----
+## Scripts
 
-## Roadmap
+```bash
+npm test                     # vitest (unit + the OpenAPI contract test)
+npm run generate:types       # regenerate src/api.generated.ts from ./openapi.json
+npm run build                # production build
+```
 
-- [x] Multi-role authentication (Firebase Admin + JWT)
-- [x] School enrollment & fee management
-- [x] Installment payment lifecycle
-- [x] Payment confirmation flow (school-side)
-- [ ] Paystack / Flutterwave payment gateway integration
-- [ ] Automated settlement engine
-- [ ] Admin analytics dashboard
-- [ ] Penalty handling for defaults
-- [ ] Credit scoring module
-- [ ] Push notifications
-- [ ] Webhooks for payment events
+## API documentation
 
----
-
-## API Documentation
-
-See [API_GUIDE.md](./API_GUIDE.md) for full endpoint documentation, authentication flow, request/response examples, and integration guide for frontend developers.
+See [API_GUIDE.md](./API_GUIDE.md) for the integration mental model (auth, base
+URL, payment flow) and the generated client for exact request/response types.
 
 ---
 
 ## Author
 
-**Temitope Ogunrekun**  
+**Temitope Ogunrekun**
 [temi.dev](https://temi.dev) · [linkedin.com/in/temi-dev](https://linkedin.com/in/temi-dev) · [github.com/TemitopeRekun](https://github.com/TemitopeRekun)
