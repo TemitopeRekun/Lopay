@@ -11,7 +11,7 @@
     "android:open": "npx cap open android",
     "test": "vitest run",
     "test:watch": "vitest",
-    "generate:types": "openapi-typescript ../openapi.json -o src/api.generated.ts"
+    "generate:types": "openapi-typescript ./openapi.json -o src/api.generated.ts"
   },
   "dependencies": {
     "@capacitor/android": "^6.0.0",

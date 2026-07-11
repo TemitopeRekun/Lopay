@@ -1,0 +1,5 @@
+# Generated API contract artifacts: pin to LF so the CI contract/staleness
+# checks (regenerate + compare) are stable across Windows dev and Linux CI
+# regardless of each machine's core.autocrlf setting.
+openapi.json text eol=lf
+src/api.generated.ts text eol=lf
