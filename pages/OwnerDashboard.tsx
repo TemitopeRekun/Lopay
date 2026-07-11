@@ -10,19 +10,22 @@ import {
   useAdminPlatformRevenue,
   useAdminStudentsSummary,
 } from "../hooks/useQueries";
-import { NotificationIconButton } from "../components/NotificationIconButton";
+import { OwnerTopBar } from "../components/owner-dashboard/OwnerTopBar";
+import { OwnerMetrics } from "../components/owner-dashboard/OwnerMetrics";
+import {
+  RevenueChart,
+  type ChartView,
+} from "../components/owner-dashboard/RevenueChart";
+import { PendingFirstPaymentsCard } from "../components/owner-dashboard/PendingFirstPaymentsCard";
+import { QuickOperations } from "../components/owner-dashboard/QuickOperations";
+import { DashboardSimulator } from "../components/owner-dashboard/DashboardSimulator";
 
 const OwnerDashboard: React.FC = () => {
   const { userRole, setActingRole, effectiveRole } = useAuth();
-  const {
-    transactions,
-    notifications,
-    isLoading,
-    hasError,
-    refreshData,
-  } = useData();
+  const { transactions, notifications, isLoading, hasError, refreshData } =
+    useData();
   const navigate = useNavigate();
-  const [chartView, setChartView] = useState<"Weekly" | "Monthly">("Monthly");
+  const [chartView, setChartView] = useState<ChartView>("Monthly");
 
   const isOwner = userRole === "owner";
 
@@ -89,8 +92,7 @@ const OwnerDashboard: React.FC = () => {
       return apiTotal;
     }
 
-    const sourceTx =
-      adminOverview?.recentTransactions || transactions || [];
+    const sourceTx = adminOverview?.recentTransactions || transactions || [];
     const successfulTx = sourceTx.filter((t) => t.status === "Successful");
 
     return successfulTx.reduce((sum, t) => {
@@ -123,6 +125,11 @@ const OwnerDashboard: React.FC = () => {
     });
     return ids.size;
   }, [studentsSummary, adminOverview?.recentTransactions, transactions]);
+
+  const totalStudents =
+    typeof studentsSummary?.totalStudents === "number"
+      ? studentsSummary.totalStudents
+      : activeStudents;
 
   const pendingAmount = useMemo(() => {
     if (typeof studentsSummary?.totalOutstandingBalance === "number") {
@@ -166,11 +173,7 @@ const OwnerDashboard: React.FC = () => {
       return adminPendingFirst.length;
     }
     return 0;
-  }, [
-    isOwner,
-    adminPendingFirst,
-    adminOverview?.pendingApprovals,
-  ]);
+  }, [isOwner, adminPendingFirst, adminOverview?.pendingApprovals]);
 
   // Chart Data Processing (time-bucketed platform fee from transactions)
   const chartData = useMemo(() => {
@@ -308,33 +311,12 @@ const OwnerDashboard: React.FC = () => {
 
   return (
     <Layout showBottomNav>
-      {/* Top Bar */}
-      <div className="sticky top-0 z-10 flex items-center justify-between bg-white dark:bg-background-dark p-6 pb-4 border-b border-gray-100 dark:border-gray-800">
-        <h1 className="text-xl font-bold tracking-tight text-text-primary-light dark:text-text-primary-dark">
-          Admin Overview
-        </h1>
-        <div className="flex items-center gap-3">
-          <NotificationIconButton
-            unreadCount={unreadNotificationsCount}
-            onClick={() => navigate("/notifications")}
-          />
-          <div className="relative">
-            <button
-              onClick={() => navigate("/admin/approvals")}
-              className="size-10 flex items-center justify-center rounded-full bg-primary/10 text-primary transition-all active:scale-95"
-            >
-              <span className="material-symbols-outlined filled">
-                verified_user
-              </span>
-            </button>
-            {pendingApprovalsCount > 0 && (
-              <span className="absolute -top-1 -right-1 size-5 bg-danger text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-white dark:border-background-dark">
-                {pendingApprovalsCount}
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
+      <OwnerTopBar
+        unreadCount={unreadNotificationsCount}
+        pendingApprovalsCount={pendingApprovalsCount}
+        onNotifications={() => navigate("/notifications")}
+        onApprovals={() => navigate("/admin/approvals")}
+      />
 
       <main className="flex flex-col gap-6 p-6 pb-32">
         {hasEmptyOwnerData && (
@@ -377,249 +359,38 @@ const OwnerDashboard: React.FC = () => {
           </div>
         )}
 
-        {/* Key Metrics */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="col-span-2 bg-slate-900 text-white p-7 rounded-3xl shadow-xl relative overflow-hidden">
-            <div className="absolute right-0 top-0 p-4 opacity-10">
-              <span className="material-symbols-outlined text-9xl">
-                account_balance_wallet
-              </span>
-            </div>
-            <div className="relative z-10">
-              <p className="text-slate-400 text-xs font-bold uppercase tracking-[0.2em] mb-2">
-                Total Platform Revenue
-              </p>
-              <h2 className="text-4xl font-black tracking-tighter">
-                ₦{displayRevenue.toLocaleString()}
-              </h2>
-              <div className="mt-4 flex items-center gap-2">
-                <span className="px-2 py-1 rounded bg-accent/20 text-accent text-[9px] font-black uppercase tracking-widest border border-accent/20">
-                  Active Scaling
-                </span>
-              </div>
-            </div>
-          </div>
+        <OwnerMetrics
+          displayRevenue={displayRevenue}
+          totalStudents={totalStudents}
+          pendingAmount={pendingAmount}
+        />
 
-          <div className="bg-white dark:bg-card-dark p-5 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm">
-            <p className="text-2xl font-black text-text-primary-light dark:text-text-primary-dark">
-              {typeof studentsSummary?.totalStudents === "number"
-                ? studentsSummary.totalStudents
-                : activeStudents}
-            </p>
-            <p className="text-xs font-bold text-text-secondary-light uppercase tracking-wider">
-              Total Students
-            </p>
-          </div>
-
-          <div className="bg-white dark:bg-card-dark p-5 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm">
-            <p className="text-2xl font-black text-primary">
-              ₦{(pendingAmount / 1000000).toFixed(1)}M
-            </p>
-            <p className="text-xs font-bold text-text-secondary-light uppercase tracking-wider">
-              Plan Arrears
-            </p>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-card-dark p-6 rounded-[32px] border border-gray-100 dark:border-gray-800 shadow-sm">
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h3 className="text-sm font-black text-text-primary-light dark:text-text-primary-dark uppercase tracking-widest">
-                Revenue Insights
-              </h3>
-              <p className="text-xs text-text-secondary-light font-bold">
-                Platform collection trends
-              </p>
-            </div>
-            <div className="flex bg-gray-100 dark:bg-white/5 p-1 rounded-xl">
-              <button
-                onClick={() => setChartView("Weekly")}
-                className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${chartView === "Weekly" ? "bg-white dark:bg-slate-800 text-primary shadow-sm" : "text-text-secondary-light"}`}
-              >
-                Weekly
-              </button>
-              <button
-                onClick={() => setChartView("Monthly")}
-                className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${chartView === "Monthly" ? "bg-white dark:bg-slate-800 text-primary shadow-sm" : "text-text-secondary-light"}`}
-              >
-                Monthly
-              </button>
-            </div>
-          </div>
-
-          <div className="flex items-end justify-between h-48 gap-3 px-1">
-            {chartData.map((item, idx) => {
-              const heightPercent = (item.value / maxChartValue) * 100;
-              return (
-                <div
-                  key={idx}
-                  className="flex-1 flex flex-col items-center gap-3 h-full justify-end group"
-                >
-                  <div className="relative w-full h-full flex items-end">
-                    <div
-                      className="w-full bg-primary/10 group-hover:bg-primary/20 rounded-t-xl transition-all duration-700 ease-out border-b-2 border-primary/40"
-                      style={{ height: `${heightPercent}%` }}
-                    >
-                      <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[8px] font-bold px-1.5 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20">
-                        ₦{(item.value / 1000).toFixed(0)}k
-                      </div>
-                    </div>
-                  </div>
-                  <span className="text-[9px] font-black text-text-secondary-light uppercase tracking-tighter">
-                    {item.label}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="mt-8 pt-6 border-t border-gray-50 dark:border-gray-800 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="size-2 rounded-full bg-accent"></div>
-              <span className="text-xs font-bold text-text-secondary-light uppercase">
-                Growth: +12.4%
-              </span>
-            </div>
-            <span className="text-[9px] font-bold text-primary underline cursor-pointer">
-              View Detailed Logs
-            </span>
-          </div>
-        </div>
+        <RevenueChart
+          chartView={chartView}
+          onChartViewChange={setChartView}
+          chartData={chartData}
+          maxChartValue={maxChartValue}
+        />
 
         {pendingFirstPaymentsBySchool.length > 0 && (
-          <div className="bg-white dark:bg-card-dark p-6 rounded-[32px] border border-gray-100 dark:border-gray-800 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-sm font-black text-text-primary-light dark:text-text-primary-dark uppercase tracking-widest">
-                  First Payments Overview
-                </h3>
-                <p className="text-[10px] text-text-secondary-light font-bold">
-                  Schools with pending first payments
-                </p>
-              </div>
-            </div>
-            <div className="space-y-2">
-              {pendingFirstPaymentsBySchool.map((item) => (
-                <button
-                  key={item.schoolId || item.schoolName}
-                  onClick={() => handleReviewFirstPayments(item.schoolId)}
-                  className="w-full flex items-center justify-between px-4 py-3 rounded-2xl border border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-white/5 hover:border-primary/40 hover:bg-primary/5 transition-all"
-                >
-                  <div className="flex flex-col items-start">
-                    <span className="text-xs font-bold text-text-primary-light dark:text-text-primary-dark">
-                      {item.schoolName}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-black text-primary uppercase tracking-widest">
-                      {item.count} Pending
-                    </span>
-                    <span className="material-symbols-outlined text-primary text-sm">
-                      chevron_right
-                    </span>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
+          <PendingFirstPaymentsCard
+            items={pendingFirstPaymentsBySchool}
+            onReview={handleReviewFirstPayments}
+          />
         )}
 
-        {/* Quick Operations */}
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            onClick={() => navigate("/admin/approvals")}
-            className="col-span-2 flex items-center justify-between p-5 bg-primary/5 border-2 border-primary/20 rounded-[24px] hover:bg-primary/10 transition-all relative group"
-          >
-            <div className="flex items-center gap-4">
-              <div className="size-12 rounded-2xl bg-primary flex items-center justify-center text-white shadow-lg shadow-primary/20">
-                <span className="material-symbols-outlined text-2xl filled">
-                  verified_user
-                </span>
-              </div>
-              <div className="text-left">
-                <p className="text-sm font-black text-primary uppercase tracking-widest">
-                  Verify Approvals
-                </p>
-                <p className="text-[10px] text-primary/60 font-bold uppercase">
-                  {pendingApprovalsCount} Requests Pending
-                </p>
-              </div>
-            </div>
-            <span className="material-symbols-outlined text-primary group-hover:translate-x-1 transition-transform">
-              chevron_right
-            </span>
-          </button>
+        <QuickOperations
+          pendingApprovalsCount={pendingApprovalsCount}
+          onApprovals={() => navigate("/admin/approvals")}
+          onAddSchool={() => navigate("/admin/add-school")}
+          onUsers={() => navigate("/admin/users")}
+          onAuditLogs={() => navigate("/admin/audit-logs")}
+        />
 
-          <button
-            onClick={() => navigate("/admin/add-school")}
-            className="flex flex-col items-center justify-center gap-2 p-5 bg-white dark:bg-card-dark border-2 border-gray-100 dark:border-gray-800 rounded-[28px] hover:border-primary/40 transition-all group"
-          >
-            <div className="size-10 rounded-full bg-gray-50 dark:bg-white/5 flex items-center justify-center text-text-secondary-light group-hover:text-primary transition-colors">
-              <span className="material-symbols-outlined">add_business</span>
-            </div>
-            <span className="text-[10px] font-black text-text-primary-light dark:text-text-primary-dark uppercase tracking-widest">
-              New School
-            </span>
-          </button>
-
-          <button
-            onClick={() => navigate("/admin/users")}
-            className="flex flex-col items-center justify-center gap-2 p-5 bg-white dark:bg-card-dark border-2 border-gray-100 dark:border-gray-800 rounded-[28px] hover:border-primary/40 transition-all group"
-          >
-            <div className="size-10 rounded-full bg-gray-50 dark:bg-white/5 flex items-center justify-center text-text-secondary-light group-hover:text-primary transition-colors">
-              <span className="material-symbols-outlined">group</span>
-            </div>
-            <span className="text-[10px] font-black text-text-primary-light dark:text-text-primary-dark uppercase tracking-widest">
-              Users Directory
-            </span>
-          </button>
-
-          <button
-            onClick={() => navigate("/admin/audit-logs")}
-            className="flex flex-col items-center justify-center gap-2 p-5 bg-white dark:bg-card-dark border-2 border-gray-100 dark:border-gray-800 rounded-[28px] hover:border-primary/40 transition-all group"
-          >
-            <div className="size-10 rounded-full bg-gray-50 dark:bg-white/5 flex items-center justify-center text-text-secondary-light group-hover:text-primary transition-colors">
-              <span className="material-symbols-outlined">history</span>
-            </div>
-            <span className="text-[10px] font-black text-text-primary-light dark:text-text-primary-dark uppercase tracking-widest">
-              Audit Log
-            </span>
-          </button>
-        </div>
-
-        {/* Interactive Dashboard Simulator */}
-        <div className="bg-slate-100 dark:bg-white/5 rounded-[32px] p-6 border-2 border-dashed border-gray-200 dark:border-gray-800">
-          <h3 className="text-[10px] font-black text-text-secondary-light uppercase tracking-[0.2em] mb-4 text-center">
-            Dashboard Simulator
-          </h3>
-          <div className="flex gap-2">
-            <button
-              onClick={() => handleSwitchRole("owner")}
-              className={`flex-1 flex flex-col items-center gap-1.5 p-3 rounded-2xl border-2 transition-all ${userRole === "owner" ? "bg-slate-900 text-white border-slate-900 shadow-lg" : "bg-white dark:bg-card-dark border-gray-100 dark:border-gray-800 text-text-secondary-light"}`}
-            >
-              <span className="material-symbols-outlined text-lg">
-                admin_panel_settings
-              </span>
-              <span className="text-[9px] font-black uppercase">Admin</span>
-            </button>
-            <button
-              onClick={() => handleSwitchRole("parent")}
-              className={`flex-1 flex flex-col items-center gap-1.5 p-3 rounded-2xl border-2 transition-all bg-white dark:bg-card-dark border-gray-100 dark:border-gray-800 text-text-secondary-light hover:border-primary/50`}
-            >
-              <span className="material-symbols-outlined text-lg">
-                family_restroom
-              </span>
-              <span className="text-[9px] font-black uppercase">Parent</span>
-            </button>
-            <button
-              onClick={() => handleSwitchRole("school_owner")}
-              className={`flex-1 flex flex-col items-center gap-1.5 p-3 rounded-2xl border-2 transition-all bg-white dark:bg-card-dark border-gray-100 dark:border-gray-800 text-text-secondary-light hover:border-secondary/50`}
-            >
-              <span className="material-symbols-outlined text-lg">school</span>
-              <span className="text-[9px] font-black uppercase">Owner</span>
-            </button>
-          </div>
-        </div>
+        <DashboardSimulator
+          userRole={userRole}
+          onSwitchRole={handleSwitchRole}
+        />
       </main>
 
       <BottomNav />
