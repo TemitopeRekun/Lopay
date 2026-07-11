@@ -11,12 +11,14 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** Get the current authenticated user profile */
         get: operations["UsersController_getMe"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
+        /** Update the current authenticated user profile */
         patch: operations["UsersController_updateMe"];
         trace?: never;
     };
@@ -27,6 +29,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** List all users */
         get: operations["UsersController_findAll"];
         put?: never;
         post?: never;
@@ -43,12 +46,15 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** Get a user by id */
         get: operations["UsersController_findOne"];
         put?: never;
         post?: never;
+        /** Delete a user by id */
         delete: operations["UsersController_remove"];
         options?: never;
         head?: never;
+        /** Update a user by id */
         patch: operations["UsersController_update"];
         trace?: never;
     };
@@ -59,8 +65,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** Get the authenticated owner's school class fees */
         get: operations["SchoolPaymentsController_getClassFees"];
         put?: never;
+        /** Create or update a class fee */
         post: operations["SchoolPaymentsController_createClassFee"];
         delete?: never;
         options?: never;
@@ -75,6 +83,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** Get the class fees for a specific school */
         get: operations["SchoolPaymentsController_getClassFeesForSchool"];
         put?: never;
         post?: never;
@@ -91,6 +100,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** Get a school's bank details (access-scoped server-side) */
         get: operations["SchoolPaymentsController_getSchoolBankDetails"];
         put?: never;
         post?: never;
@@ -108,6 +118,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
+        /** Update the authenticated owner's school bank details */
         put: operations["SchoolPaymentsController_updateSchoolBankDetails"];
         post?: never;
         delete?: never;
@@ -123,6 +134,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** Get the school's payment history */
         get: operations["SchoolPaymentsController_getHistory"];
         put?: never;
         post?: never;
@@ -139,6 +151,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** Get the school's full payment history (all statuses) */
         get: operations["SchoolPaymentsController_getHistoryAll"];
         put?: never;
         post?: never;
@@ -155,6 +168,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** Get the school dashboard stats */
         get: operations["SchoolPaymentsController_getDashboardStats"];
         put?: never;
         post?: never;
@@ -171,6 +185,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** List the school's students (class filter, search, pagination) */
         get: operations["SchoolPaymentsController_getStudents"];
         put?: never;
         post?: never;
@@ -187,6 +202,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** List the school's pending installment payments */
         get: operations["SchoolPaymentsController_getPendingPayments"];
         put?: never;
         post?: never;
@@ -205,6 +221,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** Confirm a single installment payment */
         post: operations["SchoolPaymentsController_confirmPayment"];
         delete?: never;
         options?: never;
@@ -221,6 +238,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** Reject a single installment payment */
         post: operations["SchoolPaymentsController_rejectPayment"];
         delete?: never;
         options?: never;
@@ -237,6 +255,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** Mark an enrollment as defaulted */
         post: operations["SchoolPaymentsController_markAsDefaulted"];
         delete?: never;
         options?: never;
@@ -253,6 +272,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** Reverse a previously-confirmed installment payment */
         post: operations["SchoolPaymentsController_reversePayment"];
         delete?: never;
         options?: never;
@@ -267,8 +287,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** Public school directory (id + name only) */
         get: operations["SchoolsManagementController_findAll"];
         put?: never;
+        /** Create a school */
         post: operations["SchoolsManagementController_create"];
         delete?: never;
         options?: never;
@@ -284,8 +306,10 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
+        /** Update a school by id */
         put: operations["SchoolsManagementController_update"];
         post?: never;
+        /** Delete a school by id */
         delete: operations["SchoolsManagementController_remove"];
         options?: never;
         head?: never;
@@ -299,6 +323,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** List the current user's notifications */
         get: operations["NotificationsController_getUserNotifications"];
         put?: never;
         post?: never;
@@ -321,6 +346,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
+        /** Mark all of the current user's notifications as read */
         patch: operations["NotificationsController_markAllAsRead"];
         trace?: never;
     };
@@ -337,6 +363,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
+        /** Mark a single notification as read */
         patch: operations["NotificationsController_markAsRead"];
         trace?: never;
     };
@@ -349,7 +376,9 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** Register a device push-notification token */
         post: operations["DeviceTokensController_register"];
+        /** Unregister a device push-notification token */
         delete: operations["DeviceTokensController_unregister"];
         options?: never;
         head?: never;
@@ -365,6 +394,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** Create a signed URL for uploading a receipt */
         post: operations["DocumentsController_createReceiptUploadUrl"];
         delete?: never;
         options?: never;
@@ -381,6 +411,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** Create a signed URL for downloading a receipt */
         post: operations["DocumentsController_createReceiptDownloadUrl"];
         delete?: never;
         options?: never;
@@ -414,6 +445,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** Calculate the full payment structure */
         post: operations["PaymentsController_calculateStructure"];
         delete?: never;
         options?: never;
@@ -430,6 +462,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** Calculate the deposit and platform fee */
         post: operations["PaymentsController_calculateDeposit"];
         delete?: never;
         options?: never;
@@ -446,6 +479,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** Calculate the installment schedule */
         post: operations["PaymentsController_calculateInstallments"];
         delete?: never;
         options?: never;
@@ -462,6 +496,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** Compute the remaining balance */
         post: operations["PaymentsController_updateBalance"];
         delete?: never;
         options?: never;
@@ -478,6 +513,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** Compute the next payment status */
         post: operations["PaymentsController_updateStatus"];
         delete?: never;
         options?: never;
@@ -492,6 +528,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** List the current user's transaction history (paginated) */
         get: operations["TransactionsController_getTransactions"];
         put?: never;
         post?: never;
@@ -508,6 +545,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** List the current parent's enrolled children */
         get: operations["EnrollmentController_getMyChildren"];
         put?: never;
         post?: never;
@@ -524,6 +562,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** Get the payment history for an enrollment */
         get: operations["EnrollmentController_getEnrollmentHistory"];
         put?: never;
         post?: never;
@@ -542,6 +581,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** Initiate a first payment via Paystack split */
         post: operations["EnrollmentController_initiateFirstPayment"];
         delete?: never;
         options?: never;
@@ -558,6 +598,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** Submit an installment payment */
         post: operations["EnrollmentController_payInstallment"];
         delete?: never;
         options?: never;
@@ -574,6 +615,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** Confirm a first payment for an enrollment */
         post: operations["EnrollmentController_confirmFirstPayment"];
         delete?: never;
         options?: never;
@@ -590,6 +632,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** Paystack webhook (HMAC-verified) — reconciles first payments */
         post: operations["PaystackWebhookController_webhook"];
         delete?: never;
         options?: never;
@@ -604,6 +647,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** Verify a Paystack transaction on return and reconcile it */
         get: operations["PaystackWebhookController_verify"];
         put?: never;
         post?: never;
@@ -622,6 +666,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** Onboard a new school */
         post: operations["AdminController_onboardSchool"];
         delete?: never;
         options?: never;
@@ -636,6 +681,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** List Nigerian banks for the settlement-bank dropdown */
         get: operations["AdminController_getBanks"];
         put?: never;
         post?: never;
@@ -654,6 +700,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** Resolve an account number + bank code to the registered account name */
         post: operations["AdminController_resolveAccount"];
         delete?: never;
         options?: never;
@@ -670,6 +717,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** Create a Paystack subaccount for a school missing one */
         post: operations["AdminController_createSubaccount"];
         delete?: never;
         options?: never;
@@ -684,6 +732,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** List pending first payments (paginated) */
         get: operations["AdminController_getPendingFirstPayments"];
         put?: never;
         post?: never;
@@ -700,6 +749,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** List pending installment payments across all schools (paginated) */
         get: operations["AdminController_getPendingInstallments"];
         put?: never;
         post?: never;
@@ -716,6 +766,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** List students/enrollments for a specific school (paginated) */
         get: operations["AdminController_getSchoolStudents"];
         put?: never;
         post?: never;
@@ -734,6 +785,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** Settle a first payment (release the school share) */
         post: operations["AdminController_settleFirstPayment"];
         delete?: never;
         options?: never;
@@ -750,6 +802,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** Reject a first payment */
         post: operations["AdminController_rejectFirstPayment"];
         delete?: never;
         options?: never;
@@ -764,6 +817,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** Get platform revenue */
         get: operations["AdminController_getRevenue"];
         put?: never;
         post?: never;
@@ -780,6 +834,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** List global transactions across all schools (paginated) */
         get: operations["AdminController_getTransactions"];
         put?: never;
         post?: never;
@@ -796,6 +851,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** Get global student summary */
         get: operations["AdminController_getStudentsSummary"];
         put?: never;
         post?: never;
@@ -812,6 +868,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** Get per-school summary */
         get: operations["AdminController_getSchoolsSummary"];
         put?: never;
         post?: never;
@@ -828,6 +885,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** Get admin overview (single-call dashboard payload) */
         get: operations["AdminController_getOverview"];
         put?: never;
         post?: never;
@@ -844,6 +902,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** Liveness/readiness check (app, DB, storage) */
         get: operations["HealthController_getHealth"];
         put?: never;
         post?: never;
