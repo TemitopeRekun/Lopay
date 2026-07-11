@@ -192,8 +192,11 @@ export interface ApiTransaction {
   schoolName: string;
   receiptUrl?: string;
   receiptSignedUrl?: string;
+  // Fee fields arrive under several names depending on the endpoint; all optional.
   platformFeeAmount?: number;
+  platformFee?: number;
   platformFeePercentage?: number;
+  platformFeeRate?: number;
 }
 
 export interface ApiPendingPayment {
@@ -211,6 +214,10 @@ export interface ApiPendingPayment {
   type: string;
   paymentType: string;
   status: string;
+  platformFeeAmount?: number;
+  platformFee?: number;
+  platformFeePercentage?: number;
+  platformFeeRate?: number;
 }
 
 export interface ApiPayment {
@@ -222,6 +229,7 @@ export interface ApiPayment {
   type: string;
   paymentType: string;
   status?: string;
+  isConfirmed?: boolean;
   receiptUrl?: string;
   receiptSignedUrl?: string;
 }
@@ -244,6 +252,10 @@ export interface ApiEnrollment {
   parentPhone?: string;
   installmentFrequency?: string;
   installmentAmount?: number;
+  standardInstallmentAmount?: number;
+  paidAmount?: number;
+  totalFee?: number;
+  totalSchoolFee?: number;
   child?: {
     id: string;
     fullName: string;

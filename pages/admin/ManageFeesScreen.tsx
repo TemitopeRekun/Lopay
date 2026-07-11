@@ -3,14 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { Layout } from "../../components/Layout";
 import { Header } from "../../components/Header";
 import { useAuth } from "../../context/AuthContext";
-import { useUI } from "../../context/UIContext";
+import { useUIStore } from "../../store/uiStore";
 import { BackendAPI } from "../../services/backend";
 import { useSchools, useSchoolFees } from "../../hooks/useQueries";
 
 const ManageFeesScreen: React.FC = () => {
   const navigate = useNavigate();
   const { user: currentUser, activeSchoolId } = useAuth();
-  const { showToast } = useUI();
+  const { showToast } = useUIStore();
   const { data: schools = [] } = useSchools();
 
   const mySchool = useMemo(() => {

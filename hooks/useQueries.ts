@@ -8,7 +8,7 @@ import {
   normalizeUser,
 } from "../services/adapters";
 import { School } from "../types";
-import { useUI } from "../context/UIContext";
+import { useUIStore } from "../store/uiStore";
 import { getErrorMessage } from "../utils/errors";
 import { logger } from "../utils/logger";
 
@@ -374,7 +374,7 @@ export const useUsers = (enabled: boolean = true) => {
 
 export const useEnrollChild = () => {
   const queryClient = useQueryClient();
-  const { showToast } = useUI();
+  const { showToast } = useUIStore();
   return useMutation({
     mutationFn: BackendAPI.parent.enroll,
     onSuccess: () => {
@@ -401,7 +401,7 @@ export const useEnrollChild = () => {
 
 export const usePayInstallment = () => {
   const queryClient = useQueryClient();
-  const { showToast } = useUI();
+  const { showToast } = useUIStore();
   return useMutation({
     mutationFn: (data: {
       enrollmentId: string;
@@ -466,7 +466,7 @@ export const useMarkAllNotificationsRead = () => {
 
 export const useUpdateFee = () => {
   const queryClient = useQueryClient();
-  const { showToast } = useUI();
+  const { showToast } = useUIStore();
   return useMutation({
     mutationFn: (data: {
       className: string;
@@ -494,7 +494,7 @@ export const useUpdateFee = () => {
 
 export const useConfirmPayment = () => {
   const queryClient = useQueryClient();
-  const { showToast } = useUI();
+  const { showToast } = useUIStore();
   return useMutation({
     mutationFn: BackendAPI.school.confirmPayment,
     onSuccess: () => {
@@ -519,7 +519,7 @@ export const useConfirmPayment = () => {
 
 export const useConfirmFirstPayment = () => {
   const queryClient = useQueryClient();
-  const { showToast } = useUI();
+  const { showToast } = useUIStore();
   return useMutation({
     mutationFn: BackendAPI.school.confirmFirstPayment,
     onSuccess: () => {
@@ -599,7 +599,7 @@ export const useRejectFirstPayment = () => {
 
 export const useDeclinePayment = () => {
   const queryClient = useQueryClient();
-  const { showToast } = useUI();
+  const { showToast } = useUIStore();
   return useMutation({
     mutationFn: BackendAPI.school.declinePayment,
     onSuccess: () => {

@@ -3,11 +3,11 @@ import React from 'react';
 import { Layout } from '../../components/Layout';
 import { Header } from '../../components/Header';
 import { useData } from '../../context/DataContext';
-import { useUI } from '../../context/UIContext';
+import { useUIStore } from '../../store/uiStore';
 
 const DefaultersScreen: React.FC = () => {
   const { allStudents } = useData();
-  const { showToast } = useUI();
+  const { showToast } = useUIStore();
 
   const defaulters = allStudents.filter(child => child.status === 'Defaulted');
 

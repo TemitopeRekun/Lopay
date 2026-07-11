@@ -3,13 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { Layout } from "../../components/Layout";
 import { Header } from "../../components/Header";
 import { useAddSchool } from "../../hooks/useQueries";
-import { useUI } from "../../context/UIContext";
+import { useUIStore } from "../../store/uiStore";
 import { BackendAPI } from "../../services/backend";
 
 const AddSchoolScreen: React.FC = () => {
   const navigate = useNavigate();
   const { mutate: addSchool, isPending: isSubmitting } = useAddSchool();
-  const { showToast } = useUI();
+  const { showToast } = useUIStore();
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
   const [email, setEmail] = useState("");

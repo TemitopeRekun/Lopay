@@ -2,10 +2,10 @@
 import React from 'react';
 import { Layout } from '../components/Layout';
 import { Header } from '../components/Header';
-import { useUI } from '../context/UIContext';
+import { useUIStore } from '../store/uiStore';
 
 const SupportScreen: React.FC = () => {
-  const { showToast } = useUI();
+  const { showToast } = useUIStore();
 
   return (
     <Layout>

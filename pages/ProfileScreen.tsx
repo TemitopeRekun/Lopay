@@ -5,7 +5,7 @@ import { Header } from "../components/Header";
 import { BottomNav } from "../components/BottomNav";
 import { useAuth } from "../context/AuthContext";
 import { useData } from "../context/DataContext";
-import { useUI } from "../context/UIContext";
+import { useUIStore } from "../store/uiStore";
 import {
   useUser,
   useUpdateSchool,
@@ -26,7 +26,7 @@ const ProfileScreen: React.FC = () => {
     activeSchoolId,
   } = useAuth();
   const { schools } = useData();
-  const { showToast } = useUI();
+  const { showToast } = useUIStore();
   const navigate = useNavigate();
 
   // Fetch acting user data if impersonating

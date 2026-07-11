@@ -4,13 +4,13 @@ import { useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/Layout';
 import { Header } from '../../components/Header';
 import { useAuth } from '../../context/AuthContext';
-import { useUI } from '../../context/UIContext';
+import { useUIStore } from '../../store/uiStore';
 import { useSchools, useDeleteSchool, useUpdateSchool, useDeleteAllSchools } from '../../hooks/useQueries';
 
 const SchoolListScreen: React.FC = () => {
   const navigate = useNavigate();
   const { setActingRole } = useAuth();
-  const { showToast } = useUI();
+  const { showToast } = useUIStore();
   const { data: schools = [] } = useSchools();
   const { mutate: deleteSchool } = useDeleteSchool();
   const { mutate: updateSchool } = useUpdateSchool();

@@ -3,7 +3,7 @@ import { useNavigate, useLocation, Link } from "react-router-dom";
 import { Layout } from "../components/Layout";
 import { Header } from "../components/Header";
 import { PaymentPlan } from "../types";
-import { useUI } from "../context/UIContext";
+import { useUIStore } from "../store/uiStore";
 import { BackendAPI } from "../services/backend";
 import { openPaystackPopup } from "../services/paystack";
 import { newIdempotencyKey } from "../utils/idempotency";
@@ -27,7 +27,7 @@ const naira = (n: number) =>
 const ConfirmPlanScreen: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { showToast } = useUI();
+  const { showToast } = useUIStore();
   // One stable key per enrollment intent so retries/double-taps don't double-charge.
   const [idempotencyKey] = useState(() => newIdempotencyKey());
   const [isProcessing, setIsProcessing] = useState(false);

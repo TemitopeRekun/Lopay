@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Layout } from "../components/Layout";
 import { Header } from "../components/Header";
 import { useData } from "../context/DataContext";
-import { useUI } from "../context/UIContext";
+import { useUIStore } from "../store/uiStore";
 import { useSchoolBankDetails } from "../hooks/useQueries";
 import { BackendAPI, getPlatformActivationBankDetails } from "../services/backend";
 import { NativeBridge } from "../services/native";
@@ -13,7 +13,7 @@ const PaymentMethodsScreen: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { submitPayment, childrenData, schools } = useData();
-  const { showToast } = useUI();
+  const { showToast } = useUIStore();
   // One stable key per installment intent so retries/double-taps don't create
   // duplicate payments on the backend.
   const [idempotencyKey] = useState(() => newIdempotencyKey());

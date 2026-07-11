@@ -1,6 +1,6 @@
 import React, { useRef, useState } from "react";
 import { useData } from "../context/DataContext";
-import { useUI } from "../context/UIContext";
+import { useUIStore } from "../store/uiStore";
 import { NativeBridge } from "../services/native";
 
 interface LayoutProps {
@@ -15,7 +15,7 @@ export const Layout: React.FC<LayoutProps> = ({
   showBottomNav = false,
 }) => {
   const { refreshData } = useData();
-  const { showToast } = useUI();
+  const { showToast } = useUIStore();
   const [isOnline, setIsOnline] = useState(() =>
     typeof navigator !== "undefined" ? navigator.onLine : true,
   );

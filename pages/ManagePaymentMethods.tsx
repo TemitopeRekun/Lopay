@@ -3,10 +3,10 @@ import React from 'react';
 import { BottomNav } from '../components/BottomNav';
 import { Header } from '../components/Header';
 import { Layout } from '../components/Layout';
-import { useUI } from '../context/UIContext';
+import { useUIStore } from '../store/uiStore';
 
 export const ManagePaymentMethods: React.FC = () => {
-  const { showToast } = useUI();
+  const { showToast } = useUIStore();
 
   const handleAddMethod = () => {
       // In a real app, this would open a modal or navigate to a form

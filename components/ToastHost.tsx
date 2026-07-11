@@ -1,17 +1,12 @@
 import React, { ReactNode } from "react";
-import { useUIStore, type Theme, type ToastMessage } from "../store/uiStore";
-
-// Re-exported for backwards compatibility with existing imports.
-export type { Theme, ToastMessage };
+import { useUIStore, type ToastMessage } from "../store/uiStore";
 
 /**
- * UI state now lives in the Zustand store ([[uiStore]]). This module keeps the
- * historical `useUI()` hook and `<UIProvider>` so existing consumers and the
- * provider tree in App.tsx work unchanged — the provider's only remaining job
- * is to render the global toast portal.
+ * Renders the global toast portal. UI state lives in the Zustand store
+ * ([[uiStore]]); this component only subscribes to the toast list and draws it,
+ * so it wraps the app once in App.tsx. (Replaces the former UIContext shim —
+ * consumers call `useUIStore` directly now.)
  */
-export const useUI = () => useUIStore();
-
 const getToastStyles = (type: ToastMessage["type"]) => {
   switch (type) {
     case "success":
@@ -73,7 +68,7 @@ const ToastViewport: React.FC = () => {
   );
 };
 
-export const UIProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+export const ToastHost: React.FC<{ children: ReactNode }> = ({ children }) => {
   return (
     <>
       {children}

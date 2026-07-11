@@ -10,6 +10,11 @@ import {
   ApiUser,
   ApiSchoolBankDetails,
 } from "../types";
+import type {
+  CreateReceiptUploadDto,
+  CreateReceiptDownloadDto,
+  ReversePaymentDto,
+} from "./apiTypes";
 import {
   ApiAdminOverview,
   ApiAdminSchoolSummary,
@@ -319,10 +324,8 @@ export const BackendAPI = {
       return response.data;
     },
     reversePayment: async (paymentId: string, reason?: string) => {
-      const response = await apiClient.post("/school-payments/reverse", {
-        paymentId,
-        reason,
-      });
+      const body: ReversePaymentDto = { paymentId, reason };
+      const response = await apiClient.post("/school-payments/reverse", body);
       return response.data;
     },
   },
@@ -454,10 +457,7 @@ export const BackendAPI = {
   },
   documents: {
     receipts: {
-      createUploadUrl: async (data: {
-        fileName: string;
-        contentType: string;
-      }) => {
+      createUploadUrl: async (data: CreateReceiptUploadDto) => {
         const response = await apiClient.post(
           "/documents/receipts/upload-url",
           data,
@@ -471,7 +471,7 @@ export const BackendAPI = {
           requiredHeaders?: Record<string, string>;
         };
       },
-      createDownloadUrl: async (data: { paymentId: string }) => {
+      createDownloadUrl: async (data: CreateReceiptDownloadDto) => {
         const response = await apiClient.post(
           "/documents/receipts/download-url",
           data,
