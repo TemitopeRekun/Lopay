@@ -103,8 +103,8 @@ const PaymentMethodsScreen: React.FC = () => {
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = parseFloat(e.target.value) || 0;
-    const remaining = (child?.totalFee || 0) - (child?.paidAmount || 0);
-    setPaymentAmount(Math.min(val, remaining));
+    const available = child?.availableBalance ?? ((child?.totalFee || 0) - (child?.paidAmount || 0));
+    setPaymentAmount(Math.min(val, available));
   };
 
   const handleSelectReceipt = () => {

@@ -54,6 +54,7 @@ export interface Child {
   avatarUrl: string;
   // Additional fields from API
   remainingBalance?: number;
+  availableBalance?: number;
   schoolId?: string;
   installmentFrequency?: string;
   installmentAmount?: number;
@@ -243,6 +244,7 @@ export interface ApiEnrollment {
   schoolId?: string;
   className: string;
   remainingBalance: number;
+  availableBalance?: number;
   paymentStatus?: string;
   status?: string;
   nextDueDate?: string;

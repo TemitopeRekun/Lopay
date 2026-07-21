@@ -262,6 +262,10 @@ export const normalizeChild = (apiEnrollment: ApiEnrollment): Child => {
       childName,
     )}&background=random`,
     remainingBalance,
+    availableBalance:
+      apiEnrollment.availableBalance !== undefined
+        ? toNumber(apiEnrollment.availableBalance)
+        : remainingBalance,
     schoolId: apiEnrollment.schoolId || "",
     installmentFrequency: apiEnrollment.installmentFrequency,
     installmentAmount: rawInstallmentAmountFromApi,
