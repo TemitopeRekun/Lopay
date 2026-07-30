@@ -8,7 +8,7 @@ import { PlanCard } from "../components/PlanCard";
 import { RecentTransactionsList } from "../components/RecentTransactionsList";
 import { ImpersonationBanner } from "../components/ImpersonationBanner";
 import { NotificationIconButton } from "../components/NotificationIconButton";
-import { useUI } from "../context/UIContext";
+import { useUIStore } from "../store/uiStore";
 
 const SchoolOwnerDashboard: React.FC = () => {
   const {
@@ -28,7 +28,7 @@ const SchoolOwnerDashboard: React.FC = () => {
     hasError,
     refreshData,
   } = useData();
-  const { showToast } = useUI();
+  const { showToast } = useUIStore();
   const navigate = useNavigate();
   const [reportMonth, setReportMonth] = useState(new Date().getMonth());
   const [isGenerating, setIsGenerating] = useState(false);

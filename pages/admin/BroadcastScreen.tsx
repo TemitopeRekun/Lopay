@@ -4,12 +4,12 @@ import { useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/Layout';
 import { Header } from '../../components/Header';
 import { useBroadcast } from '../../hooks/useQueries';
-import { useUI } from '../../context/UIContext';
+import { useUIStore } from '../../store/uiStore';
 
 const BroadcastScreen: React.FC = () => {
   const navigate = useNavigate();
   const { mutate: sendBroadcast } = useBroadcast();
-  const { showToast } = useUI();
+  const { showToast } = useUIStore();
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
 

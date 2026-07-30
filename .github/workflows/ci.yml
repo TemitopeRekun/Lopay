@@ -18,7 +18,7 @@ jobs:
         run: npm ci
       - name: Typecheck
         run: npx tsc --noEmit
-      - name: Test
-        run: npm test
+      - name: Test + coverage gate
+        run: npm run test:cov
       - name: Build
         run: npm run build

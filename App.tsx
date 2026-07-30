@@ -10,7 +10,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./services/queryClient";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { DataProvider } from "./context/DataContext";
-import { UIProvider } from "./context/UIContext";
+import { ToastHost } from "./components/ToastHost";
 import { useRealtime } from "./hooks/useRealtime";
 import { Capacitor } from "@capacitor/core";
 import { StatusBar, Style } from "@capacitor/status-bar";
@@ -405,7 +405,7 @@ const App: React.FC = () => {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <UIProvider>
+      <ToastHost>
         <AuthProvider>
           <DataProvider>
             <RealtimeManager />
@@ -416,7 +416,7 @@ const App: React.FC = () => {
             </HashRouter>
           </DataProvider>
         </AuthProvider>
-      </UIProvider>
+      </ToastHost>
     </QueryClientProvider>
   );
 };

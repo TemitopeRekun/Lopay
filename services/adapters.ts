@@ -61,10 +61,10 @@ export const normalizeTransaction = (
 ): Transaction => {
   const amount = toNumber(apiTx.amount ?? apiTx.amountPaid);
   const platformFeeAmount = toNumber(
-    (apiTx as any).platformFeeAmount ?? (apiTx as any).platformFee,
+    apiTx.platformFeeAmount ?? apiTx.platformFee,
   );
   const rawPlatformFeePercentage =
-    (apiTx as any).platformFeePercentage ?? (apiTx as any).platformFeeRate;
+    apiTx.platformFeePercentage ?? apiTx.platformFeeRate;
 
   let platformFeePercentage: number | undefined;
 
@@ -100,9 +100,9 @@ export const normalizeTransaction = (
     date: apiTx.date || apiTx.paymentDate || new Date().toISOString(),
     status: isSuccess ? "Successful" : isFailed ? "Failed" : "Pending",
     receiptUrl: apiTx.receiptUrl,
-    receiptSignedUrl: (apiTx as any).receiptSignedUrl,
-    type: apiTx.type || (apiTx as any).paymentType,
-    className: (apiTx as any).className,
+    receiptSignedUrl: apiTx.receiptSignedUrl,
+    type: apiTx.type || apiTx.paymentType,
+    className: apiTx.className,
     platformFeeAmount:
       Number.isFinite(platformFeeAmount) && platformFeeAmount > 0
         ? platformFeeAmount
@@ -120,11 +120,10 @@ export const normalizeChild = (apiEnrollment: ApiEnrollment): Child => {
     return {} as Child;
   }
 
-  const apiAny = apiEnrollment as any;
-
   const hasPaidField =
-    apiAny.paidAmount !== undefined && apiAny.paidAmount !== null;
-  const paidFromField = hasPaidField ? toNumber(apiAny.paidAmount) : 0;
+    apiEnrollment.paidAmount !== undefined &&
+    apiEnrollment.paidAmount !== null;
+  const paidFromField = hasPaidField ? toNumber(apiEnrollment.paidAmount) : 0;
 
   const paidFromPayments = (apiEnrollment.payments || []).reduce(
     (sum, p) => sum + toNumber(p.amount ?? p.amountPaid),
@@ -145,7 +144,7 @@ export const normalizeChild = (apiEnrollment: ApiEnrollment): Child => {
 
   let remainingBalance = toNumber(apiEnrollment.remainingBalance);
 
-  const rawTotalFeeField = toNumber(apiAny.totalFee ?? apiAny.totalSchoolFee);
+  const rawTotalFeeField = toNumber(apiEnrollment.totalFee ?? apiEnrollment.totalSchoolFee);
 
   if (rawTotalFeeField > 0 && remainingBalance <= 0 && paidAmount >= 0) {
     const derivedRemaining = rawTotalFeeField - paidAmount;
@@ -165,8 +164,8 @@ export const normalizeChild = (apiEnrollment: ApiEnrollment): Child => {
 
   const successfulInstallments = payments.filter((p) => {
     const type = (p.type || p.paymentType || "").toUpperCase();
-    const status = (p as any).status
-      ? String((p as any).status).toUpperCase()
+    const status = p.status
+      ? String(p.status).toUpperCase()
       : "";
     return type === "INSTALLMENT" && status === "SUCCESS";
   });
@@ -181,10 +180,10 @@ export const normalizeChild = (apiEnrollment: ApiEnrollment): Child => {
       : 0;
 
   const rawInstallmentAmountFromApi = toNumber(
-    apiAny.standardInstallmentAmount ?? apiAny.installmentAmount,
+    apiEnrollment.standardInstallmentAmount ?? apiEnrollment.installmentAmount,
   );
 
-  const frequency = String(apiAny.installmentFrequency || "").toUpperCase();
+  const frequency = String(apiEnrollment.installmentFrequency || "").toUpperCase();
   let defaultInstallmentCount = 3;
   if (frequency === "WEEKLY") {
     defaultInstallmentCount = 12;
@@ -202,12 +201,12 @@ export const normalizeChild = (apiEnrollment: ApiEnrollment): Child => {
 
   const hasPendingInstallment = payments.some((p) => {
     const type = (p.type || p.paymentType || "").toUpperCase();
-    const status = (p as any).status
-      ? String((p as any).status).toUpperCase()
+    const status = p.status
+      ? String(p.status).toUpperCase()
       : "";
     const isConfirmed =
-      (p as any).isConfirmed === true || (p as any).isConfirmed === false
-        ? (p as any).isConfirmed
+      p.isConfirmed === true || p.isConfirmed === false
+        ? p.isConfirmed
         : undefined;
 
     if (type !== "INSTALLMENT") {
@@ -231,8 +230,8 @@ export const normalizeChild = (apiEnrollment: ApiEnrollment): Child => {
 
   const hasFailedFirstPayment = payments.some((p) => {
     const type = (p.type || p.paymentType || "").toUpperCase();
-    const status = (p as any).status
-      ? String((p as any).status).toUpperCase()
+    const status = p.status
+      ? String(p.status).toUpperCase()
       : "";
 
     return type === "FIRST_PAYMENT" && status === "FAILED";
@@ -240,8 +239,8 @@ export const normalizeChild = (apiEnrollment: ApiEnrollment): Child => {
 
   const hasFailedInstallment = payments.some((p) => {
     const type = (p.type || p.paymentType || "").toUpperCase();
-    const status = (p as any).status
-      ? String((p as any).status).toUpperCase()
+    const status = p.status
+      ? String(p.status).toUpperCase()
       : "";
 
     return type === "INSTALLMENT" && status === "FAILED";
@@ -263,8 +262,12 @@ export const normalizeChild = (apiEnrollment: ApiEnrollment): Child => {
       childName,
     )}&background=random`,
     remainingBalance,
+    availableBalance:
+      apiEnrollment.availableBalance !== undefined
+        ? toNumber(apiEnrollment.availableBalance)
+        : remainingBalance,
     schoolId: apiEnrollment.schoolId || "",
-    installmentFrequency: apiAny.installmentFrequency,
+    installmentFrequency: apiEnrollment.installmentFrequency,
     installmentAmount: rawInstallmentAmountFromApi,
     hasPendingInstallment,
     hasFailedFirstPayment,
