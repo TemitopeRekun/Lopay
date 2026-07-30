@@ -97,7 +97,7 @@ Prerequisites: Node 22+, and the backend running (see [`../LOCAL_DEV.md`](../LOC
 
 ```bash
 npm install
-cp .env .env.local           # set VITE_API_URL (default http://localhost:3001)
+cp .env.example .env.local   # set VITE_API_URL (local backend: http://localhost:3001)
 npm run dev                  # web dev server (http://localhost:5173)
 ```
 
@@ -115,6 +115,74 @@ npm test                     # vitest (unit + the OpenAPI contract test)
 npm run generate:types       # regenerate src/api.generated.ts from ./openapi.json
 npm run build                # production build
 ```
+
+## Deployment (Netlify)
+
+The web build is a static SPA — no server, no serverless functions. Netlify
+serves `dist/` and the browser talks to `lopay-backend` directly over CORS.
+[`netlify.toml`](./netlify.toml) is the whole config: build command, Node 22,
+the `/*` → `/index.html` rewrite react-router needs, security headers, and
+cache-control.
+
+**Creating the site**
+
+1. Netlify → *Add new site* → *Import an existing project* → GitHub → this repo.
+2. **Branch to deploy: `main`.** `main` is the source of truth; nothing else
+   publishes to production.
+3. Accept the detected build settings — `netlify.toml` overrides the UI anyway
+   (build `npm run build`, publish `dist`).
+4. Deploy. No environment variables need to be entered by hand: `VITE_API_URL`
+   is committed in `netlify.toml` because it is a public origin, and leaving it
+   unset would silently build a bundle pointing at `localhost:3001`.
+
+**Continuous deployment**
+
+Netlify's GitHub App watches `main` directly — every push, and every PR squashed
+into it, triggers a build and publishes automatically. No workflow file and no
+deploy step in CI: the repo is the trigger.
+
+Confirm both of these once, under *Site configuration → Build & deploy*:
+
+| Setting | Value | Where |
+|---|---|---|
+| Production branch | `main` | *Continuous deployment → Branches and deploy contexts* |
+| Auto publish | **enabled** | *Continuous deployment → Deploy status* |
+
+If auto publish is off, builds still run but sit unpublished until released by
+hand — the usual cause of "I merged and nothing changed".
+
+Deploy previews are built for every PR against `main`, so a branch is verifiable
+on a real URL before it becomes production. Rolling back is *Deploys → select an
+earlier deploy → Publish deploy*; no rebuild, and no git revert needed.
+
+**After the first deploy — two things must happen or the app cannot log in:**
+
+- **Backend CORS.** Add the Netlify origin to `CORS_ORIGINS` on the backend
+  (comma-separated). It gates REST CORS, the Socket.IO gateway, and Better
+  Auth's trusted origins all at once. Include deploy-preview origins only if
+  previews need to hit the API.
+- **Paystack.** Add the Netlify origin to the allowed domains on the Paystack
+  dashboard so the inline checkout popup will open.
+
+**Environment**
+
+`VITE_*` vars are inlined at build time, so a value change needs a redeploy,
+not a restart. `VITE_API_URL` also drives `connect-src` in the CSP, which means
+a wrong value fails closed with blocked XHRs rather than leaking to a wrong
+host. Production, deploy-preview and branch-deploy contexts each get their own
+block in `netlify.toml` so production can be pointed at a live API without the
+previews following it.
+
+**Security headers**
+
+The full CSP is injected as a `<meta http-equiv>` at build time
+([`build/csp.ts`](./build/csp.ts)) so the Capacitor shell — which has no HTTP
+server in front of it — gets the same policy as the web build. `netlify.toml`
+adds only what a meta tag cannot express: `frame-ancestors`, HSTS,
+`Referrer-Policy`, `Permissions-Policy`, `X-Content-Type-Options`.
+
+**Note on the native build:** `npm run static-build` produces the same `dist/`
+for Capacitor, so anything added to `public/` ships to Android too.
 
 ## API documentation
 

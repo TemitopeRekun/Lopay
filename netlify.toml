@@ -1,0 +1,105 @@
+# Netlify deployment for the Lopay web client.
+#
+# This repo builds a Vite SPA into `dist/`. There is no server side here — all
+# money logic lives in lopay-backend, which the browser calls directly over
+# CORS. So this file only has to do three things: build, route, and set the
+# headers a static host is responsible for.
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  # Match the CI + local toolchain (see .github/workflows/ci.yml).
+  NODE_VERSION = "22"
+
+  # VITE_* vars are read at BUILD time and baked into the bundle — changing one
+  # in the Netlify UI requires a redeploy, not just a restart.
+  #
+  # This is set here rather than only in the UI on purpose: `.env*` is
+  # gitignored, so without a value the build would silently fall back to
+  # http://localhost:3001 and ship a bundle (and a CSP) pointing at localhost.
+  # It is a public API origin, not a secret. A Netlify UI variable of the same
+  # name overrides this.
+  VITE_API_URL = "https://lopay-backend.onrender.com"
+
+# `production` is whatever the site's production branch is set to — `main` for
+# this repo. That branch selection lives in the Netlify UI (Site configuration →
+# Build & deploy → Continuous deployment), not here; netlify.toml has no key for
+# it. Every push to main, including a squashed PR merge, builds and publishes
+# automatically so long as auto-publish stays enabled.
+[context.production.environment]
+  VITE_API_URL = "https://lopay-backend.onrender.com"
+
+# Deploy previews and branch deploys build against the same staging API. They
+# get their own blocks so pointing production at a live API later is a one-line
+# change that the previews cannot accidentally follow.
+[context.deploy-preview.environment]
+  VITE_API_URL = "https://lopay-backend.onrender.com"
+
+[context.branch-deploy.environment]
+  VITE_API_URL = "https://lopay-backend.onrender.com"
+
+# ---------------------------------------------------------------------------
+# SPA routing
+# ---------------------------------------------------------------------------
+# react-router owns every path. Without this, a hard refresh or a shared link
+# to e.g. /dashboard hits the CDN, finds no such file, and 404s.
+# Existing files (assets, manifest.json) still win over this rule, so it does
+# not shadow real static content.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# ---------------------------------------------------------------------------
+# Security headers
+# ---------------------------------------------------------------------------
+# The full Content-Security-Policy is injected as a <meta http-equiv> at build
+# time from VITE_API_URL (see build/csp.ts + vite.config.ts) so that the native
+# Capacitor shell — which has no HTTP server in front of it — gets the same
+# policy as the web build. Only the directives a meta tag CANNOT express are
+# sent as real headers here.
+#
+# A second CSP is enforced independently of the meta one; because this policy
+# declares only frame-ancestors, it restricts only framing and leaves the meta
+# policy's script/style/connect rules untouched.
+[[headers]]
+  for = "/*"
+
+  [headers.values]
+    Content-Security-Policy = "frame-ancestors 'none'"
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    # Deny the ambient device APIs the app never uses. Deliberately NOT listed:
+    # `camera` (receipt capture) and `payment` (the Payment Request API backs
+    # Apple/Google Pay inside Paystack checkout) — denying either breaks a real
+    # flow.
+    Permissions-Policy = "geolocation=(), microphone=(), usb=(), magnetometer=(), gyroscope=()"
+    # includeSubDomains is safe on *.netlify.app. Revisit it when a custom
+    # apex domain is attached — it would force HTTPS on every sibling subdomain.
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains"
+    # Cross-Origin-Opener-Policy would break the Paystack checkout popup's
+    # window.opener handshake, so it is deliberately absent.
+
+# Vite fingerprints everything under /assets, so those URLs are immutable.
+[[headers]]
+  for = "/assets/*"
+
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# index.html is the only unhashed entry point — it must be revalidated or
+# clients keep loading a stale asset manifest after a deploy.
+[[headers]]
+  for = "/index.html"
+
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/manifest.json"
+
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
