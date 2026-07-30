@@ -29,12 +29,20 @@ const cli = join(
 );
 
 describe('OpenAPI contract', () => {
-  it('committed api.generated.ts matches the committed openapi.json', () => {
-    const committed = readFileSync(clientPath, 'utf8');
-    const regenerated = execFileSync(process.execPath, [cli, specPath], {
-      cwd: repoRoot,
-      encoding: 'utf8',
-    });
-    expect(regenerated).toBe(committed);
-  });
+  // Explicit timeout: this test spawns the openapi-typescript CLI as a child
+  // process and parses a ~46 kB spec. It takes ~3s on an idle machine, but runs
+  // concurrently with the rest of the suite and has been observed past vitest's
+  // 5s default under CPU contention — a flake, not a contract breach.
+  it(
+    'committed api.generated.ts matches the committed openapi.json',
+    () => {
+      const committed = readFileSync(clientPath, 'utf8');
+      const regenerated = execFileSync(process.execPath, [cli, specPath], {
+        cwd: repoRoot,
+        encoding: 'utf8',
+      });
+      expect(regenerated).toBe(committed);
+    },
+    30_000,
+  );
 });
