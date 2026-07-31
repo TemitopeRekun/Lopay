@@ -5,19 +5,51 @@ on:
   pull_request:
     branches: [main, master]
   workflow_dispatch:
+
+# Least privilege: this workflow only reads the repo. Deployment is Netlify's
+# job, triggered from main by netlify.toml — nothing here needs write access.
+permissions:
+  contents: read
+
+# Supersede in-flight runs for a branch that gets new commits, but only for PRs,
+# so every commit that lands on main keeps a conclusive result.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    # Generous vs. the ~50s real runtime, but bounded so a hung step fails fast
+    # rather than burning the 6h default.
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
+          # Matches "engines": { "node": "22.x" } in package.json.
           node-version: '22'
           cache: 'npm'
       - name: Install
         run: npm ci
+      - name: Generated API client is committed & up to date
+        # Mirrors the backend's openapi.json guard. src/api.generated.ts is a
+        # committed build product of openapi.json, so it can silently drift from
+        # the contract it is supposed to encode. openapi-typescript output is
+        # deterministic, making this a safe equality check — regenerate with
+        # `npm run generate:types`.
+        #
+        # SCOPE: this proves the client matches THIS repo's openapi.json — it
+        # cannot prove that file matches the backend. The backend's
+        # `generate:swagger` writes a synced copy here, but only when both repos
+        # happen to be checked out side by side (it is existsSync-guarded, so it
+        # silently skips in CI). Cross-repo agreement is therefore unverified by
+        # either pipeline; see the note in the PR/handover.
+        run: |
+          npm run generate:types
+          git diff --exit-code -- src/api.generated.ts
       - name: Typecheck
-        run: npx tsc --noEmit
+        run: npm run typecheck
       - name: Test + coverage gate
         run: npm run test:cov
       - name: Build
