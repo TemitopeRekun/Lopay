@@ -167,6 +167,18 @@ describe("normalizeTransaction", () => {
     }
   });
 
+  it("maps REVERSED to its own status, not 'Pending'", () => {
+    // A reversed payment arrived, was confirmed, and was then undone. It used to
+    // fall through to "Pending", so a parent who had just received a
+    // "Payment Reversed" notification saw the row still processing.
+    expect(normalizeTransaction(baseTx({ status: "REVERSED" })).status).toBe(
+      "Reversed",
+    );
+    expect(normalizeTransaction(baseTx({ status: "reversed" })).status).toBe(
+      "Reversed",
+    );
+  });
+
   it("maps FAILED to 'Failed' and defaults missing status to 'Pending'", () => {
     expect(normalizeTransaction(baseTx({ status: "FAILED" })).status).toBe(
       "Failed",
@@ -376,12 +388,42 @@ describe("normalizeChild", () => {
     expect(err).toHaveBeenCalled();
   });
 
+  it("uses the server's nextInstallmentAmount above every local derivation", () => {
+    // The server spreads the balance over the installments STILL outstanding, so
+    // it shrinks as the plan progresses. This adapter used to read only
+    // `standardInstallmentAmount`/`installmentAmount` — fields no enrollment
+    // endpoint returns — and silently fell back to its own guess.
+    const out = normalizeChild(
+      baseEnrollment({
+        nextInstallmentAmount: 450,
+        remainingBalance: 900,
+        installmentFrequency: "MONTHLY",
+        payments: [
+          payment({ type: "INSTALLMENT", status: "SUCCESS", amount: 300 }),
+        ],
+      }),
+    );
+    // Not 300 (last installment) and not 300 (900/3) — the server said 450.
+    expect(out.nextInstallmentAmount).toBe(450);
+  });
+
   it("uses the API installment amount when provided", () => {
     const out = normalizeChild(
       baseEnrollment({ standardInstallmentAmount: 400, remainingBalance: 1200 }),
     );
     expect(out.nextInstallmentAmount).toBe(400);
     expect(out.installmentAmount).toBe(400);
+  });
+
+  it("only derives locally when the server omits the figure", () => {
+    const out = normalizeChild(
+      baseEnrollment({
+        nextInstallmentAmount: undefined,
+        remainingBalance: 900,
+        installmentFrequency: "MONTHLY",
+      }),
+    );
+    expect(out.nextInstallmentAmount).toBe(300);
   });
 
   it("infers the installment amount from the last successful installment", () => {
@@ -606,8 +648,10 @@ describe("normalizeNotification", () => {
     ...over,
   });
 
-  it("maps core fields and forces type to 'payment'", () => {
-    const out = normalizeNotification(baseNotif({ link: "/x", isRead: true }));
+  it("maps core fields", () => {
+    const out = normalizeNotification(
+      baseNotif({ link: "/x", isRead: true, type: "PAYMENT" }),
+    );
     expect(out).toMatchObject({
       id: "n1",
       type: "payment",
@@ -617,6 +661,39 @@ describe("normalizeNotification", () => {
       read: true,
       link: "/x",
     });
+  });
+
+  it("carries a platform broadcast through as an announcement", () => {
+    // This was hardcoded to "payment", which left the Announcements tab
+    // permanently empty and filed broadcasts under Payments.
+    expect(
+      normalizeNotification(baseNotif({ type: "ANNOUNCEMENT" })).type,
+    ).toBe("announcement");
+  });
+
+  it("carries a defaulted/dispute notice through as an alert", () => {
+    expect(normalizeNotification(baseNotif({ type: "ALERT" })).type).toBe(
+      "alert",
+    );
+  });
+
+  it("is case-insensitive about the persisted kind", () => {
+    expect(
+      normalizeNotification(baseNotif({ type: "announcement" })).type,
+    ).toBe("announcement");
+  });
+
+  it("treats a row with no type as a payment event", () => {
+    // Rows written before the type column existed were all money events.
+    expect(normalizeNotification(baseNotif({ type: undefined })).type).toBe(
+      "payment",
+    );
+  });
+
+  it("falls back to payment for a kind it does not recognise", () => {
+    expect(normalizeNotification(baseNotif({ type: "SOMETHING_NEW" })).type).toBe(
+      "payment",
+    );
   });
 
   it("infers an error status from failure/reject keywords", () => {

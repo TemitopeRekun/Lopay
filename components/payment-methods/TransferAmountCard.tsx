@@ -1,9 +1,7 @@
 import React from "react";
 import type { Child } from "../../types";
-import type { BankDetails } from "./types";
 
 interface TransferAmountCardProps {
-  bankDetails: BankDetails;
   isEditingAmount: boolean;
   canEditAmount: boolean | undefined;
   paymentAmount: number;
@@ -12,9 +10,8 @@ interface TransferAmountCardProps {
   onEditAmount: () => void;
 }
 
-/** Phase badge + editable transfer amount with outstanding-balance hint. */
+/** Editable transfer amount with an outstanding-balance hint. */
 export const TransferAmountCard: React.FC<TransferAmountCardProps> = ({
-  bankDetails,
   isEditingAmount,
   canEditAmount,
   paymentAmount,
@@ -22,16 +19,10 @@ export const TransferAmountCard: React.FC<TransferAmountCardProps> = ({
   onAmountChange,
   onEditAmount,
 }) => (
-  <div
-    className={`mb-6 text-center rounded-[32px] p-6 border-2 transition-all shadow-xl shadow-gray-100 dark:shadow-none animate-fade-in-up ${bankDetails.isLopayEscrow ? "bg-primary/5 border-primary/20" : "bg-success/5 border-success/20"}`}
-  >
+  <div className="mb-6 text-center rounded-[32px] p-6 border-2 bg-success/5 border-success/20 transition-all shadow-xl shadow-gray-100 dark:shadow-none animate-fade-in-up">
     <div className="flex justify-center mb-2">
-      <span
-        className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${bankDetails.isLopayEscrow ? "bg-primary text-white" : "bg-success text-white"}`}
-      >
-        {bankDetails.isLopayEscrow
-          ? "Phase 1: Activation"
-          : `Phase 2: Direct Payment`}
+      <span className="px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-success text-white">
+        Direct Payment
       </span>
     </div>
 
@@ -54,9 +45,7 @@ export const TransferAmountCard: React.FC<TransferAmountCardProps> = ({
         </div>
       ) : (
         <div className="flex items-center gap-2">
-          <p
-            className={`text-4xl font-black tracking-tight ${bankDetails.isLopayEscrow ? "text-primary" : "text-success"}`}
-          >
+          <p className="text-4xl font-black tracking-tight text-success">
             ₦
             {paymentAmount.toLocaleString(undefined, {
               minimumFractionDigits: 2,
@@ -73,7 +62,7 @@ export const TransferAmountCard: React.FC<TransferAmountCardProps> = ({
         </div>
       )}
 
-      {!bankDetails.isLopayEscrow && child && (
+      {child && (
         <p className="text-[9px] font-bold text-text-secondary-light mt-1 uppercase">
           Outstanding Balance: ₦
           {(() => {

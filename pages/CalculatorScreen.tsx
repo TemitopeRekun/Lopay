@@ -3,8 +3,8 @@ import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { Header } from '../components/Header';
-import { PaymentPlan, PaymentCalculationResponse, PaymentPlanOption } from '../types';
-import { BackendAPI } from '../services/backend';
+import { PaymentPlan, PaymentPlanOption } from '../types';
+import { usePaymentCalculation } from '../hooks/useQueries';
 
 interface LocationState {
     childName: string;
@@ -20,9 +20,18 @@ const CalculatorScreen: React.FC = () => {
   const location = useLocation();
   const state = location.state as LocationState;
 
-  const [calculation, setCalculation] = React.useState<PaymentCalculationResponse | null>(null);
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState('');
+  const { totalFee, feeType, grade, schoolId } = state ?? ({} as LocationState);
+
+  // Shared with ConfirmPlanScreen, so both screens show the same server-computed
+  // figures the charge is later validated against.
+  const {
+    data: calculation,
+    isLoading,
+    isError,
+  } = usePaymentCalculation(
+    { schoolId, totalAmount: totalFee, feeType, grade },
+    !!state,
+  );
 
   // Fallback if accessed directly
   if (!state) {
@@ -36,43 +45,12 @@ const CalculatorScreen: React.FC = () => {
       )
   }
 
-  const { totalFee, feeType, grade, schoolId } = state;
-
-  React.useEffect(() => {
-    const fetchCalculation = async () => {
-        try {
-            setLoading(true);
-            // If schoolId is missing (legacy flow), we might fail or need a fallback.
-            // For now, let's assume schoolId is passed or we can't fetch backend rules specific to school.
-            // If strictly needed, we could fetch school by name, but ID is better.
-            
-            // Mocking the call if schoolId is missing to prevent crash during migration
-            if (!schoolId) {
-                 console.warn("Missing schoolId for calculation, using local fallback temporarily or failing.");
-                 // You might want to force a fallback here or error out. 
-                 // For this refactor, let's try to call the backend with a dummy ID or handle the error.
-                 setError("Missing School Information");
-                 setLoading(false);
-                 return;
-            }
-
-            const result = await BackendAPI.public.calculatePaymentPlan({
-                schoolId,
-                totalAmount: totalFee,
-                feeType,
-                grade
-            });
-            setCalculation(result);
-        } catch (err) {
-            console.error("Failed to calculate plan", err);
-            setError("Failed to load payment plans. Please try again.");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    fetchCalculation();
-  }, [totalFee, feeType, grade, schoolId]);
+  const error = !schoolId
+      ? 'Missing School Information'
+      : isError
+        ? 'Failed to load payment plans. Please try again.'
+        : '';
+  const loading = isLoading && !!schoolId;
 
   if (loading) {
       return (

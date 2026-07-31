@@ -42,7 +42,6 @@ vi.mock("../hooks/useQueries", () => {
     useSchoolStudents: () => H.q.useSchoolStudents,
     usePendingPayments: () => H.q.usePendingPayments,
     useSchoolStats: () => H.q.useSchoolStats,
-    useEnrollChild: mutation,
     usePayInstallment: mutation,
     useMarkNotificationRead: mutation,
     useMarkAllNotificationsRead: mutation,
@@ -232,34 +231,6 @@ describe("DataProvider — refresh routing", () => {
 });
 
 describe("DataProvider — mutation wrappers", () => {
-  it("addChild forwards enrollment data + receipt + idempotency key", async () => {
-    renderData(PARENT as any);
-    await act(async () => {
-      await data.addChild(
-        {
-          schoolId: "s1",
-          className: "Grade 1",
-          installmentFrequency: "MONTHLY",
-          firstPaymentPaid: 100,
-          termStartDate: "2026-01-01",
-          termEndDate: "2026-06-01",
-        },
-        "receipt-url",
-        "idem-1",
-      );
-    });
-    expect(H.mutateAsync).toHaveBeenCalledWith({
-      schoolId: "s1",
-      className: "Grade 1",
-      installmentFrequency: "MONTHLY",
-      firstPaymentPaid: 100,
-      termStartDate: "2026-01-01",
-      termEndDate: "2026-06-01",
-      receiptUrl: "receipt-url",
-      idempotencyKey: "idem-1",
-    });
-  });
-
   it("submitPayment maps to the pay-installment payload", async () => {
     renderData(PARENT as any);
     await act(async () => {

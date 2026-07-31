@@ -5,7 +5,7 @@ import { Header } from "../components/Header";
 import { useData } from "../context/DataContext";
 import { useUIStore } from "../store/uiStore";
 import { useSchoolBankDetails } from "../hooks/useQueries";
-import { BackendAPI, getPlatformActivationBankDetails } from "../services/backend";
+import { BackendAPI } from "../services/backend";
 import { NativeBridge } from "../services/native";
 import { newIdempotencyKey } from "../utils/idempotency";
 import { PaymentInstitutionHeader } from "../components/payment-methods/PaymentInstitutionHeader";
@@ -48,9 +48,6 @@ const PaymentMethodsScreen: React.FC = () => {
   const [paymentAmount, setPaymentAmount] = useState(state?.amount || 0);
   const [isEditingAmount, setIsEditingAmount] = useState(!!state?.isCustomOnly);
 
-  const isFirstPaymentFlow =
-    !isPaymentFlow && (!child || (Number.isFinite(child.paidAmount) ? child.paidAmount : 0) === 0);
-
   const school = useMemo(() => {
     if (!child) return null;
     return (
@@ -60,41 +57,30 @@ const PaymentMethodsScreen: React.FC = () => {
   }, [schools, child]);
 
   const schoolIdForBankDetails = child?.schoolId || school?.id || null;
-  const needsSchoolBankDetails = !isFirstPaymentFlow;
 
   const {
     data: schoolBankDetails,
     isLoading: isLoadingSchoolBankDetails,
     isError: isSchoolBankDetailsError,
-  } = useSchoolBankDetails(schoolIdForBankDetails, needsSchoolBankDetails);
+  } = useSchoolBankDetails(schoolIdForBankDetails, true);
 
-  const institutionBank = useMemo(() => {
+  // Installments are paid directly into the school's own account — this screen
+  // never handles first payments. Those go through the Paystack split on
+  // /confirm-plan; the manual "transfer to the platform account and upload a
+  // receipt" first-payment flow this screen used to render was removed from the
+  // backend (there is no offline bypass), so it could show bank details for a
+  // payment nothing would ever record.
+  const activeBankDetails = useMemo(() => {
     if (!school || !schoolBankDetails) return null;
     return {
       accountName: schoolBankDetails.accountName || school.name,
       bankName: schoolBankDetails.bankName,
       accountNumber: schoolBankDetails.accountNumber,
-      isLopayEscrow: false,
       institutionName: school.name,
     };
   }, [school, schoolBankDetails]);
 
-  const activeBankDetails = useMemo(() => {
-    if (!isFirstPaymentFlow && institutionBank) {
-      return institutionBank;
-    }
-
-    if (!isFirstPaymentFlow && !institutionBank) {
-      return null;
-    }
-
-    return {
-      ...getPlatformActivationBankDetails(),
-    };
-  }, [isFirstPaymentFlow, institutionBank]);
-
-  const canEditAmount =
-    !!activeBankDetails && !activeBankDetails.isLopayEscrow && state?.allowCustom;
+  const canEditAmount = !!activeBankDetails && !!state?.allowCustom;
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -313,25 +299,39 @@ const PaymentMethodsScreen: React.FC = () => {
 
   const entityType = "School";
 
-  const primaryHeadingLabel = isFirstPaymentFlow
-    ? "First payment (platform account)"
-    : school
-      ? `Ongoing installments (${school.name} account)`
-      : activeBankDetails && activeBankDetails.isLopayEscrow
-        ? "Platform account"
-        : "School account";
+  const primaryHeadingLabel = school
+    ? `Ongoing installments (${school.name} account)`
+    : "School account";
 
-  const paymentInfoCopy = isFirstPaymentFlow
-    ? "This first payment is processed by LoPay. Please pay into the LoPay platform account shown below."
-    : "These installments are paid directly to your school. Please pay into the school's account shown below.";
+  const paymentInfoCopy =
+    "These installments are paid directly to your school. Please pay into the school's account shown below.";
 
   if (!activeBankDetails) {
-    if (needsSchoolBankDetails && isLoadingSchoolBankDetails) {
+    // Arrived without an enrollment to pay against (e.g. a direct URL). There is
+    // nothing payable here — say so instead of rendering a form that cannot submit.
+    if (!isPaymentFlow || !state?.childId) {
       return (
         <Layout>
-          <Header
-            title={isFirstPaymentFlow ? "First Payment" : `${entityType} Installment`}
-          />
+          <Header title={`${entityType} Installment`} />
+          <div className="p-6 flex flex-col flex-1 overflow-y-auto pb-safe">
+            <div className="mb-4 px-4 py-3 rounded-2xl bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-gray-800 text-xs text-text-secondary-light">
+              Choose a plan from your dashboard to make a payment.
+            </div>
+            <button
+              onClick={() => navigate("/dashboard")}
+              className="self-start text-primary font-bold text-xs uppercase tracking-widest"
+            >
+              Go to dashboard
+            </button>
+          </div>
+        </Layout>
+      );
+    }
+
+    if (isLoadingSchoolBankDetails) {
+      return (
+        <Layout>
+          <Header title={`${entityType} Installment`} />
           <div className="p-6 flex flex-col flex-1 overflow-y-auto pb-safe">
             <div className="mb-4 px-4 py-3 rounded-2xl bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-gray-800 text-xs text-text-secondary-light">
               Fetching this school’s latest bank details...
@@ -341,33 +341,29 @@ const PaymentMethodsScreen: React.FC = () => {
       );
     }
 
-    if (needsSchoolBankDetails && isSchoolBankDetailsError) {
-      return (
-        <Layout>
-          <Header
-            title={isFirstPaymentFlow ? "First Payment" : `${entityType} Installment`}
-          />
-          <div className="p-6 flex flex-col flex-1 overflow-y-auto pb-safe">
-            <div className="mb-4 px-4 py-3 rounded-2xl bg-danger/10 border border-danger/30 text-xs text-danger">
-              Unable to load this school’s bank details. Please try again or contact support.
-            </div>
+    return (
+      <Layout>
+        <Header title={`${entityType} Installment`} />
+        <div className="p-6 flex flex-col flex-1 overflow-y-auto pb-safe">
+          <div className="mb-4 px-4 py-3 rounded-2xl bg-danger/10 border border-danger/30 text-xs text-danger">
+            {isSchoolBankDetailsError
+              ? "Unable to load this school’s bank details. Please try again or contact support."
+              : "This school has not published its bank details yet. Please contact the school."}
           </div>
-        </Layout>
-      );
-    }
+          <button
+            onClick={() => navigate("/dashboard")}
+            className="self-start text-primary font-bold text-xs uppercase tracking-widest"
+          >
+            Go to dashboard
+          </button>
+        </div>
+      </Layout>
+    );
   }
-
-  if (!activeBankDetails) return null;
 
   return (
     <Layout>
-      <Header
-        title={
-          isFirstPaymentFlow
-            ? "First Payment"
-            : `${entityType} Installment`
-        }
-      />
+      <Header title={`${entityType} Installment`} />
       <div className="p-6 flex flex-col flex-1 overflow-y-auto pb-safe">
         <PaymentInstitutionHeader
           bankDetails={activeBankDetails}
@@ -376,7 +372,6 @@ const PaymentMethodsScreen: React.FC = () => {
 
         {isPaymentFlow && (
           <TransferAmountCard
-            bankDetails={activeBankDetails}
             isEditingAmount={isEditingAmount}
             canEditAmount={canEditAmount}
             paymentAmount={paymentAmount}
@@ -404,7 +399,6 @@ const PaymentMethodsScreen: React.FC = () => {
         />
 
         <SubmitTransferButton
-          bankDetails={activeBankDetails}
           isProcessing={isProcessing}
           paymentAmount={paymentAmount}
           onSubmit={handlePaymentSent}

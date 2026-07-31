@@ -28,17 +28,13 @@ export interface RegisterData {
   schoolId?: string;
 }
 
-export interface EnrollmentData {
-  childId?: string;
-  childName?: string;
-  schoolId: string;
-  className: string;
-  grade?: string;
-  installmentFrequency: string;
-  firstPaymentPaid: number;
-  termStartDate: string;
-  termEndDate: string;
-}
+/*
+ * `EnrollmentData` described the body of POST /enrollments — the manual
+ * receipt-based first-payment route the backend removed when first payments moved
+ * to the Paystack split. Its only consumer was DataContext.addChild, which no
+ * screen ever called. The live shape is the argument to
+ * `BackendAPI.parent.initiateFirstPayment`.
+ */
 
 export interface Child {
   id: string; // Enrollment ID
@@ -73,7 +69,10 @@ export interface Transaction {
   schoolName: string;
   amount: number;
   date: string;
-  status: "Successful" | "Pending" | "Failed";
+  // "Reversed" is distinct from "Failed": the money did arrive and was confirmed,
+  // then undone. Folding it into Pending (as this union used to) contradicted the
+  // "Payment Reversed" notification the parent had just received.
+  status: "Successful" | "Pending" | "Failed" | "Reversed";
   receiptUrl?: string;
   receiptSignedUrl?: string;
   type?: string;
@@ -264,6 +263,12 @@ export interface ApiEnrollment {
   parentEmail?: string;
   parentPhone?: string;
   installmentFrequency?: string;
+  /**
+   * The server's own next-installment figure: remaining balance spread over the
+   * installments still outstanding. Authoritative — the client must not re-derive
+   * it (see normalizeChild).
+   */
+  nextInstallmentAmount?: number;
   installmentAmount?: number;
   standardInstallmentAmount?: number;
   paidAmount?: number;
@@ -300,6 +305,11 @@ export interface ApiNotification {
   id: string;
   title: string;
   message: string;
+  /**
+   * Persisted kind (`PAYMENT` | `ALERT` | `ANNOUNCEMENT`). Optional so a client
+   * built against a pre-migration backend still parses; absent means PAYMENT.
+   */
+  type?: string;
   link?: string;
   isRead: boolean;
   createdAt: string;

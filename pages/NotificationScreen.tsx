@@ -1,14 +1,35 @@
 
 import React, { useMemo, useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import { useNavigate } from "react-router-dom";
 import { Layout } from '../components/Layout';
 import { Header } from '../components/Header';
 import { BottomNav } from '../components/BottomNav';
 import { useData } from '../context/DataContext';
+import { formatDateTime, formatRelativeTime } from '../utils/date';
+
+/**
+ * Routes a notification's `link` may send the reader to.
+ *
+ * The backend writes links for whichever audience the notification is for, so a
+ * parent can receive a row whose link is a school-owner screen. Navigating there
+ * would bounce off the route guard. Allowlisting keeps the tap either useful or
+ * inert, never a redirect to /home.
+ */
+const NAVIGABLE_LINKS = new Set([
+  "/dashboard",
+  "/history",
+  "/notifications",
+  "/calendar",
+  "/profile",
+  "/school-owner-dashboard",
+  "/admin/approvals",
+]);
 
 const NotificationScreen: React.FC = () => {
   const { notifications, markNotificationRead, markAllNotificationsRead } =
     useData();
+  const navigate = useNavigate();
   const [filter, setFilter] =
     useState<"All" | "Payments" | "Announcements">("All");
   const [selectedNotification, setSelectedNotification] = useState<
@@ -87,6 +108,13 @@ const NotificationScreen: React.FC = () => {
         return next;
       });
     }
+  };
+
+  /** Follow a notification's link, if it points somewhere this reader can go. */
+  const openLink = (link: string | undefined) => {
+    if (!link || !NAVIGABLE_LINKS.has(link)) return;
+    setSelectedNotification(null);
+    navigate(link);
   };
 
   const handleMarkAllRead = async () => {
@@ -223,7 +251,7 @@ const NotificationScreen: React.FC = () => {
                               <h4 className="font-bold text-text-primary-light dark:text-text-primary-dark">{n.title}</h4>
                               <p className="text-sm text-text-secondary-light mt-1 line-clamp-2">{n.message}</p>
                           </div>
-                          <span className="text-[10px] text-text-secondary-light font-bold shrink-0">{n.timestamp}</span>
+                          <span className="text-[10px] text-text-secondary-light font-bold shrink-0">{formatRelativeTime(n.timestamp)}</span>
                       </button>
                   ))
               )}
@@ -235,7 +263,7 @@ const NotificationScreen: React.FC = () => {
         typeof document !== "undefined" &&
         createPortal(
           <div
-            className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex items-center justify-center p-6"
+            className="fixed inset-0 z-100 bg-black/70 backdrop-blur-sm flex items-center justify-center p-6"
             onClick={() => setSelectedNotification(null)}
           >
             <div
@@ -287,16 +315,35 @@ const NotificationScreen: React.FC = () => {
 
               <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-text-secondary-light">
                 <span>{selectedNotification.type}</span>
-                <span>{selectedNotification.timestamp}</span>
+                <span>{formatDateTime(selectedNotification.timestamp)}</span>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setSelectedNotification(null)}
-                className="w-full py-3 rounded-xl bg-primary text-white font-bold text-xs uppercase tracking-widest"
-              >
-                Close
-              </button>
+              {NAVIGABLE_LINKS.has(selectedNotification.link || "") ? (
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedNotification(null)}
+                    className="flex-1 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 text-text-secondary-light font-bold text-xs uppercase tracking-widest"
+                  >
+                    Close
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openLink(selectedNotification.link)}
+                    className="flex-1 py-3 rounded-xl bg-primary text-white font-bold text-xs uppercase tracking-widest"
+                  >
+                    View
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setSelectedNotification(null)}
+                  className="w-full py-3 rounded-xl bg-primary text-white font-bold text-xs uppercase tracking-widest"
+                >
+                  Close
+                </button>
+              )}
             </div>
           </div>,
           document.body,

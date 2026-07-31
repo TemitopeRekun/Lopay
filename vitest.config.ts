@@ -17,6 +17,12 @@ export default defineConfig({
     setupFiles: './vitest.setup.ts',
     include: ['**/*.{test,spec}.{ts,tsx}'],
     exclude: ['node_modules', 'dist', 'android', 'ios'],
+    // The form suites drive real keystrokes through userEvent, which is slow: the
+    // sign-up tests each type five fields and land at 3-5s on their own. Against
+    // the 5s default they passed alone and timed out whenever enough files ran in
+    // parallel (or under coverage instrumentation) to contend for CPU — a flake
+    // that says nothing about the code. The ceiling only bounds a genuine hang.
+    testTimeout: 20_000,
     coverage: {
       provider: 'v8',
       // Milestone-5 gate is scoped to the *logic layer* — the non-visual

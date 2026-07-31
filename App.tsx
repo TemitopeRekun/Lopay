@@ -38,7 +38,6 @@ const CalendarScreen      = lazy(() => import("./pages/CalendarScreen"));
 const SettingsScreen      = lazy(() => import("./pages/SettingsScreen"));
 const SupportScreen       = lazy(() => import("./pages/SupportScreen"));
 const UsersListScreen     = lazy(() => import("./pages/admin/UsersListScreen"));
-const ManagePaymentMethods = lazy(() => import("./pages/ManagePaymentMethods"));
 const TermsOfService      = lazy(() => import("./pages/TermsOfService"));
 const PrivacyPolicy       = lazy(() => import("./pages/PrivacyPolicy"));
 const PaymentApprovalsScreen = lazy(() => import("./pages/admin/PaymentApprovalsScreen"));
@@ -413,14 +412,13 @@ const AppRoutes = () => {
             </ProtectedRoute>
           }
         />
-        <Route
-          path="/manage-payment-methods"
-          element={
-            <ProtectedRoute>
-              <ManagePaymentMethods />
-            </ProtectedRoute>
-          }
-        />
+        {/*
+          /manage-payment-methods is gone. It showed the platform's own bank
+          details as the destination for a manual "25% activation" transfer — a
+          flow the backend removed when first payments moved to the Paystack split
+          — and offered an "Add Local Payment Card" button that was a window.prompt
+          feeding a fake success toast. Nothing in the app linked to it.
+        */}
         <Route
           path="/profile"
           element={

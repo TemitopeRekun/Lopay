@@ -5,6 +5,38 @@ import { Header } from '../components/Header';
 import { useAuth } from '../context/AuthContext';
 import { useTransactions, useChildren } from '../hooks/useQueries';
 
+/** How each transaction status reads on the day view. */
+const TRANSACTION_EVENT_STYLES = {
+  Successful: {
+    label: 'Payment Received',
+    icon: 'payments',
+    iconClass: 'bg-success/10 text-success',
+    amountClass: 'text-success',
+    sign: '+',
+  },
+  Pending: {
+    label: 'Payment Submitted',
+    icon: 'sync',
+    iconClass: 'bg-warning/10 text-warning',
+    amountClass: 'text-warning',
+    sign: '',
+  },
+  Failed: {
+    label: 'Payment Failed',
+    icon: 'error',
+    iconClass: 'bg-danger/10 text-danger',
+    amountClass: 'text-danger',
+    sign: '',
+  },
+  Reversed: {
+    label: 'Payment Reversed',
+    icon: 'undo',
+    iconClass: 'bg-slate-500/10 text-slate-500',
+    amountClass: 'text-slate-500',
+    sign: '',
+  },
+} as const;
+
 export const CalendarScreen: React.FC = () => {
   const { user } = useAuth();
   const { data: transactions = [] } = useTransactions(user?.id);
@@ -23,30 +55,27 @@ export const CalendarScreen: React.FC = () => {
     return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
   };
 
+  /**
+   * Parse the two date shapes the API actually returns into a local calendar day.
+   *
+   * - `nextDueDate` is a bare `YYYY-MM-DD`. `new Date()` reads that as UTC
+   *   midnight, so reading local getters off it lands on the previous day for any
+   *   negative UTC offset — the due date would show a day early. Split it instead.
+   * - `paymentDate` is a full ISO timestamp, which is a real instant and is
+   *   correctly converted to the reader's local day.
+   */
   const parseAppDate = (dateStr: string): Date | null => {
-      if (!dateStr || dateStr === '-') return null;
-      const now = new Date();
-      
-      if (dateStr.toLowerCase().includes('today')) {
-          return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      if (!dateStr || dateStr === '-' || dateStr === 'Pending') return null;
+
+      const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr);
+      if (dateOnly) {
+          const [, year, month, day] = dateOnly;
+          return new Date(Number(year), Number(month) - 1, Number(day));
       }
-      if (dateStr.toLowerCase().includes('yesterday')) {
-          const d = new Date(now);
-          d.setDate(d.getDate() - 1);
-          return new Date(d.getFullYear(), d.getMonth(), d.getDate());
-      }
-      
-      // Handle "Oct 15" or "Oct 26, 2023"
-      let d = new Date(dateStr);
-      if (isNaN(d.getTime())) {
-          // Try adding current year if it's just "Month Day"
-          d = new Date(`${dateStr}, ${now.getFullYear()}`);
-      }
-      
-      if (!isNaN(d.getTime())) {
-           return new Date(d.getFullYear(), d.getMonth(), d.getDate());
-      }
-      return null;
+
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return null;
+      return new Date(d.getFullYear(), d.getMonth(), d.getDate());
   };
 
   // Memoize events mapped by date key
@@ -110,15 +139,20 @@ export const CalendarScreen: React.FC = () => {
         const hasEvents = !!eventsByDate[dateKey];
         const events = eventsByDate[dateKey] || [];
         
-        // Determine dot color
+        // Determine dot color. A day holding only a failed attempt must not show the
+        // same green dot as a settled payment.
         let dotClass = '';
         if (hasEvents) {
             const hasDue = events.some((e: any) => e.type === 'due_date');
-            const hasTrans = events.some((e: any) => e.type === 'transaction');
-            
-            if (hasDue && hasTrans) dotClass = 'bg-purple-500';
+            const transactions = events.filter((e: any) => e.type === 'transaction');
+            const hasSettled = transactions.some(
+                (e: any) => e.data.status === 'Successful',
+            );
+
+            if (hasDue && transactions.length > 0) dotClass = 'bg-purple-500';
             else if (hasDue) dotClass = 'bg-warning'; // Due date warning
-            else dotClass = 'bg-success'; // Transaction success
+            else if (hasSettled) dotClass = 'bg-success';
+            else dotClass = 'bg-warning'; // Submitted / failed / reversed only
         }
 
         days.push(
@@ -190,18 +224,23 @@ export const CalendarScreen: React.FC = () => {
                     {selectedEvents.map((event: any, index: number) => {
                         if (event.type === 'transaction') {
                             const t = event.data;
+                            // Every row here used to read "Payment Received" in green with a
+                            // leading "+", including pending and failed attempts — so a
+                            // declined transfer looked settled on the parent's calendar.
+                            const style = TRANSACTION_EVENT_STYLES[t.status as keyof typeof TRANSACTION_EVENT_STYLES]
+                                ?? TRANSACTION_EVENT_STYLES.Pending;
                             return (
                                 <div key={`t-${index}`} className="flex items-center justify-between p-4 bg-white dark:bg-card-dark border border-gray-100 dark:border-gray-800 rounded-xl shadow-sm">
                                     <div className="flex items-center gap-3">
-                                        <div className="size-10 rounded-full bg-success/10 flex items-center justify-center text-success">
-                                            <span className="material-symbols-outlined text-xl">payments</span>
+                                        <div className={`size-10 rounded-full flex items-center justify-center ${style.iconClass}`}>
+                                            <span className="material-symbols-outlined text-xl">{style.icon}</span>
                                         </div>
                                         <div>
-                                            <p className="font-bold text-text-primary-light dark:text-text-primary-dark">Payment Received</p>
+                                            <p className="font-bold text-text-primary-light dark:text-text-primary-dark">{style.label}</p>
                                             <p className="text-xs text-text-secondary-light">{t.childName} • {t.schoolName}</p>
                                         </div>
                                     </div>
-                                    <p className="font-bold text-success">+₦{t.amount.toLocaleString()}</p>
+                                    <p className={`font-bold ${style.amountClass}`}>{style.sign}₦{t.amount.toLocaleString()}</p>
                                 </div>
                             );
                         } else {

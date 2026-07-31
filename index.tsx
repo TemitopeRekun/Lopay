@@ -2,6 +2,10 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import "./index.css";
+import { applyStoredTheme } from "./utils/theme";
+
+// Before the first paint, so a dark-mode reader doesn't get a white flash.
+applyStoredTheme();
 
 const logGlobalError = (error: unknown, extra?: Record<string, unknown>) => {
   try {

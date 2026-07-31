@@ -36,6 +36,12 @@ export const QUERY_KEYS = {
   schoolStudents: ["schoolStudents"],
   users: ["users"], // Admin
   schoolFees: (schoolId: string) => ["schoolFees", schoolId],
+  paymentCalculation: (schoolId: string, totalAmount: number, grade: string) => [
+    "paymentCalculation",
+    schoolId,
+    totalAmount,
+    grade,
+  ],
   myClassFees: ["myClassFees"],
   adminPendingFirstPayments: ["adminPendingFirstPayments"],
   adminPendingInstallments: ["adminPendingInstallments"],
@@ -233,6 +239,40 @@ export const useSchoolFees = (schoolId: string, enabled: boolean = true) => {
     queryKey: QUERY_KEYS.schoolFees(schoolId),
     queryFn: () => BackendAPI.public.getSchoolFees(schoolId),
     enabled: enabled && !!schoolId,
+  });
+};
+
+/**
+ * The server's payment structure for a fee: platform fee, minimum deposit, total
+ * initial payment, and the weekly/monthly plan options.
+ *
+ * Shared by the calculator and the confirm screen so both show the figures the
+ * server will actually validate the charge against. It is a pure function of the
+ * fee, so it caches for the session.
+ */
+export const usePaymentCalculation = (
+  params: {
+    schoolId: string | undefined;
+    totalAmount: number;
+    feeType: string;
+    grade: string;
+  },
+  enabled: boolean = true,
+) => {
+  const { schoolId, totalAmount, feeType, grade } = params;
+  return useQuery({
+    queryKey: QUERY_KEYS.paymentCalculation(schoolId ?? "", totalAmount, grade),
+    queryFn: () => {
+      if (!schoolId) throw new Error("School ID is required");
+      return BackendAPI.public.calculatePaymentPlan({
+        schoolId,
+        totalAmount,
+        feeType,
+        grade,
+      });
+    },
+    enabled: enabled && !!schoolId && totalAmount > 0,
+    staleTime: 1000 * 60 * 10,
   });
 };
 
@@ -443,32 +483,13 @@ export const useUsers = (enabled: boolean = true) => {
 
 // --- Mutations ---
 
-export const useEnrollChild = () => {
-  const queryClient = useQueryClient();
-  const { showToast } = useUIStore();
-  return useMutation({
-    mutationFn: BackendAPI.parent.enroll,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.children });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.schoolStudents });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.schoolStats });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.transactions });
-      queryClient.invalidateQueries({
-        queryKey: QUERY_KEYS.globalTransactions,
-      });
-      queryClient.invalidateQueries({
-        queryKey: QUERY_KEYS.adminPendingFirstPayments,
-      });
-      queryClient.invalidateQueries({
-        queryKey: QUERY_KEYS.adminPendingInstallments,
-      });
-    },
-    onError: (error: unknown) => {
-      const message = getErrorMessage(error, "Failed to enroll. Please try again.");
-      showToast(message, "error");
-    },
-  });
-};
+/*
+ * `useEnrollChild` is gone. It posted to POST /enrollments, the manual
+ * receipt-based first-payment route the backend removed when first payments moved
+ * to the Paystack split — so it could only ever 404. Nothing rendered it either:
+ * enrollment happens on ConfirmPlanScreen via `parent.initiateFirstPayment`, which
+ * creates the enrollment and the charge together.
+ */
 
 export const usePayInstallment = () => {
   const queryClient = useQueryClient();

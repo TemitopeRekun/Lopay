@@ -509,33 +509,6 @@ function invalidatedKeys(spy: { mock: { calls: unknown[][] } }): unknown[] {
   return spy.mock.calls.map((c) => (c[0] as { queryKey: unknown }).queryKey);
 }
 
-describe("useEnrollChild", () => {
-  it("calls enroll and invalidates the enrollment-related caches on success", async () => {
-    api.parent.enroll.mockResolvedValue({ ok: true });
-    const { spy } = await runMutation(
-      () => Q.useEnrollChild(),
-      { schoolId: "s1", className: "JSS1" } as never,
-    );
-    expect(api.parent.enroll).toHaveBeenCalledTimes(1);
-    expect(invalidatedKeys(spy)).toContainEqual(Q.QUERY_KEYS.children);
-    expect(invalidatedKeys(spy)).toContainEqual(Q.QUERY_KEYS.transactions);
-    expect(spy).toHaveBeenCalledTimes(7);
-  });
-
-  it("shows an error toast when enroll fails", async () => {
-    api.parent.enroll.mockRejectedValue(new Error("Enroll blew up"));
-    const { wrapper } = setup();
-    const { result } = renderHook(() => Q.useEnrollChild(), { wrapper });
-    await act(async () => {
-      await result.current.mutateAsync({} as never).catch(() => undefined);
-    });
-    await waitFor(() => expect(result.current.isError).toBe(true));
-    const toasts = useUIStore.getState().toasts;
-    expect(toasts.some((t) => t.type === "error")).toBe(true);
-    expect(toasts.some((t) => t.message === "Enroll blew up")).toBe(true);
-  });
-});
-
 describe("usePayInstallment", () => {
   it("forwards the installment args and invalidates payment caches", async () => {
     api.parent.payInstallment.mockResolvedValue({ ok: true });

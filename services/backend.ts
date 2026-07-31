@@ -418,21 +418,11 @@ export const BackendAPI = {
       );
       return response.data;
     },
-    enroll: async (data: {
-      childId?: string;
-      childName?: string;
-      schoolId: string;
-      className: string;
-      installmentFrequency: string;
-      firstPaymentPaid: number;
-      receiptUrl?: string;
-      termStartDate: string;
-      termEndDate: string;
-      idempotencyKey?: string;
-    }) => {
-      const response = await apiClient.post("/enrollments", data);
-      return response.data;
-    },
+    /*
+     * `enroll` (POST /enrollments) is gone. The backend removed that route when
+     * first payments moved to the Paystack split — it was the manual
+     * receipt-based path, and calling it 404s. Use initiateFirstPayment below.
+     */
     /** Initiate a first payment via Paystack split. Returns access code + reference. */
     initiateFirstPayment: async (data: {
       childId?: string;
@@ -486,10 +476,9 @@ export const BackendAPI = {
       });
       return response.data;
     },
-    deleteChild: async (childId: string) => {
-      const response = await apiClient.delete(`/enrollments/${childId}`);
-      return response.data;
-    },
+    // `deleteChild` (DELETE /enrollments/:id) is gone — no such route exists on the
+    // backend, and nothing called it. Removing an enrollment would have to unwind
+    // settled money, so it is a ledger operation, not a client delete.
   },
   notifications: {
     get: async () => {
@@ -536,18 +525,16 @@ export const BackendAPI = {
   },
 };
 
-export const PLATFORM_BANK = {
-  bankName: "Moniepoint",
-  accountName: "Lopay Technologies",
-  accountNumber: "9090390581",
-};
-
-export const getPlatformActivationBankDetails = () => {
-  return {
-    accountName: PLATFORM_BANK.accountName,
-    bankName: PLATFORM_BANK.bankName,
-    accountNumber: PLATFORM_BANK.accountNumber,
-    isLopayEscrow: true,
-    institutionName: "Lopay Activation Hub",
-  };
-};
+/*
+ * The platform's own bank details used to be hardcoded here (`PLATFORM_BANK` /
+ * `getPlatformActivationBankDetails`) and rendered as the destination for a manual
+ * first-payment transfer. Both are gone:
+ *
+ *   - First payments are collected through the Paystack split (see
+ *     `parent.initiateFirstPayment`), which routes the school's share to its
+ *     subaccount and the platform fee to the platform account. There is no manual
+ *     transfer step, so the account was being shown for a payment nothing recorded.
+ *   - An account number baked into the client is a second source of truth for
+ *     settlement details. Bank details now only ever come from the server
+ *     (`public.getSchoolBankDetails`).
+ */

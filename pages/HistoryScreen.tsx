@@ -6,13 +6,23 @@ import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
 import { BackendAPI } from '../services/backend';
 import { useQueryClient } from '@tanstack/react-query';
+import { formatDateTime } from '../utils/date';
+import type { Transaction } from '../types';
+
+const FILTERS = ['All', 'Successful', 'Pending', 'Failed', 'Reversed'] as const;
+type HistoryFilter = (typeof FILTERS)[number];
 
 const HistoryScreen: React.FC = () => {
   const { role: userRole } = useAuth();
   const { transactions } = useData();
   const queryClient = useQueryClient();
-  const [filter, setFilter] = useState<'All' | 'Successful' | 'Pending' | 'Failed'>('All');
+  const [filter, setFilter] = useState<HistoryFilter>('All');
   const [searchQuery] = useState('');
+
+  // The receipt the payer uploaded, opened in a lightbox. The list already fetches
+  // `receiptSignedUrl` (`includeReceiptSignedUrls=true`) but never rendered it, so a
+  // parent could upload proof of transfer and then had no way to see it back.
+  const [receiptPreview, setReceiptPreview] = useState<Transaction | null>(null);
 
   // Reversal state
   const [reverseTarget, setReverseTarget] = useState<{ id: string; amount: number; childName: string } | null>(null);
@@ -62,6 +72,7 @@ const HistoryScreen: React.FC = () => {
       case 'Successful': return 'text-success bg-success/10';
       case 'Pending': return 'text-warning bg-warning/10';
       case 'Failed': return 'text-danger bg-danger/10';
+      case 'Reversed': return 'text-slate-500 bg-slate-500/10';
       default: return 'text-gray-500 bg-gray-100';
     }
   };
@@ -71,8 +82,35 @@ const HistoryScreen: React.FC = () => {
       case 'Successful': return 'bg-success';
       case 'Pending': return 'bg-warning';
       case 'Failed': return 'bg-danger';
+      case 'Reversed': return 'bg-slate-500';
       default: return 'bg-gray-500';
     }
+  };
+
+  const getStatusTile = (status: string) => {
+    switch (status) {
+      case 'Successful': return 'bg-success shadow-lg shadow-success/20';
+      case 'Failed': return 'bg-danger shadow-lg shadow-danger/20';
+      case 'Reversed': return 'bg-slate-500 shadow-lg shadow-slate-500/20';
+      default: return 'bg-warning shadow-lg shadow-warning/20';
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'Successful': return 'payments';
+      case 'Failed': return 'error';
+      case 'Reversed': return 'undo';
+      default: return 'sync';
+    }
+  };
+
+  /** "First payment" / "Installment" — which leg of the plan this row is. */
+  const getTypeLabel = (type: string | undefined) => {
+    const upper = (type || '').toUpperCase();
+    if (upper === 'FIRST_PAYMENT') return 'First payment';
+    if (upper === 'INSTALLMENT') return 'Installment';
+    return null;
   };
 
   return (
@@ -81,10 +119,10 @@ const HistoryScreen: React.FC = () => {
       <div className="flex flex-col gap-4 px-4 py-4">
         {/* Filter Tabs */}
         <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide no-scrollbar">
-          {['All', 'Successful', 'Pending', 'Failed'].map((f) => (
+          {FILTERS.map((f) => (
             <button
               key={f}
-              onClick={() => setFilter(f as any)}
+              onClick={() => setFilter(f)}
               className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest whitespace-nowrap transition-all border-2 ${
                 filter === f
                   ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20'
@@ -108,20 +146,19 @@ const HistoryScreen: React.FC = () => {
               <div key={t.id} className="group bg-white dark:bg-card-dark p-5 rounded-[28px] border border-gray-100 dark:border-gray-800 shadow-sm transition-all hover:shadow-xl hover:border-primary/20">
                 <div className="flex justify-between items-start mb-4">
                   <div className="flex items-center gap-4">
-                    <div className={`size-12 rounded-2xl flex items-center justify-center text-white shrink-0 ${
-                      t.status === 'Successful'
-                        ? 'bg-success shadow-lg shadow-success/20'
-                        : t.status === 'Failed'
-                          ? 'bg-danger shadow-lg shadow-danger/20'
-                          : 'bg-warning shadow-lg shadow-warning/20'
-                    }`}>
+                    <div className={`size-12 rounded-2xl flex items-center justify-center text-white shrink-0 ${getStatusTile(t.status)}`}>
                       <span className="material-symbols-outlined text-2xl">
-                        {t.status === 'Successful' ? 'payments' : t.status === 'Failed' ? 'error' : 'sync'}
+                        {getStatusIcon(t.status)}
                       </span>
                     </div>
                     <div>
                       <h3 className="font-black text-sm text-text-primary-light dark:text-text-primary-dark tracking-tight">{t.childName}</h3>
                       <p className="text-[10px] text-text-secondary-light font-bold uppercase tracking-widest mt-0.5">{isSchoolOwner ? "Received Inflow" : t.schoolName}</p>
+                      {getTypeLabel(t.type) && (
+                        <p className="text-[9px] text-text-secondary-light font-bold uppercase tracking-widest mt-1 opacity-70">
+                          {getTypeLabel(t.type)}
+                        </p>
+                      )}
                     </div>
                   </div>
                   <div className="text-right">
@@ -130,8 +167,16 @@ const HistoryScreen: React.FC = () => {
                   </div>
                 </div>
                 <div className="flex justify-between items-center pt-4 border-t border-gray-50 dark:border-gray-800">
-                  <span className="text-[10px] font-bold text-text-secondary-light uppercase tracking-widest">{t.date}</span>
+                  <span className="text-[10px] font-bold text-text-secondary-light uppercase tracking-widest">{formatDateTime(t.date)}</span>
                   <div className="flex items-center gap-2">
+                    {t.receiptSignedUrl && (
+                      <button
+                        onClick={() => setReceiptPreview(t)}
+                        className="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-colors"
+                      >
+                        Receipt
+                      </button>
+                    )}
                     {canReverse(t) && (
                       <button
                         onClick={() => handleReverseClick(t)}
@@ -152,6 +197,52 @@ const HistoryScreen: React.FC = () => {
         </div>
       </div>
       <BottomNav />
+
+      {/* Receipt preview. The signed URL is short-lived and minted per request, so
+          this shows whatever the list last fetched rather than caching it. */}
+      {receiptPreview?.receiptSignedUrl && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+          onClick={() => setReceiptPreview(null)}
+        >
+          <div
+            className="bg-white dark:bg-card-dark rounded-[28px] w-full max-w-md p-5 flex flex-col gap-4 shadow-2xl max-h-[90vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="font-black text-sm text-text-primary-light dark:text-text-primary-dark">
+                  Payment Receipt
+                </h2>
+                <p className="text-[10px] text-text-secondary-light font-bold uppercase tracking-widest mt-0.5">
+                  ₦{receiptPreview.amount.toLocaleString()} — {formatDateTime(receiptPreview.date)}
+                </p>
+              </div>
+              <button
+                onClick={() => setReceiptPreview(null)}
+                className="size-9 shrink-0 rounded-full bg-gray-100 dark:bg-white/10 flex items-center justify-center text-text-secondary-light"
+              >
+                <span className="material-symbols-outlined text-sm">close</span>
+              </button>
+            </div>
+
+            <img
+              src={receiptPreview.receiptSignedUrl}
+              alt={`Receipt for ₦${receiptPreview.amount.toLocaleString()}`}
+              className="w-full rounded-2xl border border-gray-100 dark:border-gray-800 object-contain max-h-[60vh] bg-gray-50 dark:bg-black/20"
+            />
+
+            <a
+              href={receiptPreview.receiptSignedUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full py-3.5 rounded-2xl bg-primary text-white text-xs font-black uppercase tracking-widest text-center"
+            >
+              Open full size
+            </a>
+          </div>
+        </div>
+      )}
 
       {/* Reversal Confirmation Modal */}
       {reverseTarget && (
