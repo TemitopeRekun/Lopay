@@ -10,6 +10,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./services/queryClient";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { DataProvider } from "./context/DataContext";
+import { useMyClassFees } from "./hooks/useQueries";
 import { ToastHost } from "./components/ToastHost";
 import { useRealtime } from "./hooks/useRealtime";
 import { Capacitor } from "@capacitor/core";
@@ -41,8 +42,9 @@ const ManagePaymentMethods = lazy(() => import("./pages/ManagePaymentMethods"));
 const TermsOfService      = lazy(() => import("./pages/TermsOfService"));
 const PrivacyPolicy       = lazy(() => import("./pages/PrivacyPolicy"));
 const PaymentApprovalsScreen = lazy(() => import("./pages/admin/PaymentApprovalsScreen"));
-const ManageFeesScreen    = lazy(() => import("./pages/admin/ManageFeesScreen"));
+const SchoolSetupScreen   = lazy(() => import("./pages/SchoolSetupScreen"));
 const AuditLogsScreen     = lazy(() => import("./pages/admin/AuditLogsScreen"));
+const CollectionsBreakdownScreen = lazy(() => import("./pages/admin/CollectionsBreakdownScreen"));
 
 type ErrorBoundaryProps = {
   children: React.ReactNode;
@@ -160,6 +162,41 @@ const ProtectedRoute = ({
   return <>{children}</>;
 };
 
+/**
+ * Sends a school owner to fee setup until their school has published a schedule.
+ *
+ * The platform issues school-owner credentials but deliberately seeds no fees:
+ * the fee is snapshotted at enrolment and drives the platform fee and minimum
+ * deposit, so the school sets its own. Until at least one class fee exists the
+ * school cannot accept enrolments, so the dashboard would only show empty
+ * states — setup is the useful first screen.
+ *
+ * Gates on the REAL role, never the acting one: an admin previewing this view
+ * still carries SUPER_ADMIN, so the SCHOOL_OWNER-only fees endpoint 403s for
+ * them. Redirecting on that error would trap the admin in a screen they cannot
+ * complete, so only a successful empty response redirects.
+ */
+export const SchoolSetupGate = ({
+  children,
+}: {
+  children: React.ReactNode;
+}) => {
+  const { userRole } = useAuth();
+  const isSchoolOwner = userRole === "school_owner";
+  const { data: fees, isLoading, isError } = useMyClassFees(isSchoolOwner);
+
+  if (!isSchoolOwner) return <>{children}</>;
+  // Don't flash the dashboard before we know, and don't redirect on failure.
+  if (isLoading) return <SplashScreen />;
+  if (isError) return <>{children}</>;
+
+  if (Array.isArray(fees) && fees.length === 0) {
+    return <Navigate to="/school/fees" replace />;
+  }
+
+  return <>{children}</>;
+};
+
 const HomeRedirect = () => {
   const { user, userRole } = useAuth(); // Use AuthContext
   const isAuthenticated = !!user;
@@ -231,7 +268,24 @@ const AppRoutes = () => {
           path="/school-owner-dashboard"
           element={
             <ProtectedRoute allowedRoles={["school_owner", "owner"]}>
-              <SchoolOwnerDashboard />
+              <SchoolSetupGate>
+                <SchoolOwnerDashboard />
+              </SchoolSetupGate>
+            </ProtectedRoute>
+          }
+        />
+
+        {/*
+          A school's own fee schedule — first-run setup and later revisions use
+          the same screen. Deliberately NOT wrapped in SchoolSetupGate (that
+          would redirect here from here), and school-owner only: the platform
+          admin cannot write a school's fees.
+        */}
+        <Route
+          path="/school/fees"
+          element={
+            <ProtectedRoute allowedRoles={["school_owner"]}>
+              <SchoolSetupScreen />
             </ProtectedRoute>
           }
         />
@@ -284,19 +338,29 @@ const AppRoutes = () => {
             </ProtectedRoute>
           }
         />
+        {/*
+          /admin/manage-fees is gone. It was reachable by the platform admin but
+          POST /school-payments/fees is SCHOOL_OWNER-only and derives the school
+          from the session, so an admin could read a school's fees there and then
+          403 on save. Schools own their fees — /school/fees is the one path.
+        */}
         <Route
           path="/admin/manage-fees"
-          element={
-            <ProtectedRoute allowedRoles={["school_owner", "owner"]}>
-              <ManageFeesScreen />
-            </ProtectedRoute>
-          }
+          element={<Navigate to="/school/fees" replace />}
         />
         <Route
           path="/admin/audit-logs"
           element={
             <ProtectedRoute allowedRoles={["owner"]}>
               <AuditLogsScreen />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/breakdown"
+          element={
+            <ProtectedRoute allowedRoles={["owner"]}>
+              <CollectionsBreakdownScreen />
             </ProtectedRoute>
           }
         />

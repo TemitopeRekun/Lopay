@@ -4,16 +4,20 @@ interface QuickOperationsProps {
   pendingApprovalsCount: number;
   onApprovals: () => void;
   onAddSchool: () => void;
+  onSchools: () => void;
   onUsers: () => void;
+  onBroadcast: () => void;
   onAuditLogs: () => void;
 }
 
-/** Admin quick-action grid: approvals, new school, users, audit log. */
+/** Admin quick-action grid: approvals, new school, schools, users, broadcast, audit log. */
 export const QuickOperations: React.FC<QuickOperationsProps> = ({
   pendingApprovalsCount,
   onApprovals,
   onAddSchool,
+  onSchools,
   onUsers,
+  onBroadcast,
   onAuditLogs,
 }) => (
   <div className="grid grid-cols-2 gap-3">
@@ -54,6 +58,18 @@ export const QuickOperations: React.FC<QuickOperationsProps> = ({
     </button>
 
     <button
+      onClick={onSchools}
+      className="flex flex-col items-center justify-center gap-2 p-5 bg-white dark:bg-card-dark border-2 border-gray-100 dark:border-gray-800 rounded-[28px] hover:border-primary/40 transition-all group"
+    >
+      <div className="size-10 rounded-full bg-gray-50 dark:bg-white/5 flex items-center justify-center text-text-secondary-light group-hover:text-primary transition-colors">
+        <span className="material-symbols-outlined">school</span>
+      </div>
+      <span className="text-[10px] font-black text-text-primary-light dark:text-text-primary-dark uppercase tracking-widest">
+        All Schools
+      </span>
+    </button>
+
+    <button
       onClick={onUsers}
       className="flex flex-col items-center justify-center gap-2 p-5 bg-white dark:bg-card-dark border-2 border-gray-100 dark:border-gray-800 rounded-[28px] hover:border-primary/40 transition-all group"
     >
@@ -62,6 +78,18 @@ export const QuickOperations: React.FC<QuickOperationsProps> = ({
       </div>
       <span className="text-[10px] font-black text-text-primary-light dark:text-text-primary-dark uppercase tracking-widest">
         Users Directory
+      </span>
+    </button>
+
+    <button
+      onClick={onBroadcast}
+      className="flex flex-col items-center justify-center gap-2 p-5 bg-white dark:bg-card-dark border-2 border-gray-100 dark:border-gray-800 rounded-[28px] hover:border-primary/40 transition-all group"
+    >
+      <div className="size-10 rounded-full bg-gray-50 dark:bg-white/5 flex items-center justify-center text-text-secondary-light group-hover:text-primary transition-colors">
+        <span className="material-symbols-outlined">campaign</span>
+      </div>
+      <span className="text-[10px] font-black text-text-primary-light dark:text-text-primary-dark uppercase tracking-widest">
+        Broadcast
       </span>
     </button>
 

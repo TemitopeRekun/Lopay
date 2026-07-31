@@ -8,6 +8,7 @@ import {
   normalizeUser,
 } from "../services/adapters";
 import { School } from "../types";
+import type { BreakdownTab } from "../types.admin";
 import { useUIStore } from "../store/uiStore";
 import { getErrorMessage } from "../utils/errors";
 import { logger } from "../utils/logger";
@@ -35,6 +36,7 @@ export const QUERY_KEYS = {
   schoolStudents: ["schoolStudents"],
   users: ["users"], // Admin
   schoolFees: (schoolId: string) => ["schoolFees", schoolId],
+  myClassFees: ["myClassFees"],
   adminPendingFirstPayments: ["adminPendingFirstPayments"],
   adminPendingInstallments: ["adminPendingInstallments"],
   adminSchoolStudents: (schoolId: string) => ["adminSchoolStudents", schoolId],
@@ -42,6 +44,8 @@ export const QUERY_KEYS = {
   adminStudentsSummary: ["adminStudentsSummary"],
   adminSchoolsSummary: ["adminSchoolsSummary"],
   adminOverview: ["adminOverview"],
+  adminBreakdown: ["adminBreakdown"],
+  adminSchoolBreakdown: ["adminSchoolBreakdown"],
 };
 
 // --- Hooks ---
@@ -193,6 +197,37 @@ export const useSchoolStudents = (
   });
 };
 
+/**
+ * The signed-in school owner's own fee schedule.
+ *
+ * Session-scoped, so it resolves before the client knows its schoolId. An empty
+ * array is the signal that first-run setup has not happened yet — a school
+ * cannot accept enrolments until it has published at least one class fee.
+ */
+export const useMyClassFees = (enabled: boolean = true) => {
+  return useQuery({
+    queryKey: QUERY_KEYS.myClassFees,
+    queryFn: BackendAPI.school.getMyFees,
+    enabled,
+    staleTime: 1000 * 60,
+  });
+};
+
+/** Publishes the whole schedule in one request (first-run setup or a revision). */
+export const useSetMyClassFees = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (fees: { className: string; feeAmount: number }[]) =>
+      BackendAPI.school.setMyFees(fees),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myClassFees });
+      // Parents read fees per-school; drop those too so a newly published
+      // schedule is visible immediately rather than after the 5-minute TTL.
+      queryClient.invalidateQueries({ queryKey: ["schoolFees"] });
+    },
+  });
+};
+
 export const useSchoolFees = (schoolId: string, enabled: boolean = true) => {
   return useQuery({
     queryKey: QUERY_KEYS.schoolFees(schoolId),
@@ -306,11 +341,16 @@ export const useAdminSchoolsSummary = (enabled: boolean = true) => {
   });
 };
 
-export const useAdminOverview = (enabled: boolean = true) => {
+export const useAdminOverview = (
+  enabled: boolean = true,
+  range: "monthly" | "weekly" = "monthly",
+) => {
   return useQuery({
-    queryKey: QUERY_KEYS.adminOverview,
+    // Range is part of the key so switching the chart toggle refetches instead
+    // of re-rendering the previously cached bucket set.
+    queryKey: [...QUERY_KEYS.adminOverview, range],
     queryFn: async () => {
-      const data = await BackendAPI.admin.getOverview();
+      const data = await BackendAPI.admin.getOverview(range);
       return {
         ...data,
         recentTransactions: (data?.recentTransactions || []).map(
@@ -322,6 +362,37 @@ export const useAdminOverview = (enabled: boolean = true) => {
     staleTime: 1000 * 30,
     refetchInterval: enabled ? FALLBACK_POLL_MS : false,
     refetchOnWindowFocus: true,
+  });
+};
+
+/** Per-school outstanding / overdue / student counts for the breakdown screen. */
+export const useAdminBreakdown = (enabled: boolean = true) => {
+  return useQuery({
+    queryKey: QUERY_KEYS.adminBreakdown,
+    queryFn: BackendAPI.admin.getBreakdownSummary,
+    enabled,
+    staleTime: 1000 * 30,
+    refetchOnWindowFocus: true,
+  });
+};
+
+/** Per-student rows for one school on one tab. Skipped until a school is chosen. */
+export const useAdminSchoolBreakdown = (
+  schoolId: string | null,
+  tab: BreakdownTab,
+  page: number = 1,
+  enabled: boolean = true,
+) => {
+  return useQuery({
+    queryKey: [...QUERY_KEYS.adminSchoolBreakdown, schoolId, tab, page],
+    queryFn: () => {
+      if (!schoolId) {
+        throw new Error("School ID is required");
+      }
+      return BackendAPI.admin.getSchoolBreakdown(schoolId, { tab, page });
+    },
+    enabled: enabled && !!schoolId,
+    staleTime: 1000 * 30,
   });
 };
 

@@ -192,9 +192,16 @@ describe("BackendAPI.admin", () => {
     expect(get).toHaveBeenCalledWith("/admin/schools/summary");
   });
 
-  it("getOverview GETs /admin/overview", async () => {
+  it("getOverview GETs /admin/overview with no range by default", async () => {
     await BackendAPI.admin.getOverview();
-    expect(get).toHaveBeenCalledWith("/admin/overview");
+    expect(get).toHaveBeenCalledWith("/admin/overview", { params: undefined });
+  });
+
+  it("getOverview forwards the range so the chart toggle hits the server", async () => {
+    await BackendAPI.admin.getOverview("weekly");
+    expect(get).toHaveBeenCalledWith("/admin/overview", {
+      params: { range: "weekly" },
+    });
   });
 
   it("getSchoolStudents GETs /admin/schools/:id/students with params", async () => {

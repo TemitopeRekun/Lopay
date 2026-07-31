@@ -69,6 +69,7 @@ export interface Transaction {
   userId: string; // Often inferred
   childId?: string;
   childName: string;
+  schoolId?: string;
   schoolName: string;
   amount: number;
   date: string;
@@ -190,6 +191,7 @@ export interface ApiTransaction {
   studentName: string;
   childName: string; // Alias
   className: string;
+  schoolId?: string;
   schoolName: string;
   receiptUrl?: string;
   receiptSignedUrl?: string;
@@ -207,6 +209,7 @@ export interface ApiPendingPayment {
   studentName: string;
   childName: string;
   className: string;
+  schoolId?: string;
   schoolName: string;
   receiptUrl?: string;
   receiptSignedUrl?: string;
@@ -219,6 +222,14 @@ export interface ApiPendingPayment {
   platformFee?: number;
   platformFeePercentage?: number;
   platformFeeRate?: number;
+}
+
+/** A published class fee. `feeAmount` is naira (the API converts from kobo). */
+export interface ApiClassFee {
+  id?: string;
+  className: string;
+  feeAmount: number;
+  isActive?: boolean;
 }
 
 export interface ApiPayment {

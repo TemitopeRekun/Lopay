@@ -129,6 +129,18 @@ describe("normalizeTransaction", () => {
     expect(out.receiptSignedUrl).toBe("rs");
   });
 
+  it("carries schoolId through so admin rows can deep-link", () => {
+    // Dropped before: the owner dashboard grouped pending first payments by
+    // school but had no id to navigate with, leaving each row a dead button.
+    const out = normalizeTransaction(baseTx({ schoolId: "sch-1" }));
+    expect(out.schoolId).toBe("sch-1");
+  });
+
+  it("leaves schoolId undefined when the endpoint omits it", () => {
+    const out = normalizeTransaction(baseTx({}));
+    expect(out.schoolId).toBeUndefined();
+  });
+
   it("uses amountPaid when amount is absent (pending-payment shape)", () => {
     const pending = {
       id: "p1",

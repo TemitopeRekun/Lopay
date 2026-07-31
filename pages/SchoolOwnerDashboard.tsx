@@ -262,7 +262,7 @@ const SchoolOwnerDashboard: React.FC = () => {
         {/* Management Tools */}
         <div className="grid grid-cols-2 gap-4">
           <button
-            onClick={() => navigate("/admin/manage-fees")}
+            onClick={() => navigate("/school/fees")}
             className="flex flex-col items-start justify-between p-5 bg-secondary/5 border-2 border-secondary/20 rounded-[28px] hover:bg-secondary/10 transition-all group min-h-[140px]"
           >
             <div className="size-10 rounded-xl bg-secondary flex items-center justify-center text-white shadow-lg shadow-secondary/20 mb-3">

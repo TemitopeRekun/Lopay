@@ -3,17 +3,12 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/Layout';
 import { Header } from '../../components/Header';
-import { useAuth } from '../../context/AuthContext';
-import { useUIStore } from '../../store/uiStore';
-import { useSchools, useDeleteSchool, useUpdateSchool, useDeleteAllSchools } from '../../hooks/useQueries';
+import { useSchools, useDeleteSchool, useDeleteAllSchools } from '../../hooks/useQueries';
 
 const SchoolListScreen: React.FC = () => {
   const navigate = useNavigate();
-  const { setActingRole } = useAuth();
-  const { showToast } = useUIStore();
   const { data: schools = [] } = useSchools();
   const { mutate: deleteSchool } = useDeleteSchool();
-  const { mutate: updateSchool } = useUpdateSchool();
   const { mutate: deleteAllSchools } = useDeleteAllSchools();
   
   const [searchQuery, setSearchQuery] = useState('');
@@ -38,22 +33,22 @@ const SchoolListScreen: React.FC = () => {
       }
   };
 
-  const handleEditCount = (e: React.MouseEvent, school: any) => {
-      e.stopPropagation();
-      const newCountStr = window.prompt(`Update student count for ${school.name}:`, school.studentCount?.toString());
-      if (newCountStr !== null) {
-          const newCount = parseInt(newCountStr);
-          if (!isNaN(newCount) && newCount >= 0) {
-              updateSchool({ ...school, studentCount: newCount });
-          } else {
-              showToast("Please enter a valid number.", "error");
-          }
-      }
-  };
+  // "Edit student count" used to live here. It was a no-op: School has no
+  // studentCount column and UpdateSchoolDto no such field, so the value was
+  // stripped by the whitelisting ValidationPipe and the PATCH silently
+  // succeeded. Student counts are derived from enrollments — see the
+  // collections breakdown screen for the real per-school figures.
 
-  const handleManageSchool = (schoolId: string) => {
-      setActingRole('school_owner', schoolId);
-      navigate('/school-owner-dashboard');
+  /**
+   * Opens this school's students in the admin breakdown.
+   *
+   * Replaces a "Manage Dashboard" button that called setActingRole and pushed
+   * the admin at /school-owner-dashboard. Acting role is UI-only, so every
+   * school-scoped request there still carried SUPER_ADMIN and 403'd against the
+   * SCHOOL_OWNER-only endpoints. This route reads real admin data instead.
+   */
+  const handleViewStudents = (schoolId: string) => {
+      navigate('/admin/breakdown', { state: { tab: 'students', schoolId } });
   };
 
   return (
@@ -123,16 +118,7 @@ const SchoolListScreen: React.FC = () => {
                                 </div>
                             </div>
                             <div className="flex items-center gap-2">
-                                <button 
-                                    type="button"
-                                    onClick={(e) => handleEditCount(e, school)}
-                                    className="p-2 text-text-secondary-light hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
-                                    title="Edit Student Count"
-                                >
-                                    <span className="material-symbols-outlined">edit</span>
-                                </button>
-                                <div className="h-6 w-px bg-gray-100 dark:bg-gray-800 mx-1"></div>
-                                <button 
+                                <button
                                     type="button"
                                     onClick={(e) => handleDelete(e, school.id, school.name)}
                                     className="flex items-center gap-1 px-3 py-1.5 bg-danger/5 hover:bg-danger/10 text-danger rounded-lg transition-colors"
@@ -149,11 +135,11 @@ const SchoolListScreen: React.FC = () => {
                                 <p className="text-sm truncate">{school.contactEmail || school.email}</p>
                             </div>
                             <div className="text-right">
-                                <button 
-                                    onClick={() => handleManageSchool(school.id)}
+                                <button
+                                    onClick={() => handleViewStudents(school.id)}
                                     className="text-[10px] font-black uppercase text-primary bg-primary/10 px-3 py-2 rounded-lg hover:bg-primary/20 transition-all"
                                 >
-                                    Manage Dashboard
+                                    View Students
                                 </button>
                             </div>
                         </div>
