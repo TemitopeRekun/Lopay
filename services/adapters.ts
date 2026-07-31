@@ -95,6 +95,9 @@ export const normalizeTransaction = (
     userId: "",
     childId: "",
     childName: apiTx.childName || apiTx.studentName || "Unknown Child",
+    // Carried through so admin drill-downs can deep-link to the owning school;
+    // without it the dashboard can only group by (ambiguous) school name.
+    schoolId: apiTx.schoolId,
     schoolName: apiTx.schoolName || "Unknown School",
     amount,
     date: apiTx.date || apiTx.paymentDate || new Date().toISOString(),

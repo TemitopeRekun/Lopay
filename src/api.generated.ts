@@ -76,6 +76,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/school-payments/fees/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Publish the authenticated owner's whole fee schedule */
+        post: operations["SchoolPaymentsController_setClassFees"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/school-payments/fees/{schoolId}": {
         parameters: {
             query?: never;
@@ -311,6 +328,23 @@ export interface paths {
         post?: never;
         /** Delete a school by id */
         delete: operations["SchoolsManagementController_remove"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/broadcast": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Broadcast an announcement to all parents */
+        post: operations["NotificationsController_broadcast"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -861,6 +895,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/breakdown": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Per-school collections breakdown (outstanding, overdue, student counts) */
+        get: operations["AdminController_getBreakdownSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/schools/{schoolId}/breakdown": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Per-student collections breakdown for one school (paginated) */
+        get: operations["AdminController_getSchoolBreakdown"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/schools/summary": {
         parameters: {
             query?: never;
@@ -919,6 +987,7 @@ export interface components {
         UpdateProfileDto: Record<string, never>;
         UpdateUserDto: Record<string, never>;
         CreateClassFeeDto: Record<string, never>;
+        SetClassFeesDto: Record<string, never>;
         UpdateSchoolDto: Record<string, never>;
         ConfirmPaymentDto: Record<string, never>;
         MarkDefaultedDto: Record<string, never>;
@@ -932,6 +1001,7 @@ export interface components {
             reason?: string;
         };
         CreateSchoolDto: Record<string, never>;
+        BroadcastNotificationDto: Record<string, never>;
         RegisterDeviceTokenDto: {
             /** @description FCM device token */
             token: string;
@@ -1176,6 +1246,27 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["CreateClassFeeDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SchoolPaymentsController_setClassFees: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetClassFeesDto"];
             };
         };
         responses: {
@@ -1506,6 +1597,27 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    NotificationsController_broadcast: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BroadcastNotificationDto"];
+            };
+        };
+        responses: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2151,6 +2263,47 @@ export interface operations {
             };
         };
     };
+    AdminController_getBreakdownSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminController_getSchoolBreakdown: {
+        parameters: {
+            query: {
+                /** @description Which view to return. Applied server-side because overdue ranks on a derived figure. */
+                tab?: "students" | "outstanding" | "overdue";
+                page: string;
+                limit: string;
+            };
+            header?: never;
+            path: {
+                schoolId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     AdminController_getSchoolsSummary: {
         parameters: {
             query?: never;
@@ -2170,7 +2323,10 @@ export interface operations {
     };
     AdminController_getOverview: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Bucket size for revenueSeries. Defaults to monthly. */
+                range?: "monthly" | "weekly";
+            };
             header?: never;
             path?: never;
             cookie?: never;

@@ -9,6 +9,7 @@ import {
   ApiNotification,
   ApiUser,
   ApiSchoolBankDetails,
+  ApiClassFee,
 } from "../types";
 import type {
   CreateReceiptUploadDto,
@@ -16,10 +17,13 @@ import type {
   ReversePaymentDto,
 } from "./apiTypes";
 import {
+  ApiAdminBreakdownStudent,
+  ApiAdminBreakdownSummary,
   ApiAdminOverview,
   ApiAdminSchoolSummary,
   ApiAdminStudentsSummary,
   ApiPlatformRevenue,
+  BreakdownTab,
 } from "../types.admin";
 
 export const API_URL =
@@ -192,10 +196,34 @@ export const BackendAPI = {
       );
       return response.data;
     },
-    getOverview: async () => {
-      const response = await apiClient.get<ApiAdminOverview>(
-        "/admin/overview",
-      );
+    /** Per-school outstanding / overdue / student counts for the breakdown screen. */
+    getBreakdownSummary: async () => {
+      const response =
+        await apiClient.get<ApiAdminBreakdownSummary>("/admin/breakdown");
+      return response.data;
+    },
+    /**
+     * Per-student rows for one school. The tab is sent to the server because
+     * overdue ranks on a derived figure — filtering client-side after pagination
+     * would page over the wrong set.
+     */
+    getSchoolBreakdown: async (
+      schoolId: string,
+      params: { tab: BreakdownTab; page?: number; limit?: number },
+    ) => {
+      const response = await apiClient.get<
+        Paginated<ApiAdminBreakdownStudent> & {
+          schoolId: string;
+          schoolName: string;
+          tab: BreakdownTab;
+        }
+      >(`/admin/schools/${schoolId}/breakdown`, { params });
+      return response.data;
+    },
+    getOverview: async (range?: "monthly" | "weekly") => {
+      const response = await apiClient.get<ApiAdminOverview>("/admin/overview", {
+        params: range ? { range } : undefined,
+      });
       return response.data;
     },
     getSchoolStudents: async (
@@ -262,6 +290,28 @@ export const BackendAPI = {
     getStats: async () => {
       const response = await apiClient.get<ApiSchoolStats>(
         "/school-payments/stats",
+      );
+      return response.data;
+    },
+    /**
+     * The signed-in owner's own fee schedule. Session-scoped, so it works before
+     * the client knows its schoolId — unlike `public.getSchoolFees(id)`.
+     */
+    getMyFees: async () => {
+      const response = await apiClient.get<ApiClassFee[]>(
+        "/school-payments/fees",
+      );
+      return response.data;
+    },
+    /**
+     * Publishes the whole schedule in one request. Replaces a per-class loop that
+     * slept 2.5s between calls to dodge the throttle — ~37s for a 15-class school,
+     * and half-written if the tab closed midway.
+     */
+    setMyFees: async (fees: { className: string; feeAmount: number }[]) => {
+      const response = await apiClient.post<ApiClassFee[]>(
+        "/school-payments/fees/bulk",
+        { fees },
       );
       return response.data;
     },

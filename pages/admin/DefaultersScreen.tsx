@@ -1,30 +1,57 @@
-
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/Layout';
 import { Header } from '../../components/Header';
+import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
-import { useUIStore } from '../../store/uiStore';
 
+/**
+ * Defaulted students for a school context.
+ *
+ * The "Send Reminder" and "Call parent" buttons that used to sit on each row are
+ * gone: neither reached the backend. The reminder only raised a success toast
+ * (no notification was ever created) and the call handler announced
+ * "Simulating call to parent..." with the tel: link commented out. Showing a
+ * confirmation for work that never happened is worse than offering no button.
+ *
+ * A platform admin gets no rows here — `allStudents` is only fetched in a school
+ * context (see DataContext), and the school-scoped endpoints are SCHOOL_OWNER
+ * only. The banner below says so rather than rendering a misleading
+ * "No payments overdue!". Admins are pointed at the collections breakdown, which
+ * derives overdue figures from real admin endpoints.
+ */
 const DefaultersScreen: React.FC = () => {
   const { allStudents } = useData();
-  const { showToast } = useUIStore();
+  const { effectiveRole, userRole } = useAuth();
+  const navigate = useNavigate();
 
+  const isPlatformAdmin = userRole === 'owner' && effectiveRole === 'owner';
   const defaulters = allStudents.filter(child => child.status === 'Defaulted');
-
-  const handleRemind = (childName: string) => {
-      showToast(`Reminder sent to parents of ${childName}`, "success");
-  };
-
-  const handleCall = () => {
-      showToast("Simulating call to parent...", "info");
-      // window.location.href = "tel:1234567890";
-  };
 
   return (
     <Layout>
       <Header title="Defaulters List" />
       <div className="flex-1 p-6 overflow-y-auto">
-        {defaulters.length === 0 ? (
+        {isPlatformAdmin ? (
+            <div className="flex flex-col items-center justify-center h-full text-center gap-4 px-4">
+                <span className="material-symbols-outlined text-5xl text-gray-300">insights</span>
+                <div>
+                    <p className="text-sm font-black text-text-primary-light dark:text-text-primary-dark uppercase tracking-widest">
+                        Platform-wide view lives elsewhere
+                    </p>
+                    <p className="text-xs text-text-secondary-light mt-2 max-w-xs">
+                        This list is scoped to a single school. For overdue figures across
+                        every school, open the collections breakdown.
+                    </p>
+                </div>
+                <button
+                    onClick={() => navigate('/admin/breakdown', { state: { tab: 'overdue' } })}
+                    className="px-5 py-3 rounded-xl bg-primary text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20"
+                >
+                    Open Collections Breakdown
+                </button>
+            </div>
+        ) : defaulters.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center opacity-50">
                 <span className="material-symbols-outlined text-6xl mb-4">check_circle</span>
                 <p>No payments overdue!</p>
@@ -45,7 +72,7 @@ const DefaultersScreen: React.FC = () => {
                                  {child.status}
                              </span>
                         </div>
-                        
+
                         <div className="flex justify-between items-center text-sm p-3 bg-gray-50 dark:bg-white/5 rounded-lg">
                             <span className="text-text-secondary-light">Outstanding</span>
                             <span className="font-bold text-text-primary-light dark:text-text-primary-dark">
@@ -61,21 +88,6 @@ const DefaultersScreen: React.FC = () => {
                                   return (totalFee - paidAmount).toLocaleString();
                                 })()}
                             </span>
-                        </div>
-
-                        <div className="flex gap-2 mt-1">
-                            <button 
-                                onClick={() => handleRemind(child.name)}
-                                className="flex-1 py-2 rounded-lg bg-primary text-white text-sm font-bold shadow-sm active:scale-95 transition-transform"
-                            >
-                                Send Reminder
-                            </button>
-                            <button 
-                                onClick={handleCall}
-                                className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-text-secondary-light hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
-                            >
-                                <span className="material-symbols-outlined text-lg">call</span>
-                            </button>
                         </div>
                     </div>
                 ))}
