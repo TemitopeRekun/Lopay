@@ -56,6 +56,8 @@ const Probe = () => {
       <span data-testid="activeSchoolId">{auth.activeSchoolId ?? "null"}</span>
       <span data-testid="actingUserId">{auth.actingUserId ?? "null"}</span>
       <span data-testid="userName">{auth.user?.name ?? "null"}</span>
+      <span data-testid="userPhone">{auth.user?.phoneNumber ?? "null"}</span>
+      <span data-testid="userSchoolId">{auth.user?.schoolId ?? "null"}</span>
       <span data-testid="token">{auth.token ?? "null"}</span>
     </div>
   );
@@ -306,6 +308,89 @@ describe("AuthProvider — updateUser", () => {
     });
     expect(screen.getByTestId("userName")).toHaveTextContent("Renamed Parent");
     expect(localStorage.getItem("user")).toContain("Renamed Parent");
+  });
+
+  it("keeps the phone number the session returns", async () => {
+    // Better Auth exposes phoneNumber as an additionalField on the session.
+    // Dropping it here made every "has this parent given us a number?" check
+    // read false after a reload, so the enrollment prompt fired for everyone.
+    M.getSession.mockResolvedValue(
+      session({
+        id: "p1",
+        email: "parent@lopay.com",
+        name: "Pat Parent",
+        role: "PARENT",
+        phoneNumber: "08012345678",
+        schoolId: null,
+      }),
+    );
+
+    renderAuth();
+
+    await waitFor(() =>
+      expect(screen.getByTestId("userPhone")).toHaveTextContent("08012345678"),
+    );
+    expect(localStorage.getItem("user")).toContain("08012345678");
+  });
+
+  it("merges the PATCH projection onto the current user instead of replacing it", async () => {
+    // PATCH /users/me returns a narrow projection with no schoolId — replacing
+    // wholesale would knock a school owner out of their school on a phone edit.
+    M.getSession.mockResolvedValue(
+      session({
+        id: "s1",
+        email: "bursar@school.com",
+        name: "Sam Bursar",
+        role: "SCHOOL_OWNER",
+        schoolId: "school-7",
+      }),
+    );
+    M.updateMe.mockResolvedValue({
+      id: "s1",
+      email: "bursar@school.com",
+      fullName: "Sam Bursar",
+      role: "SCHOOL_OWNER",
+      phoneNumber: "08012345678",
+    });
+
+    renderAuth();
+    await waitFor(() =>
+      expect(screen.getByTestId("userSchoolId")).toHaveTextContent("school-7"),
+    );
+
+    await act(async () => {
+      await auth.updateUser({ phoneNumber: "08012345678" });
+    });
+
+    expect(screen.getByTestId("userPhone")).toHaveTextContent("08012345678");
+    expect(screen.getByTestId("userSchoolId")).toHaveTextContent("school-7");
+  });
+
+  it("sends only the phone number when that's all that changed", async () => {
+    M.getSession.mockResolvedValue(PARENT_SESSION);
+    M.updateMe.mockResolvedValue({
+      id: "p1",
+      email: "parent@lopay.com",
+      fullName: "Pat Parent",
+      role: "PARENT",
+      phoneNumber: "08012345678",
+    });
+
+    renderAuth();
+    await waitFor(() =>
+      expect(screen.getByTestId("isAuth")).toHaveTextContent("yes"),
+    );
+
+    await act(async () => {
+      await auth.updateUser({ phoneNumber: "08012345678" });
+    });
+
+    // fullName undefined → the backend DTO leaves the name untouched.
+    expect(M.updateMe).toHaveBeenCalledWith({
+      fullName: undefined,
+      phoneNumber: "08012345678",
+    });
+    expect(screen.getByTestId("userName")).toHaveTextContent("Pat Parent");
   });
 
   it("throws when updating with no logged-in user", async () => {

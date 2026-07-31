@@ -4,9 +4,11 @@ import { Layout } from "../components/Layout";
 import { Header } from "../components/Header";
 import { PaymentPlan } from "../types";
 import { useUIStore } from "../store/uiStore";
+import { useAuth } from "../context/AuthContext";
 import { BackendAPI } from "../services/backend";
 import { openPaystackPopup } from "../services/paystack";
 import { newIdempotencyKey } from "../utils/idempotency";
+import { isValidPhone, normalizePhone, validatePhone } from "../utils/phone";
 
 interface LocationState {
   childName?: string;
@@ -28,9 +30,17 @@ const ConfirmPlanScreen: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { showToast } = useUIStore();
+  const { user, updateUser } = useAuth();
   // One stable key per enrollment intent so retries/double-taps don't double-charge.
   const [idempotencyKey] = useState(() => newIdempotencyKey());
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // Enrollment lazily creates the domain Parent row from the user's phone, so
+  // this is the point where we actually need one. Parents who signed up with
+  // Google never supplied it — ask here rather than blocking the sign-in path.
+  const needsPhoneNumber = !user?.phoneNumber;
+  const [phoneInput, setPhoneInput] = useState("");
+  const [phoneError, setPhoneError] = useState<string | null>(null);
 
   const state = location.state as LocationState;
 
@@ -87,6 +97,7 @@ const ConfirmPlanScreen: React.FC = () => {
     }, [firstPayment, platformFee, totalFee, minimumPayment, maximumPayment, effectivePlan]);
 
   const monthsDuration = feeType === "Session" ? 7 : 3;
+  const contactIncomplete = needsPhoneNumber && !isValidPhone(phoneInput);
 
   if (!state) return null;
 
@@ -100,7 +111,27 @@ const ConfirmPlanScreen: React.FC = () => {
       return;
     }
 
-    setIsProcessing(true);
+    // Save the contact number before taking any money — if this fails we haven't
+    // charged anyone, and the Parent row created during enrollment would
+    // otherwise be stuck with a blank phone.
+    if (needsPhoneNumber) {
+      const validationError = validatePhone(phoneInput);
+      if (validationError) {
+        setPhoneError(validationError);
+        showToast(validationError, "error");
+        return;
+      }
+      setIsProcessing(true);
+      try {
+        await updateUser({ phoneNumber: normalizePhone(phoneInput) });
+      } catch {
+        showToast("Couldn't save your phone number. Please try again.", "error");
+        setIsProcessing(false);
+        return;
+      }
+    } else {
+      setIsProcessing(true);
+    }
 
     const startDate = new Date();
     const endDate = new Date(startDate);
@@ -287,6 +318,37 @@ const ConfirmPlanScreen: React.FC = () => {
           </div>
         </section>
 
+        {needsPhoneNumber && (
+          <section className="mb-8">
+            <h3 className="text-sm font-bold text-text-primary-light dark:text-text-primary-dark uppercase tracking-wider mb-4 px-1">
+              Contact Number
+            </h3>
+            <div className="bg-white dark:bg-card-dark border border-gray-100 dark:border-gray-800 rounded-2xl p-5 shadow-sm">
+              <p className="text-[10px] font-medium text-text-secondary-light mb-3 leading-snug">
+                We need a phone number to reach you about this enrollment and
+                your payment schedule.
+              </p>
+              <input
+                type="tel"
+                value={phoneInput}
+                onChange={(e) => {
+                  setPhoneInput(e.target.value);
+                  setPhoneError(
+                    e.target.value.trim() ? validatePhone(e.target.value) : null,
+                  );
+                }}
+                placeholder="e.g. 08012345678"
+                className="w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-gray-800 rounded-xl p-3 text-sm font-bold outline-none focus:ring-2 focus:ring-primary/50"
+              />
+              {phoneError && (
+                <p className="mt-2 text-[10px] font-bold text-danger">
+                  {phoneError}
+                </p>
+              )}
+            </div>
+          </section>
+        )}
+
         <section className="mb-6">
           <h3 className="text-sm font-bold text-text-secondary-light uppercase tracking-wider mb-4 px-1">
             Future Roadmap
@@ -326,7 +388,7 @@ const ConfirmPlanScreen: React.FC = () => {
       <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto p-6 bg-white dark:bg-card-dark border-t border-gray-100 dark:border-gray-800 z-20 pb-safe">
         <button
           onClick={handlePay}
-          disabled={isProcessing || !!amountError}
+          disabled={isProcessing || !!amountError || contactIncomplete}
           className="w-full h-14 bg-primary text-white rounded-xl font-bold text-lg shadow-lg shadow-primary/25 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center transition-all hover:opacity-90 active:scale-95"
         >
           {isProcessing ? (

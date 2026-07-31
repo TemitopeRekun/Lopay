@@ -88,6 +88,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       email: string;
       name?: string;
       role?: string;
+      phoneNumber?: string | null;
       schoolId?: string | null;
     };
     const apiUser: ApiUser = {
@@ -95,6 +96,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       email: u.email,
       fullName: u.name,
       role: u.role,
+      // `phoneNumber` is a Better Auth additionalField and comes back on the
+      // session. Omitting it here blanked the number on every reload, which made
+      // "has this parent given us a phone?" checks read false for everyone.
+      phoneNumber: u.phoneNumber ?? undefined,
       schoolId: u.schoolId ?? undefined,
     } as ApiUser;
 
@@ -200,9 +205,29 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         phoneNumber: updatedData.phoneNumber,
       });
 
+      // PATCH /users/me returns a narrow projection (no schoolId/createdAt), so
+      // merge onto the current user rather than replacing it — otherwise saving
+      // a phone number would drop a school owner's schoolId from session state.
       const normalized = normalizeUser(result as unknown as ApiUser);
-      setUser(normalized);
-      localStorage.setItem("user", JSON.stringify(result));
+      const merged: User = {
+        ...user,
+        ...normalized,
+        schoolId: normalized.schoolId ?? user.schoolId,
+        createdAt: normalized.createdAt ?? user.createdAt,
+      };
+      setUser(merged);
+      localStorage.setItem(
+        "user",
+        JSON.stringify({
+          id: merged.id,
+          email: merged.email,
+          fullName: merged.name,
+          role: merged.role,
+          phoneNumber: merged.phoneNumber,
+          schoolId: merged.schoolId,
+          createdAt: merged.createdAt,
+        }),
+      );
     } catch (e) {
       console.error("Update user failed", e);
       throw e;
