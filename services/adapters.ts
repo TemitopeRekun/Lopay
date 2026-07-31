@@ -13,6 +13,7 @@ import {
   UserRole,
 } from "../types";
 import { logger } from "../utils/logger";
+import { installmentCount } from "../utils/plan";
 
 const toNumber = (value: unknown): number => {
   if (typeof value === "number") {
@@ -89,6 +90,11 @@ export const normalizeTransaction = (
     upperStatus === "PAID" ||
     upperStatus === "COMPLETED";
   const isFailed = upperStatus === "FAILED";
+  // A reversed payment is neither pending nor failed — it succeeded and was then
+  // undone (school reversal, or a Paystack dispute/refund). It used to fall through
+  // to "Pending", so a parent who had just been told "Payment Reversed" saw the row
+  // still processing.
+  const isReversed = upperStatus === "REVERSED";
 
   return {
     id: apiTx.id,
@@ -101,7 +107,13 @@ export const normalizeTransaction = (
     schoolName: apiTx.schoolName || "Unknown School",
     amount,
     date: apiTx.date || apiTx.paymentDate || new Date().toISOString(),
-    status: isSuccess ? "Successful" : isFailed ? "Failed" : "Pending",
+    status: isSuccess
+      ? "Successful"
+      : isFailed
+        ? "Failed"
+        : isReversed
+          ? "Reversed"
+          : "Pending",
     receiptUrl: apiTx.receiptUrl,
     receiptSignedUrl: apiTx.receiptSignedUrl,
     type: apiTx.type || apiTx.paymentType,
@@ -182,15 +194,30 @@ export const normalizeChild = (apiEnrollment: ApiEnrollment): Child => {
         )
       : 0;
 
+  /*
+   * The next installment is the server's number.
+   *
+   * It spreads the remaining balance over the installments still outstanding
+   * (`balance / (planCount - paidCount)`), so it shrinks as the plan progresses.
+   * This adapter used to read `standardInstallmentAmount ?? installmentAmount` —
+   * fields no enrollment endpoint returns — so the value was ALWAYS 0 and the
+   * client silently fell back to its own guess: the previous installment's amount,
+   * or `balance / planCount`. A parent one installment into a monthly plan was
+   * quoted `balance / 3` on the "Pay School" button when the server would have
+   * said `balance / 2`.
+   *
+   * The derivations stay only as a fallback for a payload that genuinely omits the
+   * field (an older backend, or an admin list shaped differently).
+   */
   const rawInstallmentAmountFromApi = toNumber(
-    apiEnrollment.standardInstallmentAmount ?? apiEnrollment.installmentAmount,
+    apiEnrollment.nextInstallmentAmount ??
+      apiEnrollment.standardInstallmentAmount ??
+      apiEnrollment.installmentAmount,
   );
 
-  const frequency = String(apiEnrollment.installmentFrequency || "").toUpperCase();
-  let defaultInstallmentCount = 3;
-  if (frequency === "WEEKLY") {
-    defaultInstallmentCount = 12;
-  }
+  const defaultInstallmentCount = installmentCount(
+    apiEnrollment.installmentFrequency,
+  );
 
   let nextInstallmentAmount = 0;
 
@@ -307,16 +334,33 @@ const inferNotificationStatus = (
   return "info";
 };
 
+/**
+ * Map the backend's persisted `NotificationType` onto the filter tabs.
+ *
+ * This used to be hardcoded to "payment", which made the Announcements tab
+ * permanently empty and filed platform broadcasts under Payments. Falls back to
+ * "payment" for a row written before the type column existed — every notification
+ * from that era was a money event on an enrollment.
+ */
+const normalizeNotificationType = (
+  apiType: string | undefined,
+): Notification["type"] => {
+  switch ((apiType || "").toUpperCase()) {
+    case "ANNOUNCEMENT":
+      return "announcement";
+    case "ALERT":
+      return "alert";
+    default:
+      return "payment";
+  }
+};
+
 export const normalizeNotification = (
   apiNotif: ApiNotification,
 ): Notification => {
   return {
     id: apiNotif.id,
-    // There is no broadcast/announcement feature yet — every notification is a
-    // payment/enrollment event. Typing them as "payment" makes the Payments
-    // filter work and leaves Announcements correctly empty until broadcasts
-    // exist (at which point a persisted backend `type` should drive this).
-    type: "payment",
+    type: normalizeNotificationType(apiNotif.type),
     title: apiNotif.title,
     message: apiNotif.message,
     timestamp: apiNotif.createdAt,

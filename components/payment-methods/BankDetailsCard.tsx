@@ -16,7 +16,7 @@ export const BankDetailsCard: React.FC<BankDetailsCardProps> = ({
   onCopy,
 }) => (
   <div
-    className={`bg-white dark:bg-card-dark border-2 rounded-[32px] p-6 shadow-sm mb-6 relative overflow-hidden transition-all animate-fade-in-up delay-75 ${bankDetails.isLopayEscrow ? "border-primary/20" : "border-success/20"}`}
+    className={"bg-white dark:bg-card-dark border-2 border-success/20 rounded-[32px] p-6 shadow-sm mb-6 relative overflow-hidden transition-all animate-fade-in-up delay-75"}
   >
     <div className="space-y-4">
       {paymentInfoCopy && (
@@ -26,11 +26,7 @@ export const BankDetailsCard: React.FC<BankDetailsCardProps> = ({
       )}
       <div className="flex flex-col gap-1">
         <span className="text-[9px] font-black text-text-secondary-light uppercase tracking-[0.2em]">
-          {bankDetails.isLopayEscrow
-            ? "Pay to LoPay (platform) account"
-            : schoolName
-              ? `Pay to ${schoolName} account`
-              : "Pay to school account"}
+          {schoolName ? `Pay to ${schoolName} account` : "Pay to school account"}
         </span>
       </div>
       <div className="flex flex-col gap-1">
@@ -58,7 +54,7 @@ export const BankDetailsCard: React.FC<BankDetailsCardProps> = ({
             {bankDetails.accountNumber}
           </span>
           <button
-            className={`size-11 flex items-center justify-center rounded-xl text-white shadow-lg active:scale-90 transition-all ${bankDetails.isLopayEscrow ? "bg-primary shadow-primary/20" : "bg-success shadow-success/20"}`}
+            className={"size-11 flex items-center justify-center rounded-xl text-white shadow-lg active:scale-90 transition-all bg-success shadow-success/20"}
             onClick={() => onCopy(bankDetails.accountNumber)}
           >
             <span className="material-symbols-outlined text-xl">

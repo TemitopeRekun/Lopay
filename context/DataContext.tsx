@@ -7,7 +7,6 @@ import {
   useSchools,
   useTransactions,
   useGlobalTransactions,
-  useEnrollChild,
   usePayInstallment,
   useMarkNotificationRead,
   useMarkAllNotificationsRead,
@@ -25,7 +24,6 @@ import {
   Notification,
   School,
   Transaction,
-  EnrollmentData,
   ApiSchoolStats,
 } from "../types";
 import { useQueryClient } from "@tanstack/react-query";
@@ -50,11 +48,6 @@ interface DataContextType {
   refreshParentView: () => Promise<void>;
   refreshSchoolView: () => Promise<void>;
   refreshOwnerView: () => Promise<void>;
-  addChild: (
-    data: EnrollmentData,
-    receiptUrl?: string,
-    idempotencyKey?: string,
-  ) => Promise<void>;
   submitPayment: (
     childId: string,
     amount: number,
@@ -168,7 +161,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({
       : parentTransactions;
 
   // --- Mutations ---
-  const enrollChildMutation = useEnrollChild();
   const payInstallmentMutation = usePayInstallment();
   const markReadMutation = useMarkNotificationRead();
   const markAllReadMutation = useMarkAllNotificationsRead();
@@ -232,18 +224,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({
       return;
     }
     await queryClient.invalidateQueries();
-  };
-
-  const addChild = async (
-    enrollmentData: EnrollmentData,
-    receiptUrl?: string,
-    idempotencyKey?: string,
-  ) => {
-    await enrollChildMutation.mutateAsync({
-      ...enrollmentData,
-      receiptUrl,
-      idempotencyKey,
-    });
   };
 
   const submitPayment = async (
@@ -327,7 +307,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({
         refreshParentView,
         refreshSchoolView,
         refreshOwnerView,
-        addChild,
         submitPayment,
         markNotificationRead,
         markAllNotificationsRead,

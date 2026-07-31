@@ -1,5 +1,6 @@
 import React from "react";
 import { Transaction } from "../types";
+import { formatRelativeTime } from "../utils/date";
 
 interface RecentTransactionsListProps {
   transactions: Transaction[];
@@ -65,7 +66,9 @@ export const RecentTransactionsList: React.FC<RecentTransactionsListProps> = ({
                       ? "bg-success shadow-lg shadow-success/20"
                       : tx.status === "Failed"
                         ? "bg-danger shadow-lg shadow-danger/20"
-                        : "bg-warning shadow-lg shadow-warning/20"
+                        : tx.status === "Reversed"
+                          ? "bg-slate-500 shadow-lg shadow-slate-500/20"
+                          : "bg-warning shadow-lg shadow-warning/20"
                   }`}
                 >
                   <span className="material-symbols-outlined text-xl">
@@ -73,7 +76,9 @@ export const RecentTransactionsList: React.FC<RecentTransactionsListProps> = ({
                       ? "check"
                       : tx.status === "Failed"
                         ? "error"
-                        : "sync"}
+                        : tx.status === "Reversed"
+                          ? "undo"
+                          : "sync"}
                   </span>
                 </div>
                 <div>
@@ -81,7 +86,7 @@ export const RecentTransactionsList: React.FC<RecentTransactionsListProps> = ({
                     {tx.childName || (tx as any).reference || "Payment"}
                   </p>
                   <p className="text-[9px] text-text-secondary-light font-bold uppercase tracking-widest">
-                    {tx.date}
+                    {formatRelativeTime(tx.date)}
                   </p>
                 </div>
               </div>
@@ -95,7 +100,9 @@ export const RecentTransactionsList: React.FC<RecentTransactionsListProps> = ({
                       ? "text-success"
                       : tx.status === "Failed"
                         ? "text-danger"
-                        : "text-warning"
+                        : tx.status === "Reversed"
+                          ? "text-slate-500"
+                          : "text-warning"
                   }`}
                 >
                   {tx.status}

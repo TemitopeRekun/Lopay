@@ -31,12 +31,7 @@ vi.mock("axios", () => ({
   },
 }));
 
-import {
-  BackendAPI,
-  API_URL,
-  PLATFORM_BANK,
-  getPlatformActivationBankDetails,
-} from "./backend";
+import { BackendAPI, API_URL } from "./backend";
 
 const data = (d: unknown) => ({ data: d });
 
@@ -48,19 +43,17 @@ beforeEach(() => {
 });
 
 describe("module exports", () => {
-  it("exposes a default API_URL and platform bank constant", () => {
+  it("exposes a default API_URL", () => {
     expect(typeof API_URL).toBe("string");
-    expect(PLATFORM_BANK.accountNumber).toBe("9090390581");
   });
 
-  it("getPlatformActivationBankDetails returns the escrow bank block", () => {
-    expect(getPlatformActivationBankDetails()).toEqual({
-      accountName: "Lopay Technologies",
-      bankName: "Moniepoint",
-      accountNumber: "9090390581",
-      isLopayEscrow: true,
-      institutionName: "Lopay Activation Hub",
-    });
+  // PLATFORM_BANK / getPlatformActivationBankDetails are gone: the platform's own
+  // account number no longer lives in the client, and the manual first-payment
+  // transfer it fed was removed from the backend. Bank details come from the server.
+  it("no longer hardcodes any bank details", async () => {
+    const mod: Record<string, unknown> = await import("./backend");
+    expect(mod.PLATFORM_BANK).toBeUndefined();
+    expect(mod.getPlatformActivationBankDetails).toBeUndefined();
   });
 });
 
@@ -343,17 +336,12 @@ describe("BackendAPI.parent", () => {
     );
   });
 
-  it("enroll POSTs /enrollments with the enrollment body", async () => {
-    const body = {
-      schoolId: "s1",
-      className: "JSS1",
-      installmentFrequency: "MONTHLY",
-      firstPaymentPaid: 500,
-      termStartDate: "2026-01-01",
-      termEndDate: "2026-06-01",
-    };
-    await BackendAPI.parent.enroll(body);
-    expect(post).toHaveBeenCalledWith("/enrollments", body);
+  // `enroll` (POST /enrollments) and `deleteChild` (DELETE /enrollments/:id) are
+  // gone — neither route exists on the backend, so both could only 404.
+  it("exposes no client for the removed enrollment routes", () => {
+    const parent = BackendAPI.parent as Record<string, unknown>;
+    expect(parent.enroll).toBeUndefined();
+    expect(parent.deleteChild).toBeUndefined();
   });
 
   it("initiateFirstPayment POSTs the initiate endpoint", async () => {
@@ -393,11 +381,6 @@ describe("BackendAPI.parent", () => {
     expect(get).toHaveBeenCalledWith("/transactions", {
       params: { includeReceiptSignedUrls: true },
     });
-  });
-
-  it("deleteChild DELETEs /enrollments/:id", async () => {
-    await BackendAPI.parent.deleteChild("e1");
-    expect(del).toHaveBeenCalledWith("/enrollments/e1");
   });
 });
 

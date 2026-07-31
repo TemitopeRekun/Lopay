@@ -3,24 +3,21 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { Header } from '../components/Header';
+import { applyTheme, storeTheme, type Theme } from '../utils/theme';
 
 const SettingsScreen: React.FC = () => {
   const navigate = useNavigate();
   const [darkMode, setDarkMode] = useState(() => {
     return document.documentElement.classList.contains('dark');
   });
-  const [notifications, setNotifications] = useState(true);
-  const [biometrics, setBiometrics] = useState(false);
 
+  // Persist the choice. It used to live only on the <html> element, so it reset on
+  // every reload and the toggle appeared to forget what you told it.
   const toggleDarkMode = () => {
-    const html = document.documentElement;
-    if (html.classList.contains('dark')) {
-        html.classList.remove('dark');
-        setDarkMode(false);
-    } else {
-        html.classList.add('dark');
-        setDarkMode(true);
-    }
+    const next: Theme = darkMode ? 'light' : 'dark';
+    applyTheme(next);
+    storeTheme(next);
+    setDarkMode(next === 'dark');
   };
 
   const handleTerms = () => {
@@ -55,36 +52,31 @@ const SettingsScreen: React.FC = () => {
               </div>
           </section>
 
+          {/*
+            "Push Notifications" and "Biometric Login" toggles used to live here.
+            Both were local useState only: flipping them changed a switch colour and
+            nothing else — no preference was stored and no capability was enabled or
+            disabled. Push in particular reads as a working opt-out when the app has
+            never registered a device token with the backend, so no push could arrive
+            in either position.
+
+            They come back when there is something behind them to turn on.
+          */}
+
           <section>
-              <h3 className="text-sm font-bold text-text-secondary-light uppercase tracking-wider mb-4">Preferences</h3>
+              <h3 className="text-sm font-bold text-text-secondary-light uppercase tracking-wider mb-4">Notifications</h3>
               <div className="bg-white dark:bg-card-dark rounded-xl border border-gray-100 dark:border-gray-800 overflow-hidden">
-                  <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-800">
-                      <div className="flex items-center gap-3">
-                          <div className="size-8 rounded-full bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center">
-                              <span className="material-symbols-outlined text-primary">notifications</span>
-                          </div>
-                          <span className="font-medium text-text-primary-light dark:text-text-primary-dark">Push Notifications</span>
+                  <div className="flex items-start gap-3 p-4">
+                      <div className="size-8 shrink-0 rounded-full bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center">
+                          <span className="material-symbols-outlined text-primary">notifications</span>
                       </div>
-                      <button 
-                        onClick={() => setNotifications(!notifications)}
-                        className={`w-12 h-7 rounded-full transition-colors relative ${notifications ? 'bg-success' : 'bg-gray-200 dark:bg-gray-700'}`}
-                      >
-                          <div className={`size-5 bg-white rounded-full absolute top-1 transition-transform ${notifications ? 'left-6' : 'left-1'}`}></div>
-                      </button>
-                  </div>
-                  <div className="flex items-center justify-between p-4">
-                      <div className="flex items-center gap-3">
-                          <div className="size-8 rounded-full bg-purple-50 dark:bg-purple-900/20 flex items-center justify-center">
-                              <span className="material-symbols-outlined text-purple-500">fingerprint</span>
-                          </div>
-                          <span className="font-medium text-text-primary-light dark:text-text-primary-dark">Biometric Login</span>
+                      <div>
+                          <p className="font-medium text-text-primary-light dark:text-text-primary-dark">In-app alerts</p>
+                          <p className="text-xs text-text-secondary-light mt-1 leading-relaxed">
+                              Payment confirmations, rejections and reminders appear under
+                              Alerts. Device push notifications aren&apos;t available yet.
+                          </p>
                       </div>
-                      <button 
-                        onClick={() => setBiometrics(!biometrics)}
-                        className={`w-12 h-7 rounded-full transition-colors relative ${biometrics ? 'bg-success' : 'bg-gray-200 dark:bg-gray-700'}`}
-                      >
-                          <div className={`size-5 bg-white rounded-full absolute top-1 transition-transform ${biometrics ? 'left-6' : 'left-1'}`}></div>
-                      </button>
                   </div>
               </div>
           </section>

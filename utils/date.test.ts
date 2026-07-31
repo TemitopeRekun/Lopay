@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { calculateNextDueDate, formatDate } from "./date";
+import {
+  calculateNextDueDate,
+  formatDate,
+  formatDateTime,
+  formatRelativeTime,
+} from "./date";
 
 // Local-noon date strings so the calendar day never rolls over under the
 // runner's timezone; en-GB short-month formatting is stable on full-ICU Node.
@@ -54,5 +59,71 @@ describe("formatDate", () => {
 
   it("formats a valid date as 'D Mon YYYY'", () => {
     expect(formatDate(START)).toBe("15 Jun 2026");
+  });
+});
+
+describe("formatRelativeTime", () => {
+  const NOW = new Date("2026-06-15T12:00:00");
+  const minutesAgo = (n: number) =>
+    new Date(NOW.getTime() - n * 60_000).toISOString();
+
+  it("never renders a raw ISO timestamp", () => {
+    // The whole point: history, the dashboard log and the notification list used to
+    // print `apiTx.date` / `createdAt` verbatim.
+    const out = formatRelativeTime(minutesAgo(5), NOW);
+    expect(out).not.toMatch(/T\d{2}:\d{2}/);
+    expect(out).not.toContain("Z");
+  });
+
+  it("returns '-' for a missing or unparseable value", () => {
+    expect(formatRelativeTime(undefined, NOW)).toBe("-");
+    expect(formatRelativeTime("nonsense", NOW)).toBe("-");
+  });
+
+  it("reads 'Just now' under a minute", () => {
+    expect(formatRelativeTime(minutesAgo(0), NOW)).toBe("Just now");
+  });
+
+  it("counts minutes within the hour", () => {
+    expect(formatRelativeTime(minutesAgo(42), NOW)).toBe("42m ago");
+  });
+
+  it("counts hours within the day", () => {
+    expect(formatRelativeTime(minutesAgo(5 * 60), NOW)).toBe("5h ago");
+  });
+
+  it("names yesterday rather than counting 24h", () => {
+    expect(formatRelativeTime(minutesAgo(26 * 60), NOW)).toBe("Yesterday");
+  });
+
+  it("counts days within the week", () => {
+    expect(formatRelativeTime(minutesAgo(3 * 24 * 60), NOW)).toBe("3d ago");
+  });
+
+  it("falls back to a calendar date past a week", () => {
+    expect(formatRelativeTime("2026-05-02T12:00:00", NOW)).toBe("2 May");
+  });
+
+  it("includes the year once it differs from the current one", () => {
+    expect(formatRelativeTime("2025-11-02T12:00:00", NOW)).toBe("2 Nov 2025");
+  });
+
+  it("does not render a negative age for a future-dated row", () => {
+    // Clock skew between the server and the device must not produce "-43m ago".
+    const future = new Date(NOW.getTime() + 60 * 60_000).toISOString();
+    expect(formatRelativeTime(future, NOW)).toBe("Just now");
+  });
+});
+
+describe("formatDateTime", () => {
+  it("returns '-' for a missing or unparseable value", () => {
+    expect(formatDateTime(undefined)).toBe("-");
+    expect(formatDateTime("nonsense")).toBe("-");
+  });
+
+  it("includes both the date and the time of day", () => {
+    const out = formatDateTime("2026-06-15T14:35:00");
+    expect(out).toContain("15 Jun 2026");
+    expect(out).toMatch(/14:35/);
   });
 });

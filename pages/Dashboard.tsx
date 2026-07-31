@@ -9,6 +9,7 @@ import { RecentTransactionsList } from "../components/RecentTransactionsList";
 import { ImpersonationBanner } from "../components/ImpersonationBanner";
 import { NotificationIconButton } from "../components/NotificationIconButton";
 import { useUsers } from "../hooks/useQueries";
+import { installmentCount, toPlanType } from "../utils/plan";
 
 const Dashboard: React.FC = () => {
   const {
@@ -120,11 +121,8 @@ const Dashboard: React.FC = () => {
     context?: { isFirstPaymentRetry?: boolean },
   ) => {
     if (context?.isFirstPaymentRetry) {
-      const rawFrequency = String(child.installmentFrequency || "MONTHLY")
-        .trim()
-        .toUpperCase();
-      const planType = rawFrequency === "WEEKLY" ? "Weekly" : "Monthly";
-      const numberOfPayments = planType === "Weekly" ? 12 : 3;
+      const planType = toPlanType(child.installmentFrequency);
+      const numberOfPayments = installmentCount(child.installmentFrequency);
 
       const failedFirstPayment = (child.payments || [])
         .filter((p) => {
@@ -147,6 +145,13 @@ const Dashboard: React.FC = () => {
         failedFirstPayment?.amountPaid ??
         0;
 
+      // Deliberately does NOT pass depositAmount / platformFeeAmount /
+      // totalInitialPayment. It used to send zeros, which made ConfirmPlanScreen
+      // render a ₦0 platform fee, route the whole payment "to school", and
+      // understate the balance-after-payment by exactly the platform fee — and if
+      // no failed row could be found, offer a ₦0 minimum that the server rejects.
+      // With them absent, ConfirmPlanScreen fetches the authoritative figures from
+      // the same calculator endpoint the server validates against.
       navigate("/confirm-plan", {
         state: {
           childName: child.name,
@@ -162,11 +167,11 @@ const Dashboard: React.FC = () => {
             frequencyLabel: planType,
             numberOfPayments,
           },
-          depositAmount: 0,
           feeType: "Session",
           schoolId: child.schoolId,
-          totalInitialPayment: failedAmount,
-          platformFeeAmount: 0,
+          // Prefill the amount they last attempted, when we know it. It is only a
+          // default — the fetched minimum still bounds what can be submitted.
+          suggestedFirstPayment: failedAmount > 0 ? failedAmount : undefined,
         },
       });
       return;

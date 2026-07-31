@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { Layout } from "../components/Layout";
 import { Header } from "../components/Header";
@@ -7,7 +7,9 @@ import { useUIStore } from "../store/uiStore";
 import { useAuth } from "../context/AuthContext";
 import { BackendAPI } from "../services/backend";
 import { openPaystackPopup } from "../services/paystack";
+import { usePaymentCalculation } from "../hooks/useQueries";
 import { newIdempotencyKey } from "../utils/idempotency";
+import { MONTHLY_INSTALLMENTS } from "../utils/plan";
 import { isValidPhone, normalizePhone, validatePhone } from "../utils/phone";
 
 interface LocationState {
@@ -21,6 +23,12 @@ interface LocationState {
   schoolId?: string;
   totalInitialPayment?: number;
   platformFeeAmount?: number;
+  /**
+   * Optional prefill for the amount box (used by the first-payment retry, which
+   * defaults to whatever the parent last attempted). Never widens the bounds —
+   * minimum/maximum still come from the calculation.
+   */
+  suggestedFirstPayment?: number;
 }
 
 const naira = (n: number) =>
@@ -57,8 +65,25 @@ const ConfirmPlanScreen: React.FC = () => {
 
   const entityType = "School";
 
-  const platformFee = state?.platformFeeAmount ?? 0;
-  const minimumPayment = state?.totalInitialPayment || depositAmount + platformFee;
+  // The calculator screen hands these over; a first-payment retry from the
+  // dashboard cannot know them (they derive from the school's fee schedule), so
+  // fetch them from the same endpoint the server validates the charge against.
+  // Guessing here is what produced a ₦0 platform fee and an understated balance.
+  const needsCalculation =
+    state?.platformFeeAmount === undefined ||
+    state?.totalInitialPayment === undefined;
+  const { data: calculation, isLoading: isCalculating, isError: calculationFailed } =
+    usePaymentCalculation(
+      { schoolId, totalAmount: totalFee, feeType, grade },
+      needsCalculation,
+    );
+
+  const platformFee = state?.platformFeeAmount ?? calculation?.platformFeeAmount ?? 0;
+  const resolvedDeposit = depositAmount || calculation?.depositAmount || 0;
+  const minimumPayment =
+    state?.totalInitialPayment ??
+    calculation?.totalInitialPayment ??
+    resolvedDeposit + platformFee;
   const maximumPayment = totalFee + platformFee; // full fee upfront
 
   const effectivePlan =
@@ -66,13 +91,30 @@ const ConfirmPlanScreen: React.FC = () => {
       type: "Monthly",
       amount: totalFee,
       frequencyLabel: "Monthly",
-      numberOfPayments: 3,
+      numberOfPayments: MONTHLY_INSTALLMENTS,
     };
 
   // Feature 2 — flexible first payment. The parent may pay anything from the
   // minimum activation amount up to the full fee. Extra reduces the balance.
-  const [amountInput, setAmountInput] = useState<string>(minimumPayment.toFixed(2));
+  const [amountInput, setAmountInput] = useState<string>("");
   const firstPayment = Number(amountInput) || 0;
+
+  // Seed the box once the bounds are known (immediately when the calculator screen
+  // supplied them, or after the fetch resolves on a retry). Only while untouched —
+  // re-seeding would fight the parent as they type.
+  const hasSeededAmount = useRef(false);
+  useEffect(() => {
+    if (hasSeededAmount.current || minimumPayment <= 0) return;
+    const suggested = state?.suggestedFirstPayment;
+    const seed =
+      suggested !== undefined &&
+      suggested >= minimumPayment &&
+      suggested <= maximumPayment
+        ? suggested
+        : minimumPayment;
+    setAmountInput(seed.toFixed(2));
+    hasSeededAmount.current = true;
+  }, [minimumPayment, maximumPayment, state?.suggestedFirstPayment]);
 
   const { amountToSchool, remainingBalance, futureInstallmentAmount, amountError } =
     useMemo(() => {
@@ -100,6 +142,45 @@ const ConfirmPlanScreen: React.FC = () => {
   const contactIncomplete = needsPhoneNumber && !isValidPhone(phoneInput);
 
   if (!state) return null;
+
+  // Don't render a money breakdown against unknown figures — an amount box seeded
+  // from a guessed minimum is worse than a spinner.
+  if (needsCalculation && isCalculating) {
+    return (
+      <Layout>
+        <Header title="Finalize & Activate" />
+        <div className="flex flex-col items-center justify-center flex-1 p-6">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
+          <p className="mt-4 text-text-secondary-light text-sm">
+            Loading your payment details...
+          </p>
+        </div>
+      </Layout>
+    );
+  }
+
+  if (needsCalculation && (calculationFailed || minimumPayment <= 0)) {
+    return (
+      <Layout>
+        <Header title="Finalize & Activate" />
+        <div className="flex flex-col items-center justify-center flex-1 p-6 text-center">
+          <span className="material-symbols-outlined text-4xl text-danger mb-2">
+            error
+          </span>
+          <p className="text-text-secondary-light mb-4 text-sm">
+            We couldn&apos;t load this school&apos;s payment details. Please try
+            again.
+          </p>
+          <button
+            onClick={() => navigate(-1)}
+            className="text-primary font-bold"
+          >
+            Go Back
+          </button>
+        </div>
+      </Layout>
+    );
+  }
 
   const handlePay = async () => {
     if (!schoolId) {
