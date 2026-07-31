@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Layout } from '../components/Layout';
+import { normalizePhone, validatePhone } from '../utils/phone';
 
 const AuthScreen: React.FC = () => {
   const [mode, setMode] = useState<'login' | 'signup'>('signup');
@@ -33,15 +34,10 @@ const AuthScreen: React.FC = () => {
     setIsSubmitting(true);
     
     if (mode === 'signup') {
-        if (!phoneNumber) {
-            setError('Phone number is required for contact updates.');
-            setIsSubmitting(false);
-            return;
-        }
         // Accept Nigerian formats: 08012345678, +2348012345678, 2348012345678.
-        const normalizedPhone = phoneNumber.replace(/[\s-]/g, '');
-        if (!/^(\+?234|0)\d{10}$/.test(normalizedPhone)) {
-            setError('Enter a valid phone number (e.g. 08012345678).');
+        const phoneError = validatePhone(phoneNumber);
+        if (phoneError) {
+            setError(phoneError);
             setIsSubmitting(false);
             return;
         }
@@ -65,7 +61,7 @@ const AuthScreen: React.FC = () => {
             await register({
                 fullName,
                 email,
-                phoneNumber,
+                phoneNumber: normalizePhone(phoneNumber),
                 password,
                 confirmPassword,
                 role: roleSelection,
@@ -292,18 +288,10 @@ const AuthScreen: React.FC = () => {
           </button>
         </form>
 
-        <div className="mt-8 text-center space-y-4">
+        <div className="mt-8 text-center">
             <p className="text-xs text-text-secondary-light">
                 By continuing, you agree to our <Link to="/terms" className="text-primary font-bold">Terms</Link> and <Link to="/privacy" className="text-primary font-bold">Privacy Policy</Link>.
             </p>
-            
-            <div className="p-4 bg-gray-50 dark:bg-white/5 rounded-2xl border border-dashed border-gray-200 dark:border-gray-800">
-                <p className="text-[10px] font-bold text-text-secondary-light uppercase tracking-widest mb-2">Test Credentials</p>
-                <div className="flex justify-center gap-4 text-[10px] font-medium">
-                    <span className="text-secondary font-bold">owner@febison.com / owner</span>
-                    <span className="text-primary font-bold">demo@lopay.app / demo</span>
-                </div>
-            </div>
         </div>
       </div>
     </Layout>

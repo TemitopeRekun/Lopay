@@ -13,10 +13,12 @@ import {
 } from "../hooks/useQueries";
 import { ImpersonationBanner } from "../components/profile/ImpersonationBanner";
 import { ProfileIdentityHeader } from "../components/profile/ProfileIdentityHeader";
+import { ContactDetailsSection } from "../components/profile/ContactDetailsSection";
 import { InstitutionalLinkCard } from "../components/profile/InstitutionalLinkCard";
 import { SettlementAccountSection } from "../components/profile/SettlementAccountSection";
 import { AccountAccessMenu } from "../components/profile/AccountAccessMenu";
 import { ProfileFooter } from "../components/profile/ProfileFooter";
+import { normalizePhone, validatePhone } from "../utils/phone";
 
 const ProfileScreen: React.FC = () => {
   const {
@@ -53,6 +55,12 @@ const ProfileScreen: React.FC = () => {
     accountName: "",
     accountNumber: "",
   });
+
+  // Edit state for the contact phone number
+  const [isEditingPhone, setIsEditingPhone] = useState(false);
+  const [phoneInput, setPhoneInput] = useState("");
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [isSavingPhone, setIsSavingPhone] = useState(false);
 
   const userSchool = useMemo(() => {
     if (schoolId) {
@@ -172,6 +180,40 @@ const ProfileScreen: React.FC = () => {
     }
   };
 
+  const startEditingPhone = () => {
+    setPhoneInput(effectiveUser?.phoneNumber || "");
+    setPhoneError(null);
+    setIsEditingPhone(true);
+  };
+
+  // Validate as they type, but stay quiet until there's something to complain
+  // about — an error on an empty field the moment the form opens reads as a
+  // failure rather than a prompt.
+  const handlePhoneInputChange = (value: string) => {
+    setPhoneInput(value);
+    setPhoneError(value.trim() ? validatePhone(value) : null);
+  };
+
+  const handleSavePhone = async () => {
+    const validationError = validatePhone(phoneInput);
+    if (validationError) {
+      setPhoneError(validationError);
+      return;
+    }
+
+    setIsSavingPhone(true);
+    try {
+      await updateAuthUser({ phoneNumber: normalizePhone(phoneInput) });
+      setIsEditingPhone(false);
+      showToast("Phone number updated successfully!", "success");
+    } catch (error) {
+      console.error("Failed to update phone number", error);
+      showToast("Failed to update phone number. Please try again.", "error");
+    } finally {
+      setIsSavingPhone(false);
+    }
+  };
+
   const getRoleLabel = () => {
     switch (effectiveUser?.role) {
       case "owner":
@@ -226,6 +268,19 @@ const ProfileScreen: React.FC = () => {
 
         <div className="p-6 space-y-8">
           {userSchool && <InstitutionalLinkCard schoolName={userSchool.name} />}
+
+          <ContactDetailsSection
+            isEditing={isEditingPhone}
+            phoneInput={phoneInput}
+            currentPhoneNumber={effectiveUser?.phoneNumber}
+            error={phoneError}
+            canEdit={!isImpersonating}
+            isSaving={isSavingPhone}
+            onStartEditing={startEditingPhone}
+            onCancel={() => setIsEditingPhone(false)}
+            onSave={handleSavePhone}
+            onPhoneInputChange={handlePhoneInputChange}
+          />
 
           {isSchoolOwner && (
             <SettlementAccountSection
