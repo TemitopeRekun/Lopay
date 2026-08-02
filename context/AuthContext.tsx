@@ -27,11 +27,12 @@ interface AuthContextType {
   register: (data: RegisterData) => Promise<boolean>;
   updateUser: (user: Partial<User>) => Promise<void>;
 
-  // Impersonation / Context Switching
+  // Role / school context switching. There is deliberately no "act as user X"
+  // here — an admin can preview a role and scope themselves to a school, never
+  // borrow another person's identity.
   actingRole: UserRole | null;
-  actingUserId: string | null;
   activeSchoolId: string | null;
-  setActingRole: (role: UserRole, schoolId?: string, userId?: string) => void;
+  setActingRole: (role: UserRole, schoolId?: string) => void;
   switchRole: () => void;
 
   // The effective role used for UI permissions (actingRole > user.role)
@@ -49,9 +50,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     localStorage.getItem("accessToken"),
   );
 
-  // Impersonation State
+  // Context-switch state
   const [actingRole, setActingRoleState] = useState<UserRole | null>(null);
-  const [actingUserId, setActingUserId] = useState<string | null>(null);
   const [activeSchoolId, setActiveSchoolId] = useState<string | null>(null);
 
   // Hydrate from localStorage immediately (fast/offline), then refresh from the
@@ -107,7 +107,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     setToken(localStorage.getItem("accessToken"));
     setUser(normalizedUser);
     setActingRoleState(null);
-    setActingUserId(null);
     setActiveSchoolId(null);
     localStorage.setItem("user", JSON.stringify(apiUser));
     return normalizedUser;
@@ -141,7 +140,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     setToken(null);
     setUser(null);
     setActingRoleState(null);
-    setActingUserId(null);
     setActiveSchoolId(null);
 
     // Revoke the server session (best-effort), then clear local state.
@@ -234,20 +232,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     }
   };
 
-  const setActingRole = (
-    role: UserRole,
-    schoolId?: string,
-    userId?: string,
-  ) => {
+  const setActingRole = (role: UserRole, schoolId?: string) => {
     // Acting role is UI-only state (lets an admin preview a parent/school-owner
-    // view). It is NOT a privilege grant: every API request still carries the
-    // user's real role from the session, and the backend authorizes against that
-    // real role — never this acting role — so this cannot escalate access.
+    // view of their OWN account). It is NOT a privilege grant: every API request
+    // still carries the user's real role from the session, and the backend
+    // authorizes against that real role — never this acting role.
+    //
+    // It is also not a way to view someone else's account. User impersonation
+    // was removed from the admin directory: because the acting role never
+    // reaches the server, the "parent view" it produced was the admin's own
+    // session data wearing another person's name — misleading rather than
+    // useful. Support reads real data through the admin endpoints instead.
     if (!user) return;
 
     setActingRoleState(role);
     setActiveSchoolId(schoolId || null);
-    setActingUserId(userId || null);
   };
 
   const switchRole = () => {
@@ -256,12 +255,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       const currentEffectiveRole = actingRole || user.role;
 
       if (currentEffectiveRole === "owner") {
-        setActingRoleState("parent");
-        setActingUserId(null); // Be yourself as parent
+        setActingRoleState("parent"); // Be yourself as parent
         setActiveSchoolId(null);
       } else {
         setActingRoleState(null); // Revert to real role (owner)
-        setActingUserId(null);
         setActiveSchoolId(null);
       }
     }
@@ -289,7 +286,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         updateUser,
 
         actingRole,
-        actingUserId,
         activeSchoolId,
         setActingRole,
         switchRole,

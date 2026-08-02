@@ -6,12 +6,7 @@ import { BottomNav } from "../components/BottomNav";
 import { useAuth } from "../context/AuthContext";
 import { useData } from "../context/DataContext";
 import { useUIStore } from "../store/uiStore";
-import {
-  useUser,
-  useUpdateSchool,
-  useSchoolBankDetails,
-} from "../hooks/useQueries";
-import { ImpersonationBanner } from "../components/profile/ImpersonationBanner";
+import { useUpdateSchool, useSchoolBankDetails } from "../hooks/useQueries";
 import { ProfileIdentityHeader } from "../components/profile/ProfileIdentityHeader";
 import { ContactDetailsSection } from "../components/profile/ContactDetailsSection";
 import { InstitutionalLinkCard } from "../components/profile/InstitutionalLinkCard";
@@ -26,8 +21,6 @@ const ProfileScreen: React.FC = () => {
     role: userRole,
     user,
     switchRole,
-    actingUserId,
-    setActingRole,
     updateUser: updateAuthUser,
     isOwnerAccount,
     effectiveRole,
@@ -37,16 +30,13 @@ const ProfileScreen: React.FC = () => {
   const { showToast } = useUIStore();
   const navigate = useNavigate();
 
-  // Fetch acting user data if impersonating
-  const { data: actingUser } = useUser(actingUserId);
   const updateSchool = useUpdateSchool();
 
-  // Determine effective user
-  const effectiveUser = actingUserId ? actingUser : user;
-
-  const isImpersonating = !!actingUserId;
+  // Always the signed-in user. This screen used to render another user's
+  // profile while an admin "impersonated" them; that entry point is gone, so
+  // everything here is self-service and every write targets the real session.
   const isSchoolOwner = effectiveRole === "school_owner";
-  const schoolId = effectiveUser?.schoolId || activeSchoolId || null;
+  const schoolId = user?.schoolId || activeSchoolId || null;
 
   // Edit state for bank details
   const [isEditingBank, setIsEditingBank] = useState(false);
@@ -67,8 +57,8 @@ const ProfileScreen: React.FC = () => {
       return schools.find((s) => s.id === schoolId) || null;
     }
 
-    if (isSchoolOwner && effectiveUser?.email) {
-      const email = effectiveUser.email.trim().toLowerCase();
+    if (isSchoolOwner && user?.email) {
+      const email = user.email.trim().toLowerCase();
       return (
         schools.find((s) => (s.email || "").trim().toLowerCase() === email) ||
         null
@@ -76,7 +66,7 @@ const ProfileScreen: React.FC = () => {
     }
 
     return null;
-  }, [schoolId, schools, isSchoolOwner, effectiveUser?.email]);
+  }, [schoolId, schools, isSchoolOwner, user?.email]);
 
   const schoolIdForBankDetails = userSchool?.id || schoolId || null;
 
@@ -95,7 +85,7 @@ const ProfileScreen: React.FC = () => {
     : null;
 
   const displayName = useMemo(() => {
-    const name = effectiveUser?.name;
+    const name = user?.name;
     const hasUserName = !!name && name !== "Unknown User";
 
     if (isSchoolOwner) {
@@ -110,7 +100,7 @@ const ProfileScreen: React.FC = () => {
     if (hasUserName) return name;
     return userSchool?.ownerName || userSchool?.name || "User";
   }, [
-    effectiveUser?.name,
+    user?.name,
     isSchoolOwner,
     userSchool?.ownerName,
     userSchool?.name,
@@ -122,15 +112,15 @@ const ProfileScreen: React.FC = () => {
       bankName:
         isSchoolOwner && schoolBank?.bankName
           ? schoolBank.bankName
-          : effectiveUser?.bankName || "",
+          : user?.bankName || "",
       accountName:
         isSchoolOwner && schoolBank?.accountName
           ? schoolBank.accountName
-          : effectiveUser?.accountName || "",
+          : user?.accountName || "",
       accountNumber:
         isSchoolOwner && schoolBank?.accountNumber
           ? schoolBank.accountNumber
-          : effectiveUser?.accountNumber || "",
+          : user?.accountNumber || "",
     });
     setIsEditingBank(true);
   };
@@ -144,15 +134,10 @@ const ProfileScreen: React.FC = () => {
     }
   };
 
-  const handleExitImpersonation = () => {
-    setActingRole("owner");
-    navigate("/owner-dashboard");
-  };
-
   const handleSaveBank = async () => {
-    if (!effectiveUser) return;
+    if (!user) return;
 
-    const currentBank = isSchoolOwner ? schoolBank : effectiveUser;
+    const currentBank = isSchoolOwner ? schoolBank : user;
     const updatedData = {
       bankName: editBankData.bankName || currentBank?.bankName || "",
       accountName: editBankData.accountName || currentBank?.accountName || "",
@@ -168,7 +153,7 @@ const ProfileScreen: React.FC = () => {
         });
       } else {
         await updateAuthUser({
-          ...effectiveUser,
+          ...user,
           ...updatedData,
         });
       }
@@ -181,7 +166,7 @@ const ProfileScreen: React.FC = () => {
   };
 
   const startEditingPhone = () => {
-    setPhoneInput(effectiveUser?.phoneNumber || "");
+    setPhoneInput(user?.phoneNumber || "");
     setPhoneError(null);
     setIsEditingPhone(true);
   };
@@ -215,7 +200,7 @@ const ProfileScreen: React.FC = () => {
   };
 
   const getRoleLabel = () => {
-    switch (effectiveUser?.role) {
+    switch (user?.role) {
       case "owner":
         return "Platform Admin";
       case "school_owner":
@@ -233,36 +218,29 @@ const ProfileScreen: React.FC = () => {
   const handleCopyAccountNumber = () => {
     const accountNumber = isSchoolOwner
       ? schoolBank?.accountNumber
-      : effectiveUser?.accountNumber;
+      : user?.accountNumber;
     if (!accountNumber) return;
     copyToClipboard(accountNumber);
   };
 
   const currentBankName = isSchoolOwner
     ? schoolBank?.bankName
-    : effectiveUser?.bankName;
+    : user?.bankName;
   const currentAccountName = isSchoolOwner
     ? schoolBank?.accountName
-    : effectiveUser?.accountName;
+    : user?.accountName;
   const currentAccountNumber = isSchoolOwner
     ? schoolBank?.accountNumber
-    : effectiveUser?.accountNumber;
+    : user?.accountNumber;
 
   return (
     <Layout showBottomNav>
-      {isImpersonating && (
-        <ImpersonationBanner
-          displayName={displayName}
-          onExit={handleExitImpersonation}
-        />
-      )}
-
       <Header title="My Profile" />
       <div className="flex-1 overflow-y-auto pb-10">
         <ProfileIdentityHeader
           displayName={displayName}
-          email={effectiveUser?.email}
-          phoneNumber={effectiveUser?.phoneNumber}
+          email={user?.email}
+          phoneNumber={user?.phoneNumber}
           roleLabel={getRoleLabel()}
         />
 
@@ -272,9 +250,8 @@ const ProfileScreen: React.FC = () => {
           <ContactDetailsSection
             isEditing={isEditingPhone}
             phoneInput={phoneInput}
-            currentPhoneNumber={effectiveUser?.phoneNumber}
+            currentPhoneNumber={user?.phoneNumber}
             error={phoneError}
-            canEdit={!isImpersonating}
             isSaving={isSavingPhone}
             onStartEditing={startEditingPhone}
             onCancel={() => setIsEditingPhone(false)}
@@ -299,7 +276,6 @@ const ProfileScreen: React.FC = () => {
 
           <AccountAccessMenu
             isOwnerAccount={isOwnerAccount}
-            isImpersonating={isImpersonating}
             userRole={userRole}
             onSwitch={handleSwitch}
             onSettings={() => navigate("/settings")}
@@ -308,11 +284,10 @@ const ProfileScreen: React.FC = () => {
           />
 
           <ProfileFooter
-            isImpersonating={isImpersonating}
             onLogout={logout}
-            userId={effectiveUser?.id}
+            userId={user?.id}
             userRole={userRole}
-            rawRole={effectiveUser?.role}
+            rawRole={user?.role}
           />
         </div>
       </div>

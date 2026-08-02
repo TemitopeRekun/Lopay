@@ -20,7 +20,6 @@ vi.mock("../context/AuthContext", () => ({
   useAuth: () => ({
     user: { id: "u1", name: "Ada Parent" },
     setActingRole: vi.fn(),
-    actingUserId: null,
     isOwnerAccount: false,
   }),
 }));

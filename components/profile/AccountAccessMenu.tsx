@@ -2,7 +2,6 @@ import React from "react";
 
 interface AccountAccessMenuProps {
   isOwnerAccount: boolean;
-  isImpersonating: boolean;
   userRole: string | null;
   onSwitch: () => void;
   onSettings: () => void;
@@ -13,7 +12,6 @@ interface AccountAccessMenuProps {
 /** "Account & Access" menu: role switch plus navigation to settings/support/directory. */
 export const AccountAccessMenu: React.FC<AccountAccessMenuProps> = ({
   isOwnerAccount,
-  isImpersonating,
   userRole,
   onSwitch,
   onSettings,
@@ -25,7 +23,7 @@ export const AccountAccessMenu: React.FC<AccountAccessMenuProps> = ({
       Account & Access
     </h3>
 
-    {isOwnerAccount && !isImpersonating && (
+    {isOwnerAccount && (
       <button
         onClick={onSwitch}
         className="w-full p-4 bg-primary/5 border border-primary/20 text-primary rounded-2xl flex items-center justify-between shadow-sm hover:bg-primary/10 transition-all group"
@@ -81,7 +79,7 @@ export const AccountAccessMenu: React.FC<AccountAccessMenuProps> = ({
         </span>
       </button>
 
-      {isOwnerAccount && !isImpersonating && (
+      {isOwnerAccount && (
         <button
           onClick={onDirectory}
           className="w-full p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"

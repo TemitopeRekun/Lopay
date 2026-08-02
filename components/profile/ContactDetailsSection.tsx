@@ -6,8 +6,6 @@ interface ContactDetailsSectionProps {
   currentPhoneNumber?: string;
   /** Validation message shown under the input, or null when it's acceptable. */
   error: string | null;
-  /** Hidden while impersonating — this writes to the signed-in user, not them. */
-  canEdit: boolean;
   isSaving: boolean;
   onStartEditing: () => void;
   onCancel: () => void;
@@ -25,7 +23,6 @@ export const ContactDetailsSection: React.FC<ContactDetailsSectionProps> = ({
   phoneInput,
   currentPhoneNumber,
   error,
-  canEdit,
   isSaving,
   onStartEditing,
   onCancel,
@@ -37,7 +34,7 @@ export const ContactDetailsSection: React.FC<ContactDetailsSectionProps> = ({
       <h3 className="text-[10px] font-black text-text-secondary-light uppercase tracking-[0.2em]">
         Contact Details
       </h3>
-      {!isEditing && canEdit && (
+      {!isEditing && (
         <button
           onClick={onStartEditing}
           className="flex items-center gap-1 text-[10px] font-black text-primary uppercase tracking-widest bg-primary/10 px-3 py-1.5 rounded-lg"

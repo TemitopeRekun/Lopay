@@ -143,7 +143,7 @@ describe("DataProvider — role-derived flags & selectors", () => {
     expect(data.isPlatformOwner).toBe(false);
   });
 
-  it("treats a school owner impersonating a parent as both parent and school", () => {
+  it("treats a school owner previewing the parent role as both parent and school", () => {
     renderData({
       user: { role: "school_owner" },
       effectiveRole: "parent",

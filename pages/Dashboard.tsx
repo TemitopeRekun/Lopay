@@ -6,18 +6,11 @@ import { useAuth } from "../context/AuthContext";
 import { useData } from "../context/DataContext";
 import { PlanCard } from "../components/PlanCard";
 import { RecentTransactionsList } from "../components/RecentTransactionsList";
-import { ImpersonationBanner } from "../components/ImpersonationBanner";
 import { NotificationIconButton } from "../components/NotificationIconButton";
-import { useUsers } from "../hooks/useQueries";
 import { installmentCount, toPlanType } from "../utils/plan";
 
 const Dashboard: React.FC = () => {
-  const {
-    user: currentUser,
-    setActingRole,
-    actingUserId,
-    isOwnerAccount,
-  } = useAuth();
+  const { user: currentUser, isOwnerAccount, setActingRole } = useAuth();
   const {
     childrenData = [],
     transactions = [],
@@ -27,7 +20,6 @@ const Dashboard: React.FC = () => {
     hasError,
     refreshData,
   } = useData();
-  const { data: allUsers = [] } = useUsers(isOwnerAccount);
   const navigate = useNavigate();
 
   const unreadNotifications = React.useMemo(() => {
@@ -51,10 +43,6 @@ const Dashboard: React.FC = () => {
   }, [schools]);
 
   const entityType = "School";
-
-  const actingAs = actingUserId
-    ? allUsers.find((u) => u.id === actingUserId)
-    : null;
 
   const activeEnrollments = React.useMemo(() => {
     return validChildren.filter((child) => {
@@ -187,6 +175,8 @@ const Dashboard: React.FC = () => {
     });
   };
 
+  // An admin previewing their own parent view (Profile → "Switch to Parent
+  // View") needs a way back to the admin hub.
   const handleReturnToAdmin = () => {
     setActingRole("owner");
     navigate("/owner-dashboard");
@@ -197,13 +187,6 @@ const Dashboard: React.FC = () => {
   if (isLoading) {
     return (
       <Layout showBottomNav>
-        {actingUserId && isOwnerAccount && (
-          <ImpersonationBanner
-            mode="user"
-            label={actingAs?.name || "User"}
-            onExit={handleReturnToAdmin}
-          />
-        )}
         <main className="flex flex-col items-center justify-center flex-1 p-6">
           <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin mb-4" />
           <p className="text-sm font-bold text-text-secondary-light">
@@ -217,17 +200,7 @@ const Dashboard: React.FC = () => {
 
   return (
     <Layout showBottomNav>
-      {actingUserId && isOwnerAccount && (
-        <ImpersonationBanner
-          mode="user"
-          label={actingAs?.name || "User"}
-          onExit={handleReturnToAdmin}
-        />
-      )}
-
-      <div
-        className={`sticky top-0 z-10 flex items-center justify-between bg-white dark:bg-background-dark p-6 pb-2 border-b border-gray-100 dark:border-gray-800 ${actingUserId ? "top-[42px]" : ""}`}
-      >
+      <div className="sticky top-0 z-10 flex items-center justify-between bg-white dark:bg-background-dark p-6 pb-2 border-b border-gray-100 dark:border-gray-800">
         <h1 className="text-2xl font-bold tracking-tight text-text-primary-light dark:text-text-primary-dark">
           Dashboard
         </h1>
@@ -250,7 +223,7 @@ const Dashboard: React.FC = () => {
             className="size-10 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 border-2 border-white dark:border-gray-600 shadow-sm"
           >
             <img
-              src={`https://ui-avatars.com/api/?name=${actingAs?.name || currentUser?.name || "User"}&background=random`}
+              src={`https://ui-avatars.com/api/?name=${currentUser?.name || "User"}&background=random`}
               alt="Profile"
               className="w-full h-full object-cover"
             />
@@ -296,7 +269,7 @@ const Dashboard: React.FC = () => {
             </div>
             <h2 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark mb-2">
               Welcome,{" "}
-              {(actingAs?.name || currentUser?.name || "User").split(" ")[0]}!
+              {(currentUser?.name || "User").split(" ")[0]}!
             </h2>
             <p className="text-text-secondary-light dark:text-text-secondary-dark max-w-xs mb-8">
               Your dashboard is empty. Add a child and set up a payment plan to
@@ -392,7 +365,7 @@ const Dashboard: React.FC = () => {
         </button>
       </div>
 
-      {isOwnerAccount && !actingUserId && (
+      {isOwnerAccount && (
         <button
           onClick={handleReturnToAdmin}
           className="fixed bottom-24 left-4 z-50 bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-5 py-3 rounded-full shadow-xl font-bold flex items-center gap-2 hover:scale-105 transition-transform"

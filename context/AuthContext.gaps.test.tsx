@@ -10,7 +10,7 @@ import { render, screen, waitFor, act } from "@testing-library/react";
 import { AuthProvider, useAuth } from "./AuthContext";
 
 // Covers the behaviour the existing AuthContext.test.tsx leaves out: login /
-// register / logout / updateUser flows plus impersonation (setActingRole /
+// register / logout / updateUser flows plus context switching (setActingRole /
 // switchRole) and localStorage hydration. Only the auth client, the backend
 // profile call and the query client are mocked — normalizeUser runs for real.
 const M = vi.hoisted(() => ({
@@ -54,7 +54,6 @@ const Probe = () => {
       <span data-testid="isOwner">{auth.isOwnerAccount ? "yes" : "no"}</span>
       <span data-testid="actingRole">{auth.actingRole ?? "null"}</span>
       <span data-testid="activeSchoolId">{auth.activeSchoolId ?? "null"}</span>
-      <span data-testid="actingUserId">{auth.actingUserId ?? "null"}</span>
       <span data-testid="userName">{auth.user?.name ?? "null"}</span>
       <span data-testid="userPhone">{auth.user?.phoneNumber ?? "null"}</span>
       <span data-testid="userSchoolId">{auth.user?.schoolId ?? "null"}</span>
@@ -424,7 +423,7 @@ describe("AuthProvider — updateUser", () => {
   });
 });
 
-describe("AuthProvider — impersonation & derived roles", () => {
+describe("AuthProvider — context switching & derived roles", () => {
   it("exposes owner-derived flags after hydration", async () => {
     M.getSession.mockResolvedValue(OWNER_SESSION);
 
@@ -436,7 +435,7 @@ describe("AuthProvider — impersonation & derived roles", () => {
     expect(screen.getByTestId("effectiveRole")).toHaveTextContent("owner");
   });
 
-  it("setActingRole overrides the effective role with a school + user id", async () => {
+  it("setActingRole overrides the effective role with a school scope", async () => {
     M.getSession.mockResolvedValue(OWNER_SESSION);
 
     renderAuth();
@@ -445,17 +444,16 @@ describe("AuthProvider — impersonation & derived roles", () => {
     );
 
     act(() => {
-      auth.setActingRole("parent" as any, "school-9", "user-2");
+      auth.setActingRole("parent" as any, "school-9");
     });
 
     expect(screen.getByTestId("actingRole")).toHaveTextContent("parent");
     expect(screen.getByTestId("activeSchoolId")).toHaveTextContent("school-9");
-    expect(screen.getByTestId("actingUserId")).toHaveTextContent("user-2");
     expect(screen.getByTestId("effectiveRole")).toHaveTextContent("parent");
     expect(screen.getByTestId("role")).toHaveTextContent("parent");
   });
 
-  it("setActingRole clears school/user ids when they are omitted", async () => {
+  it("setActingRole clears the school id when it is omitted", async () => {
     M.getSession.mockResolvedValue(OWNER_SESSION);
 
     renderAuth();
@@ -468,7 +466,6 @@ describe("AuthProvider — impersonation & derived roles", () => {
     });
 
     expect(screen.getByTestId("activeSchoolId")).toHaveTextContent("null");
-    expect(screen.getByTestId("actingUserId")).toHaveTextContent("null");
   });
 
   it("setActingRole is a no-op with no logged-in user", async () => {
@@ -478,10 +475,24 @@ describe("AuthProvider — impersonation & derived roles", () => {
     await waitFor(() => expect(M.getSession).toHaveBeenCalled());
 
     act(() => {
-      auth.setActingRole("parent" as any, "s", "u");
+      auth.setActingRole("parent" as any, "s");
     });
 
     expect(screen.getByTestId("actingRole")).toHaveTextContent("null");
+  });
+
+  // Guards the removal of user impersonation: the context must not expose any
+  // way to act as another person, only to preview a role / scope to a school.
+  it("exposes no acting-user identity on the auth context", async () => {
+    M.getSession.mockResolvedValue(OWNER_SESSION);
+
+    renderAuth();
+    await waitFor(() =>
+      expect(screen.getByTestId("userRole")).toHaveTextContent("owner"),
+    );
+
+    expect(auth).not.toHaveProperty("actingUserId");
+    expect(auth.setActingRole).toHaveLength(2);
   });
 
   it("switchRole toggles an owner between owner and parent views", async () => {
