@@ -157,11 +157,28 @@ export const normalizeChild = (apiEnrollment: ApiEnrollment): Child => {
     logger.error("Missing ID in enrollment:", apiEnrollment);
   }
 
-  let remainingBalance = toNumber(apiEnrollment.remainingBalance);
+  /*
+   * The enrollment's own remaining balance is authoritative — it is the number
+   * the ledger decrements on every confirmed payment. Deriving
+   * `totalFee - paidAmount` instead is lossy: paidAmount is the GROSS the parent
+   * paid, and the 2.5% platform fee inside a first payment never reduced the
+   * school-fee balance, so the derivation comes out short by that fee.
+   *
+   * So it is used only when the payload genuinely omits the field. A present-
+   * but-zero balance is a real zero (a settled plan, or a defaulted enrollment
+   * that was paid off) and must not be second-guessed.
+   */
+  const hasRemainingField =
+    apiEnrollment.remainingBalance !== undefined &&
+    apiEnrollment.remainingBalance !== null;
+
+  let remainingBalance = hasRemainingField
+    ? Math.max(0, toNumber(apiEnrollment.remainingBalance))
+    : 0;
 
   const rawTotalFeeField = toNumber(apiEnrollment.totalFee ?? apiEnrollment.totalSchoolFee);
 
-  if (rawTotalFeeField > 0 && remainingBalance <= 0 && paidAmount >= 0) {
+  if (!hasRemainingField && rawTotalFeeField > 0 && paidAmount >= 0) {
     const derivedRemaining = rawTotalFeeField - paidAmount;
     remainingBalance = derivedRemaining > 0 ? derivedRemaining : 0;
   }

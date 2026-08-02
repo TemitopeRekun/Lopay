@@ -273,6 +273,125 @@ describe("BackendAPI.school (non-ledger reads/writes)", () => {
     });
   });
 
+  it("getTransactions forwards a date window and take for exports", async () => {
+    await BackendAPI.school.getTransactions({
+      from: "2026-02-01T00:00:00.000Z",
+      to: "2026-02-28T23:59:59.999Z",
+      take: 1000,
+    });
+    expect(get).toHaveBeenCalledWith("/school-payments/history", {
+      params: {
+        includeReceiptSignedUrls: true,
+        from: "2026-02-01T00:00:00.000Z",
+        to: "2026-02-28T23:59:59.999Z",
+        take: 1000,
+      },
+    });
+  });
+
+  /*
+   * The roster endpoint is paginated. Reading page 1 and calling it the school
+   * is how the dashboard came to under-report students, arrears and active
+   * plans — so the client walks every page.
+   */
+  describe("getAllStudents", () => {
+    const page = (
+      items: unknown[],
+      pageNo: number,
+      total: number,
+      limit = 200,
+    ) => data({
+      items,
+      total,
+      page: pageNo,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    });
+
+    it("concatenates every page of the envelope", async () => {
+      const first = Array.from({ length: 200 }, (_, i) => ({ id: `a${i}` }));
+      const second = Array.from({ length: 30 }, (_, i) => ({ id: `b${i}` }));
+      get
+        .mockResolvedValueOnce(page(first, 1, 230))
+        .mockResolvedValueOnce(page(second, 2, 230));
+
+      const res = await BackendAPI.school.getAllStudents();
+
+      expect(get).toHaveBeenCalledTimes(2);
+      expect(res.items).toHaveLength(230);
+      expect(res.total).toBe(230);
+      expect(res.truncated).toBe(false);
+      expect(get.mock.calls[0][1].params).toEqual({ page: 1, limit: 200 });
+      expect(get.mock.calls[1][1].params).toEqual({ page: 2, limit: 200 });
+    });
+
+    it("stops after a single page when that is the whole roster", async () => {
+      get.mockResolvedValueOnce(page([{ id: "a" }], 1, 1));
+
+      const res = await BackendAPI.school.getAllStudents();
+
+      expect(get).toHaveBeenCalledTimes(1);
+      expect(res.items).toHaveLength(1);
+      expect(res.truncated).toBe(false);
+    });
+
+    it("tolerates a pre-pagination backend that returns a bare array", async () => {
+      get.mockResolvedValueOnce(data([{ id: "a" }, { id: "b" }]));
+
+      const res = await BackendAPI.school.getAllStudents();
+
+      expect(get).toHaveBeenCalledTimes(1);
+      expect(res.items).toHaveLength(2);
+      expect(res.total).toBe(2);
+      expect(res.truncated).toBe(false);
+    });
+
+    it("forwards search and class filters on every page", async () => {
+      get.mockResolvedValueOnce(page([], 1, 0));
+
+      await BackendAPI.school.getAllStudents({
+        search: "ada",
+        className: "Grade 1",
+      });
+
+      expect(get.mock.calls[0][1].params).toEqual({
+        search: "ada",
+        className: "Grade 1",
+        page: 1,
+        limit: 200,
+      });
+    });
+
+    it("flags truncation instead of silently returning a partial roster", async () => {
+      // 60 pages of 200 against a 50-page guard.
+      get.mockImplementation(async (_url: string, cfg: { params: { page: number } }) =>
+        page(
+          Array.from({ length: 200 }, (_, i) => ({
+            id: `p${cfg.params.page}-${i}`,
+          })),
+          cfg.params.page,
+          12000,
+        ),
+      );
+
+      const res = await BackendAPI.school.getAllStudents();
+
+      expect(get).toHaveBeenCalledTimes(50);
+      expect(res.items).toHaveLength(10000);
+      expect(res.total).toBe(12000);
+      expect(res.truncated).toBe(true);
+    });
+
+    it("survives an envelope with no items array", async () => {
+      get.mockResolvedValueOnce(data({ total: 0, page: 1, limit: 200 }));
+
+      const res = await BackendAPI.school.getAllStudents();
+
+      expect(res.items).toEqual([]);
+      expect(res.truncated).toBe(false);
+    });
+  });
+
   it("updateFee POSTs class + amount without schoolId when omitted", async () => {
     await BackendAPI.school.updateFee("JSS1", 5000);
     expect(post).toHaveBeenCalledWith("/school-payments/fees", {

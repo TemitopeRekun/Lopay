@@ -50,6 +50,7 @@ const api = vi.hoisted(() => ({
     getPendingPayments: vi.fn(),
     getTransactions: vi.fn(),
     getStudents: vi.fn(),
+    getAllStudents: vi.fn(),
     updateFee: vi.fn(),
     confirmPayment: vi.fn(),
     confirmFirstPayment: vi.fn(),
@@ -63,6 +64,15 @@ const api = vi.hoisted(() => ({
 }));
 
 vi.mock("../services/backend", () => ({ BackendAPI: api }));
+
+const logger = vi.hoisted(() => ({
+  error: vi.fn(),
+  warn: vi.fn(),
+  log: vi.fn(),
+  info: vi.fn(),
+  debug: vi.fn(),
+}));
+vi.mock("../utils/logger", () => ({ logger }));
 
 import * as Q from "./useQueries";
 import { useUIStore } from "../store/uiStore";
@@ -256,7 +266,11 @@ describe("useSchoolTransactions", () => {
 
 describe("useSchoolStudents", () => {
   it("normalizes students (string contextKey overload)", async () => {
-    api.school.getStudents.mockResolvedValue([{ id: "c1", childName: "Bob" }]);
+    api.school.getAllStudents.mockResolvedValue({
+      items: [{ id: "e1", childName: "Bob" }],
+      total: 1,
+      truncated: false,
+    });
     const { result } = await renderQuery(() =>
       Q.useSchoolStudents("roster", true),
     );
@@ -264,8 +278,64 @@ describe("useSchoolStudents", () => {
     expect(result.current.data![0].name).toBe("Bob");
   });
 
-  it("returns [] on a non-array response (boolean overload)", async () => {
-    api.school.getStudents.mockResolvedValue({ nope: true });
+  /*
+   * The whole roster, not page 1. The dashboard derives its registry count and
+   * search from this list, and the endpoint pages at 50 by default.
+   */
+  it("returns every student the paging helper collected", async () => {
+    api.school.getAllStudents.mockResolvedValue({
+      items: Array.from({ length: 55 }, (_, i) => ({
+        id: `e${i}`,
+        childName: `Kid ${i}`,
+      })),
+      total: 55,
+      truncated: false,
+    });
+    const { result } = await renderQuery(() => Q.useSchoolStudents(true));
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toHaveLength(55);
+  });
+
+  it("carries the enrollment balance through to the Child model", async () => {
+    api.school.getAllStudents.mockResolvedValue({
+      items: [
+        {
+          id: "e1",
+          childName: "Ada",
+          totalFee: 100000,
+          paidAmount: 52500,
+          remainingBalance: 50000,
+          paymentStatus: "DEFAULTED",
+        },
+      ],
+      total: 1,
+      truncated: false,
+    });
+    const { result } = await renderQuery(() => Q.useSchoolStudents(true));
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    // NOT totalFee - paidAmount (47,500), which is short by the platform fee.
+    expect(result.current.data![0].remainingBalance).toBe(50000);
+  });
+
+  it("logs when the roster came back truncated", async () => {
+    api.school.getAllStudents.mockResolvedValue({
+      items: [{ id: "e1", childName: "Bob" }],
+      total: 900,
+      truncated: true,
+    });
+    const { result } = await renderQuery(() => Q.useSchoolStudents(true));
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.stringContaining("truncated"),
+    );
+  });
+
+  it("returns [] when the roster is empty", async () => {
+    api.school.getAllStudents.mockResolvedValue({
+      items: [],
+      total: 0,
+      truncated: false,
+    });
     const { result } = await renderQuery(() => Q.useSchoolStudents(true));
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toEqual([]);

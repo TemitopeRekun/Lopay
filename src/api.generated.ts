@@ -1343,6 +1343,8 @@ export interface operations {
                 includeReceiptSignedUrls: string;
                 receiptType: string;
                 take: string;
+                from: string;
+                to: string;
             };
             header?: never;
             path?: never;
@@ -1364,6 +1366,8 @@ export interface operations {
                 includeReceiptSignedUrls: string;
                 receiptType: string;
                 take: string;
+                from: string;
+                to: string;
             };
             header?: never;
             path?: never;
@@ -1423,6 +1427,7 @@ export interface operations {
             query: {
                 includeReceiptSignedUrls: string;
                 receiptType: string;
+                paymentType: string;
             };
             header?: never;
             path?: never;

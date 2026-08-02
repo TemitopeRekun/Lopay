@@ -322,18 +322,67 @@ export const BackendAPI = {
       );
       return response.data;
     },
-    getStudents: async (params?: { search?: string; className?: string; page?: number; limit?: number }) => {
-      const response = await apiClient.get<ApiEnrollment[]>(
-        "/school-payments/students",
-        { params },
-      );
+    /**
+     * One page of the school roster. The endpoint returns a pagination
+     * envelope; an older build typed this as a bare array, so the dashboard
+     * discarded every response and rendered an empty school. Both shapes are
+     * tolerated here so a version skew degrades instead of blanking the screen.
+     */
+    getStudents: async (params?: {
+      search?: string;
+      className?: string;
+      page?: number;
+      limit?: number;
+    }) => {
+      const response = await apiClient.get<
+        Paginated<ApiEnrollment> | ApiEnrollment[]
+      >("/school-payments/students", { params });
       return response.data;
     },
+    /**
+     * The WHOLE roster. Dashboard totals (arrears, active plans, the registry
+     * count) must not be computed from page 1 alone, so this walks every page.
+     * `PAGE_LIMIT` matches the server's per-page ceiling; `MAX_PAGES` is a
+     * runaway guard, and hitting it is reported rather than silently truncating.
+     */
+    getAllStudents: async (params?: { search?: string; className?: string }) => {
+      const PAGE_LIMIT = 200;
+      const MAX_PAGES = 50;
+      const items: ApiEnrollment[] = [];
+      let page = 1;
+      let totalPages = 1;
+      let total = 0;
 
-    getTransactions: async () => {
+      do {
+        const data = await BackendAPI.school.getStudents({
+          ...params,
+          page,
+          limit: PAGE_LIMIT,
+        });
+        if (Array.isArray(data)) {
+          // Pre-pagination backend: one shot is the whole roster.
+          items.push(...data);
+          total = data.length;
+          totalPages = 1;
+          break;
+        }
+        items.push(...(data.items ?? []));
+        total = data.total ?? items.length;
+        totalPages = data.totalPages ?? 1;
+        page += 1;
+      } while (page <= totalPages && page <= MAX_PAGES);
+
+      return { items, total, truncated: items.length < total };
+    },
+
+    getTransactions: async (params?: {
+      from?: string;
+      to?: string;
+      take?: number;
+    }) => {
       const response = await apiClient.get<ApiTransaction[]>(
         "/school-payments/history",
-        { params: { includeReceiptSignedUrls: true } },
+        { params: { includeReceiptSignedUrls: true, ...params } },
       );
       return response.data;
     },

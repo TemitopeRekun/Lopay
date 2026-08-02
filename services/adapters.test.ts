@@ -311,16 +311,58 @@ describe("normalizeChild", () => {
     expect(out.paidAmount).toBe(350);
   });
 
-  it("derives remainingBalance from totalFee minus paid when balance <= 0", () => {
+  /*
+   * The enrollment's balance is the ledger's own number. Deriving
+   * `totalFee - paidAmount` is short by the platform fee inside the first
+   * payment (paidAmount is the gross the parent paid), so the derivation is a
+   * fallback for a payload that omits the field — not a correction to a zero
+   * the server actually sent.
+   */
+  it("derives remainingBalance only when the field is absent", () => {
     const out = normalizeChild(
-      baseEnrollment({ totalFee: 1000, paidAmount: 300, remainingBalance: 0 }),
+      baseEnrollment({
+        totalFee: 1000,
+        paidAmount: 300,
+        remainingBalance: undefined,
+      }),
     );
     expect(out.remainingBalance).toBe(700);
   });
 
+  it("honours an explicit zero balance instead of re-deriving one", () => {
+    const out = normalizeChild(
+      baseEnrollment({ totalFee: 1000, paidAmount: 300, remainingBalance: 0 }),
+    );
+    expect(out.remainingBalance).toBe(0);
+  });
+
+  it("keeps a server balance that the naive derivation would understate", () => {
+    // ₦100,000 fee; ₦27,500 gross deposit (₦2,500 of it platform fee) plus a
+    // ₦25,000 installment. Derivation says ₦47,500; the ledger says ₦50,000.
+    const out = normalizeChild(
+      baseEnrollment({
+        totalFee: 100000,
+        paidAmount: 52500,
+        remainingBalance: 50000,
+      }),
+    );
+    expect(out.remainingBalance).toBe(50000);
+  });
+
   it("clamps a negative derived remaining balance to 0", () => {
     const out = normalizeChild(
-      baseEnrollment({ totalFee: 1000, paidAmount: 1200, remainingBalance: 0 }),
+      baseEnrollment({
+        totalFee: 1000,
+        paidAmount: 1200,
+        remainingBalance: undefined,
+      }),
+    );
+    expect(out.remainingBalance).toBe(0);
+  });
+
+  it("clamps a negative server balance to 0", () => {
+    const out = normalizeChild(
+      baseEnrollment({ totalFee: 1000, paidAmount: 1200, remainingBalance: -50 }),
     );
     expect(out.remainingBalance).toBe(0);
   });

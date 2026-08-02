@@ -247,6 +247,8 @@ export interface ApiPayment {
 
 export interface ApiEnrollment {
   id: string;
+  /** Present on school-roster rows, where `id` is also the enrollment id. */
+  enrollmentId?: string;
   childId?: string;
   studentName?: string;
   childName?: string;
@@ -294,9 +296,20 @@ export interface ApiSchool {
   sortCode?: string;
 }
 
+/**
+ * GET /school-payments/stats — the dashboard's headline figures, all computed
+ * server-side from the ledger. Mirrors SchoolPaymentsService.getDashboardStats;
+ * the client must not re-derive any of these from a page of student rows.
+ */
 export interface ApiSchoolStats {
+  /** Confirmed school share (naira). */
   totalRevenue: number;
+  /** Installments awaiting this owner's approval (naira). */
   pendingRevenue: number;
+  /** First payments taken but not yet settled by the platform (naira). */
+  awaitingActivation: number;
+  /** Outstanding balance across DEFAULTED enrollments (naira). */
+  defaultedAmount: number;
   totalStudents: number;
   activeStudents: number;
 }

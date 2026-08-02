@@ -192,12 +192,15 @@ export const useSchoolStudents = (
   return useQuery({
     queryKey: [...QUERY_KEYS.schoolStudents, contextKey],
     queryFn: async () => {
-      const data = await BackendAPI.school.getStudents();
-      if (!Array.isArray(data)) {
-        logger.error("Unexpected school students data format:", data);
-        return [];
+      const { items, truncated } = await BackendAPI.school.getAllStudents();
+      if (truncated) {
+        // Never silently show a partial school: totals derived from this list
+        // would be wrong and nothing on screen would say so.
+        logger.error(
+          "School roster truncated by the page guard; totals may be incomplete",
+        );
       }
-      return data.map(normalizeChild);
+      return items.map(normalizeChild);
     },
     enabled,
   });
