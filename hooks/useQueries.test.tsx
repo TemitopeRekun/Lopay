@@ -50,6 +50,7 @@ const api = vi.hoisted(() => ({
     getPendingPayments: vi.fn(),
     getTransactions: vi.fn(),
     getStudents: vi.fn(),
+    getAllStudents: vi.fn(),
     updateFee: vi.fn(),
     confirmPayment: vi.fn(),
     confirmFirstPayment: vi.fn(),
@@ -63,6 +64,15 @@ const api = vi.hoisted(() => ({
 }));
 
 vi.mock("../services/backend", () => ({ BackendAPI: api }));
+
+const logger = vi.hoisted(() => ({
+  error: vi.fn(),
+  warn: vi.fn(),
+  log: vi.fn(),
+  info: vi.fn(),
+  debug: vi.fn(),
+}));
+vi.mock("../utils/logger", () => ({ logger }));
 
 import * as Q from "./useQueries";
 import { useUIStore } from "../store/uiStore";
@@ -123,27 +133,27 @@ describe("useChildren", () => {
 });
 
 describe("useNotifications", () => {
-  it("normalizes notifications when a userId is present", async () => {
-    api.notifications.get.mockResolvedValue([
-      {
-        id: "n1",
-        title: "Payment confirmed",
-        message: "ok",
-        createdAt: "2026-01-01",
-        isRead: false,
-      },
-    ]);
+  it("normalizes the items and keeps the server's unread count", async () => {
+    api.notifications.get.mockResolvedValue({
+      items: [
+        {
+          id: "n1",
+          title: "Payment confirmed",
+          message: "ok",
+          createdAt: "2026-01-01",
+          isRead: false,
+        },
+      ],
+      // Deliberately larger than `items` — the list is a bounded window, so the
+      // badge must come from the server rather than from the rows on screen.
+      unreadCount: 12,
+      limit: 100,
+    });
     const { result } = await renderQuery(() => Q.useNotifications("u1"));
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.data![0].title).toBe("Payment confirmed");
-    expect(result.current.data![0].status).toBe("success");
-  });
-
-  it("tolerates a non-array response", async () => {
-    api.notifications.get.mockResolvedValue(null);
-    const { result } = await renderQuery(() => Q.useNotifications("u1"));
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.data).toEqual([]);
+    expect(result.current.data!.items[0].title).toBe("Payment confirmed");
+    expect(result.current.data!.items[0].status).toBe("success");
+    expect(result.current.data!.unreadCount).toBe(12);
   });
 
   it("is disabled without a userId", async () => {
@@ -256,7 +266,11 @@ describe("useSchoolTransactions", () => {
 
 describe("useSchoolStudents", () => {
   it("normalizes students (string contextKey overload)", async () => {
-    api.school.getStudents.mockResolvedValue([{ id: "c1", childName: "Bob" }]);
+    api.school.getAllStudents.mockResolvedValue({
+      items: [{ id: "e1", childName: "Bob" }],
+      total: 1,
+      truncated: false,
+    });
     const { result } = await renderQuery(() =>
       Q.useSchoolStudents("roster", true),
     );
@@ -264,8 +278,64 @@ describe("useSchoolStudents", () => {
     expect(result.current.data![0].name).toBe("Bob");
   });
 
-  it("returns [] on a non-array response (boolean overload)", async () => {
-    api.school.getStudents.mockResolvedValue({ nope: true });
+  /*
+   * The whole roster, not page 1. The dashboard derives its registry count and
+   * search from this list, and the endpoint pages at 50 by default.
+   */
+  it("returns every student the paging helper collected", async () => {
+    api.school.getAllStudents.mockResolvedValue({
+      items: Array.from({ length: 55 }, (_, i) => ({
+        id: `e${i}`,
+        childName: `Kid ${i}`,
+      })),
+      total: 55,
+      truncated: false,
+    });
+    const { result } = await renderQuery(() => Q.useSchoolStudents(true));
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toHaveLength(55);
+  });
+
+  it("carries the enrollment balance through to the Child model", async () => {
+    api.school.getAllStudents.mockResolvedValue({
+      items: [
+        {
+          id: "e1",
+          childName: "Ada",
+          totalFee: 100000,
+          paidAmount: 52500,
+          remainingBalance: 50000,
+          paymentStatus: "DEFAULTED",
+        },
+      ],
+      total: 1,
+      truncated: false,
+    });
+    const { result } = await renderQuery(() => Q.useSchoolStudents(true));
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    // NOT totalFee - paidAmount (47,500), which is short by the platform fee.
+    expect(result.current.data![0].remainingBalance).toBe(50000);
+  });
+
+  it("logs when the roster came back truncated", async () => {
+    api.school.getAllStudents.mockResolvedValue({
+      items: [{ id: "e1", childName: "Bob" }],
+      total: 900,
+      truncated: true,
+    });
+    const { result } = await renderQuery(() => Q.useSchoolStudents(true));
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.stringContaining("truncated"),
+    );
+  });
+
+  it("returns [] when the roster is empty", async () => {
+    api.school.getAllStudents.mockResolvedValue({
+      items: [],
+      total: 0,
+      truncated: false,
+    });
     const { result } = await renderQuery(() => Q.useSchoolStudents(true));
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toEqual([]);
@@ -416,35 +486,6 @@ describe("useAdminOverview", () => {
     const { result } = await renderQuery(() => Q.useAdminOverview());
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data!.recentTransactions).toEqual([]);
-  });
-});
-
-describe("useAdminSchoolStudents", () => {
-  it("normalizes an envelope for a given school", async () => {
-    api.admin.getSchoolStudents.mockResolvedValue({
-      items: [{ id: "c1", childName: "Bob" }],
-    });
-    const { result } = await renderQuery(() => Q.useAdminSchoolStudents("s1"));
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(api.admin.getSchoolStudents).toHaveBeenCalledWith("s1");
-    expect(result.current.data![0].name).toBe("Bob");
-  });
-
-  it("normalizes a bare array for a given school", async () => {
-    api.admin.getSchoolStudents.mockResolvedValue([
-      { id: "c2", childName: "Cara" },
-    ]);
-    const { result } = await renderQuery(() => Q.useAdminSchoolStudents("s2"));
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.data![0].name).toBe("Cara");
-  });
-
-  it("is disabled when schoolId is null", async () => {
-    const { result } = await renderQuery(() =>
-      Q.useAdminSchoolStudents(null),
-    );
-    expect(result.current.fetchStatus).toBe("idle");
-    expect(api.admin.getSchoolStudents).not.toHaveBeenCalled();
   });
 });
 

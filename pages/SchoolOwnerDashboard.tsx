@@ -6,23 +6,21 @@ import { useAuth } from "../context/AuthContext";
 import { useData } from "../context/DataContext";
 import { PlanCard } from "../components/PlanCard";
 import { RecentTransactionsList } from "../components/RecentTransactionsList";
-import { ImpersonationBanner } from "../components/ImpersonationBanner";
 import { NotificationIconButton } from "../components/NotificationIconButton";
 import { useUIStore } from "../store/uiStore";
+import { BackendAPI } from "../services/backend";
+import { downloadCsv, monthRange, toCsv } from "../utils/csv";
+import { getErrorMessage } from "../utils/errors";
+import { normalizeTransaction } from "../services/adapters";
 
 const SchoolOwnerDashboard: React.FC = () => {
-  const {
-    user: currentUser,
-    isOwnerAccount,
-    setActingRole,
-    activeSchoolId,
-  } = useAuth();
+  const { user: currentUser } = useAuth();
   const {
     schoolTransactions,
     pendingPayments,
     allStudents: childrenData,
     schools,
-    notifications,
+    unreadNotificationsCount,
     isLoading,
     schoolStats,
     hasError,
@@ -34,10 +32,13 @@ const SchoolOwnerDashboard: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const mySchool = useMemo(() => {
-    const sId = activeSchoolId || currentUser?.schoolId;
-    return schools.find((s) => s.id === sId);
-  }, [schools, currentUser, activeSchoolId]);
+  // The signed-in owner's own school. There is no longer an `activeSchoolId`
+  // override: a platform admin cannot reach this screen, because every query it
+  // renders is SCHOOL_OWNER-only and produced fabricated zeros for anyone else.
+  const mySchool = useMemo(
+    () => schools.find((s) => s.id === currentUser?.schoolId),
+    [schools, currentUser?.schoolId],
+  );
 
   const schoolStudents = useMemo(() => {
     return childrenData;
@@ -60,11 +61,6 @@ const SchoolOwnerDashboard: React.FC = () => {
   }, [schoolStudents, searchQuery]);
 
   const pendingCount = useMemo(() => pendingPayments.length, [pendingPayments]);
-
-  const unreadNotificationsCount = useMemo(
-    () => (notifications ? notifications.filter((n) => !n.read).length : 0),
-    [notifications],
-  );
 
   const uniqueTransactions = useMemo(() => {
     const seen = new Set<string>();
@@ -98,29 +94,49 @@ const SchoolOwnerDashboard: React.FC = () => {
       : 0;
   }, [schoolStats]);
 
+  /**
+   * First payments already taken but not yet settled by the platform. Shown
+   * apart from `pendingRevenue` because the owner cannot action them — folding
+   * the two together made the card claim money that had no queue entry.
+   */
+  const awaitingActivation = useMemo(() => {
+    if (!schoolStats) {
+      return 0;
+    }
+    return Number.isFinite(schoolStats.awaitingActivation)
+      ? schoolStats.awaitingActivation
+      : 0;
+  }, [schoolStats]);
+
+  /*
+   * Arrears, registered count and active plans all come from the server's
+   * ledger-wide aggregate, never from the loaded roster. Deriving them here
+   * meant a page of students stood in for the whole school, and
+   * `totalFee - paidAmount` understated every balance by the platform fee
+   * baked into the first payment.
+   */
   const totalOutstanding = useMemo(() => {
-    return schoolStudents.reduce((acc, c) => {
-      const isDefaulted = c.status === "Defaulted" || c.status === "Failed";
-      if (!isDefaulted) {
-        return acc;
-      }
+    if (!schoolStats) {
+      return 0;
+    }
+    return Number.isFinite(schoolStats.defaultedAmount)
+      ? schoolStats.defaultedAmount
+      : 0;
+  }, [schoolStats]);
 
-      const total = Number.isFinite(c.totalFee) ? (c.totalFee as number) : 0;
-      const paid = Number.isFinite(c.paidAmount) ? (c.paidAmount as number) : 0;
-      const derivedRemaining = total - paid;
-      const remainingFromChild: number = Number.isFinite(c.remainingBalance)
-        ? (c.remainingBalance as number)
-        : derivedRemaining;
-      const remaining: number = remainingFromChild > 0 ? remainingFromChild : 0;
+  const registeredCount = useMemo(() => {
+    if (schoolStats && Number.isFinite(schoolStats.totalStudents)) {
+      return schoolStats.totalStudents;
+    }
+    return schoolStudents.length;
+  }, [schoolStats, schoolStudents]);
 
-      return acc + remaining;
-    }, 0);
-  }, [schoolStudents]);
-
-  const handleReturnToAdmin = () => {
-    setActingRole("owner");
-    navigate("/owner-dashboard");
-  };
+  const activePlansCount = useMemo(() => {
+    if (schoolStats && Number.isFinite(schoolStats.activeStudents)) {
+      return schoolStats.activeStudents;
+    }
+    return schoolStudents.filter((s) => s.status === "Active").length;
+  }, [schoolStats, schoolStudents]);
 
   const months = [
     "January",
@@ -137,28 +153,91 @@ const SchoolOwnerDashboard: React.FC = () => {
     "December",
   ];
 
-  const downloadReport = () => {
+  /**
+   * Export the selected month's collection ledger as CSV.
+   *
+   * This used to be a 1s timer and a "Report generated successfully" toast with
+   * no file behind it. The rows are now fetched for the chosen month from the
+   * payment history endpoint, so the export is the ledger the backend holds.
+   */
+  const downloadReport = async () => {
     if (!mySchool) {
       showToast("Unable to generate report. Please select a school.", "error");
       return;
     }
+
     setIsGenerating(true);
-    setTimeout(() => {
-      showToast("Report generated successfully", "success");
+    try {
+      const year = new Date().getFullYear();
+      const { from, to } = monthRange(year, reportMonth);
+      const raw = await BackendAPI.school.getTransactions({
+        from,
+        to,
+        take: 1000,
+      });
+      const rows = (Array.isArray(raw) ? raw : []).map(normalizeTransaction);
+
+      if (rows.length === 0) {
+        showToast(
+          `No payments recorded for ${months[reportMonth]} ${year}.`,
+          "info",
+        );
+        return;
+      }
+
+      const csv = toCsv(
+        [
+          "Date",
+          "Student",
+          "Class",
+          "Type",
+          "Status",
+          "Amount (NGN)",
+          "Platform fee (NGN)",
+          "Payment ID",
+        ],
+        rows.map((tx) => [
+          new Date(tx.date).toISOString().split("T")[0],
+          tx.childName,
+          tx.className ?? "",
+          tx.type ?? "",
+          tx.status,
+          tx.amount,
+          tx.platformFeeAmount ?? 0,
+          tx.id,
+        ]),
+      );
+
+      const slug = (mySchool.name || "school")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
+      const written = downloadCsv(
+        `${slug}-collections-${year}-${String(reportMonth + 1).padStart(2, "0")}.csv`,
+        csv,
+      );
+
+      if (!written) {
+        showToast("Downloads aren't supported on this device.", "error");
+        return;
+      }
+      showToast(
+        `Exported ${rows.length} payment${rows.length === 1 ? "" : "s"} for ${months[reportMonth]} ${year}.`,
+        "success",
+      );
+    } catch (error) {
+      showToast(
+        getErrorMessage(error, "Couldn't generate the collection ledger."),
+        "error",
+      );
+    } finally {
       setIsGenerating(false);
-    }, 1000);
+    }
   };
 
   if (isLoading) {
     return (
       <Layout showBottomNav>
-        {activeSchoolId && isOwnerAccount && (
-          <ImpersonationBanner
-            mode="school"
-            label={mySchool?.name || "School"}
-            onExit={handleReturnToAdmin}
-          />
-        )}
         <main className="flex flex-col items-center justify-center flex-1 p-6">
           <div className="w-12 h-12 border-4 border-secondary/30 border-t-secondary rounded-full animate-spin mb-4" />
           <p className="text-sm font-bold text-text-secondary-light">
@@ -172,16 +251,8 @@ const SchoolOwnerDashboard: React.FC = () => {
 
   return (
     <Layout showBottomNav>
-      {activeSchoolId && isOwnerAccount && (
-        <ImpersonationBanner
-          mode="school"
-          label={mySchool?.name || "School"}
-          onExit={handleReturnToAdmin}
-        />
-      )}
-
       <div
-        className={`sticky top-0 z-10 bg-white dark:bg-background-dark p-6 pb-2 border-b border-gray-100 dark:border-gray-800 ${activeSchoolId && isOwnerAccount ? "top-[42px]" : ""}`}
+        className="sticky top-0 z-10 bg-white dark:bg-background-dark p-6 pb-2 border-b border-gray-100 dark:border-gray-800"
       ></div>
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
@@ -229,6 +300,18 @@ const SchoolOwnerDashboard: React.FC = () => {
             {filteredStudents.length} Students
           </span>
         </div>
+
+        {/*
+          The registry is the only place the roster itself is shown, so if it
+          holds fewer students than the ledger counts, say so. A quietly short
+          list reads as "this is the whole school".
+        */}
+        {!searchQuery.trim() && schoolStudents.length < registeredCount && (
+          <p className="px-1 text-[10px] font-bold text-danger">
+            Showing {schoolStudents.length} of {registeredCount} students — the
+            roster didn&apos;t load fully. Pull to refresh.
+          </p>
+        )}
       </div>
 
       <main className="flex flex-col gap-6 p-6 pb-32">
@@ -314,7 +397,7 @@ const SchoolOwnerDashboard: React.FC = () => {
             </div>
             <div className="relative z-10">
               <p className="text-white/50 text-[11px] font-bold uppercase tracking-[0.3em] mb-2">
-                Platform Collections
+                School Collections
               </p>
               <h2 className="text-3xl font-black tracking-tighter mb-4">
                 ₦{totalRevenue.toLocaleString()}
@@ -325,13 +408,19 @@ const SchoolOwnerDashboard: React.FC = () => {
                   REAL-TIME INFLOWS
                 </div>
                 <div className="px-3 py-1.5 rounded-xl bg-white/10 backdrop-blur-xl text-[9px] font-black border border-white/10">
-                  {schoolStudents.length} REGISTERED
+                  {registeredCount} REGISTERED
                 </div>
               </div>
               <div className="mt-4 flex items-center justify-between text-[10px] font-bold text-white/70">
                 <span>Pending approvals</span>
                 <span>₦{pendingRevenue.toLocaleString()}</span>
               </div>
+              {awaitingActivation > 0 && (
+                <div className="mt-1.5 flex items-center justify-between text-[10px] font-bold text-white/50">
+                  <span>Awaiting platform activation</span>
+                  <span>₦{awaitingActivation.toLocaleString()}</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -358,7 +447,7 @@ const SchoolOwnerDashboard: React.FC = () => {
             </p>
             <div className="flex items-baseline gap-1">
               <p className="text-xl font-black text-text-primary-light dark:text-text-primary-dark">
-                {schoolStudents.filter((s) => s.status === "Active").length}
+                {activePlansCount}
               </p>
               <span className="text-[9px] font-bold text-text-secondary-light uppercase">
                 Verified
@@ -462,18 +551,6 @@ const SchoolOwnerDashboard: React.FC = () => {
           </div>
         </div>
       </main>
-
-      {isOwnerAccount && (
-        <button
-          onClick={handleReturnToAdmin}
-          className="fixed bottom-24 left-6 z-50 bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-6 py-4 rounded-[20px] shadow-2xl font-black flex items-center gap-3 hover:scale-105 active:scale-95 transition-all border-2 border-white/10"
-        >
-          <span className="material-symbols-outlined text-lg">logout</span>
-          <span className="text-[10px] uppercase tracking-[0.25em]">
-            Admin Hub
-          </span>
-        </button>
-      )}
 
       <BottomNav />
     </Layout>

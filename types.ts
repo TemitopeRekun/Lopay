@@ -16,6 +16,11 @@ export interface User {
   bankName?: string;
   accountName?: string;
   accountNumber?: string;
+  /**
+   * Plans across this user's children, counted by the server. Only the admin
+   * user list supplies it — undefined elsewhere, never derived client-side.
+   */
+  enrollmentCount?: number;
 }
 
 export interface RegisterData {
@@ -54,6 +59,12 @@ export interface Child {
   schoolId?: string;
   installmentFrequency?: string;
   installmentAmount?: number;
+  /** Schedule slots the parent's money has closed (server-derived, not a payment count). */
+  installmentsPaid?: number;
+  /** Slots in the plan's schedule (12 weekly / 3 monthly). */
+  installmentsTotal?: number;
+  /** Paid into the next slot but not enough to close it. */
+  creditTowardNextInstallment?: number;
   hasPendingInstallment?: boolean;
   hasFailedFirstPayment?: boolean;
   hasFailedInstallment?: boolean;
@@ -159,6 +170,15 @@ export interface ApiUser {
   phoneNumber?: string;
   createdAt: string;
   schoolId?: string;
+  /**
+   * Plans held across this user's children, counted by the server.
+   *
+   * The admin directory used to derive this in the browser by filtering a school
+   * roster on `child.parentId` — a SCHOOL_OWNER-only endpoint (403 for the admin
+   * reading it) matched against a field the adapter hard-codes to `""`, so every
+   * parent rendered "0 Plans". Only the admin user list supplies it.
+   */
+  enrollmentCount?: number;
 }
 
 export interface ApiLoginResponse {
@@ -247,6 +267,8 @@ export interface ApiPayment {
 
 export interface ApiEnrollment {
   id: string;
+  /** Present on school-roster rows, where `id` is also the enrollment id. */
+  enrollmentId?: string;
   childId?: string;
   studentName?: string;
   childName?: string;
@@ -264,11 +286,17 @@ export interface ApiEnrollment {
   parentPhone?: string;
   installmentFrequency?: string;
   /**
-   * The server's own next-installment figure: remaining balance spread over the
-   * installments still outstanding. Authoritative — the client must not re-derive
+   * The server's own next-installment figure: what it takes to close the next
+   * slot of the plan's schedule. Authoritative — the client must not re-derive
    * it (see normalizeChild).
    */
   nextInstallmentAmount?: number;
+  /** Slots the parent's money has closed. Value-derived, not a payment count. */
+  installmentsPaid?: number;
+  /** Slots in the plan's schedule (12 weekly / 3 monthly). */
+  installmentsTotal?: number;
+  /** Paid into the next slot but not enough to close it. */
+  creditTowardNextInstallment?: number;
   installmentAmount?: number;
   standardInstallmentAmount?: number;
   paidAmount?: number;
@@ -294,9 +322,20 @@ export interface ApiSchool {
   sortCode?: string;
 }
 
+/**
+ * GET /school-payments/stats — the dashboard's headline figures, all computed
+ * server-side from the ledger. Mirrors SchoolPaymentsService.getDashboardStats;
+ * the client must not re-derive any of these from a page of student rows.
+ */
 export interface ApiSchoolStats {
+  /** Confirmed school share (naira). */
   totalRevenue: number;
+  /** Installments awaiting this owner's approval (naira). */
   pendingRevenue: number;
+  /** First payments taken but not yet settled by the platform (naira). */
+  awaitingActivation: number;
+  /** Outstanding balance across DEFAULTED enrollments (naira). */
+  defaultedAmount: number;
   totalStudents: number;
   activeStudents: number;
 }
@@ -313,4 +352,35 @@ export interface ApiNotification {
   link?: string;
   isRead: boolean;
   createdAt: string;
+}
+
+/**
+ * `GET /notifications` — a bounded window plus the true unread total.
+ *
+ * The endpoint used to return the caller's entire history as a bare array, which
+ * every client polls from every screen. `unreadCount` is counted server-side so
+ * the badge stays exact even when the unread rows fall outside the window.
+ */
+export interface ApiNotificationList {
+  items: ApiNotification[];
+  unreadCount: number;
+  limit: number;
+}
+
+/**
+ * `GET /enrollments/summary` — the parent dashboard's headline, derived by the
+ * server from the same numbers the ledger moves.
+ */
+export interface ApiParentDashboardSummary {
+  nextCollection: {
+    amount: number;
+    dueDate: string | null;
+    enrollmentCount: number;
+    /** Set only when exactly one plan contributes, so the card can name it. */
+    enrollmentId: string | null;
+    childName: string | null;
+  };
+  activePlans: number;
+  totalPlans: number;
+  totalOutstanding: number;
 }

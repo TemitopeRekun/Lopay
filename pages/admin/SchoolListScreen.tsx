@@ -13,21 +13,42 @@ const SchoolListScreen: React.FC = () => {
   
   const [searchQuery, setSearchQuery] = useState('');
 
-  const filteredSchools = schools.filter(school => 
-    school.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    school.address.toLowerCase().includes(searchQuery.toLowerCase())
+  /*
+   * Name only. `GET /schools` is the PUBLIC directory and returns `{ id, name }`
+   * — a school address, email and phone are PII and deliberately not harvestable
+   * from an open endpoint. The address clause could therefore never match
+   * (normalizeSchool defaults it to ""), and the card below rendered two
+   * permanently blank fields under real-looking labels.
+   */
+  const filteredSchools = schools.filter((school) =>
+    school.name.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   const handleDelete = (e: React.MouseEvent, id: string, name: string) => {
     e.stopPropagation();
-    if (window.confirm(`Delete ${name}?\n\nWARNING: This will permanently remove all students and payment records linked to this school.`)) {
+    /*
+     * Says what actually happens. `deleteSchool` is a SOFT delete: it stamps
+     * `deletedAt`, anonymises the owner email and revokes their sessions.
+     * Enrolments and payments are untouched — a ledger is not something a list
+     * screen deletes. The old copy promised to "permanently remove all students
+     * and payment records", which was both false and the scarier claim.
+     */
+    if (
+      window.confirm(
+        `Delist ${name}?\n\nThe school stops appearing to parents and its owner loses access. Existing enrolments and payment records are kept for audit.`,
+      )
+    ) {
       deleteSchool(id);
     }
   };
 
   const handleDeleteAll = () => {
-      if (window.confirm("ARE YOU SURE YOU WANT TO DELETE ALL SCHOOLS?\n\nThis action is irreversible and will wipe all school data, students, and transaction history from the platform.")) {
-          if (window.confirm("Please confirm one last time. Delete EVERYTHING?")) {
+      if (
+        window.confirm(
+          `Delist ALL ${schools.length} schools?\n\nEvery school stops appearing to parents and every owner loses access. Enrolments and payment records are kept for audit.`,
+        )
+      ) {
+          if (window.confirm("Please confirm one last time. Delist every school?")) {
               deleteAllSchools();
           }
       }
@@ -114,7 +135,6 @@ const SchoolListScreen: React.FC = () => {
                                 </div>
                                 <div>
                                     <h3 className="font-bold text-lg text-text-primary-light dark:text-text-primary-dark">{school.name}</h3>
-                                    <p className="text-sm text-text-secondary-light">{school.address}</p>
                                 </div>
                             </div>
                             <div className="flex items-center gap-2">
@@ -129,19 +149,18 @@ const SchoolListScreen: React.FC = () => {
                             </div>
                         </div>
                         
-                        <div className="grid grid-cols-2 gap-4 pt-2 border-t border-gray-100 dark:border-gray-800 mt-1">
-                            <div>
-                                <p className="text-[10px] text-text-secondary-light uppercase font-bold">Contact Email</p>
-                                <p className="text-sm truncate">{school.contactEmail || school.email}</p>
-                            </div>
-                            <div className="text-right">
-                                <button
-                                    onClick={() => handleViewStudents(school.id)}
-                                    className="text-[10px] font-black uppercase text-primary bg-primary/10 px-3 py-2 rounded-lg hover:bg-primary/20 transition-all"
-                                >
-                                    View Students
-                                </button>
-                            </div>
+                        {/*
+                          Contact email and address used to render here from the
+                          public directory payload, which carries neither — two
+                          permanently blank fields under real-looking labels.
+                        */}
+                        <div className="flex justify-end pt-2 border-t border-gray-100 dark:border-gray-800 mt-1">
+                            <button
+                                onClick={() => handleViewStudents(school.id)}
+                                className="text-[10px] font-black uppercase text-primary bg-primary/10 px-3 py-2 rounded-lg hover:bg-primary/20 transition-all"
+                            >
+                                View Students
+                            </button>
                         </div>
                     </div>
                 ))

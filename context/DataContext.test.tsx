@@ -16,8 +16,6 @@ const H = vi.hoisted(() => ({
     value: {
       user: null as any,
       isAuthenticated: false,
-      effectiveRole: null as any,
-      activeSchoolId: null as any,
     },
   },
   q: {} as Record<string, any>,
@@ -38,6 +36,7 @@ vi.mock("../hooks/useQueries", () => {
     useSchoolTransactions: () => H.q.useSchoolTransactions,
     useGlobalTransactions: () => H.q.useGlobalTransactions,
     useNotifications: () => H.q.useNotifications,
+    useParentDashboardSummary: () => H.q.useParentDashboardSummary,
     useSchools: () => H.q.useSchools,
     useSchoolStudents: () => H.q.useSchoolStudents,
     usePendingPayments: () => H.q.usePendingPayments,
@@ -64,6 +63,7 @@ const QUERY_NAMES = [
   "useSchoolTransactions",
   "useGlobalTransactions",
   "useNotifications",
+  "useParentDashboardSummary",
   "useSchools",
   "useSchoolStudents",
   "usePendingPayments",
@@ -77,8 +77,6 @@ const renderData = (
   H.auth.value = {
     user: null,
     isAuthenticated: true,
-    effectiveRole: null,
-    activeSchoolId: null,
     ...auth,
   } as any;
   QUERY_NAMES.forEach((n) => (H.q[n] = {}));
@@ -90,9 +88,11 @@ const renderData = (
   );
 };
 
-const PARENT = { user: { role: "parent" }, effectiveRole: "parent" };
-const OWNER = { user: { role: "owner" }, effectiveRole: "owner" };
-const SCHOOL = { user: { role: "school_owner" }, effectiveRole: "school_owner" };
+// Every flag is derived from the session's real role — the acting-role
+// override that could once make these disagree with `user.role` is gone.
+const PARENT = { user: { role: "parent" } };
+const OWNER = { user: { role: "owner" } };
+const SCHOOL = { user: { role: "school_owner" } };
 
 beforeEach(() => {
   H.mutateAsync.mockReset().mockResolvedValue(undefined);
@@ -120,9 +120,9 @@ describe("DataProvider — role-derived flags & selectors", () => {
     expect(data.schoolStats).toBeNull();
   });
 
-  it("resolves school context (with an active school id) and its data", () => {
+  it("resolves school context and its data", () => {
     renderData(
-      { ...SCHOOL, activeSchoolId: "sch-1" } as any,
+      SCHOOL as any,
       {
         useSchoolTransactions: { data: [{ id: "s1" }] },
         useSchoolStudents: { data: [{ id: "stu-1" }] },
@@ -131,31 +131,29 @@ describe("DataProvider — role-derived flags & selectors", () => {
       },
     );
     expect(data.isSchoolContext).toBe(true);
+    expect(data.isPlatformOwner).toBe(false);
     expect(data.transactions).toEqual([{ id: "s1" }]);
     expect(data.allStudents).toEqual([{ id: "stu-1" }]);
     expect(data.pendingPayments).toEqual([{ id: "pend-1" }]);
     expect(data.schoolStats).toEqual({ totalRevenue: 5 });
   });
 
-  it("handles school context without an active school id", () => {
-    renderData({ ...SCHOOL, activeSchoolId: null } as any);
+  /*
+   * Guards the acting-role removal: a school owner is a school context and
+   * ONLY a school context. The old override could label the same session
+   * "parent", which flipped this provider into a mixed state the server never
+   * recognised.
+   */
+  it("derives every flag from the session's real role alone", () => {
+    renderData(SCHOOL as any);
     expect(data.isSchoolContext).toBe(true);
+    expect(data.isParent).toBe(false);
     expect(data.isPlatformOwner).toBe(false);
-  });
-
-  it("treats a school owner impersonating a parent as both parent and school", () => {
-    renderData({
-      user: { role: "school_owner" },
-      effectiveRole: "parent",
-    } as any);
-    expect(data.isParent).toBe(true);
-    expect(data.isSchoolContext).toBe(true);
-    // Not platform owner + is school context → school transactions win.
     expect(data.transactions).toBe(data.schoolTransactions);
   });
 
   it("falls back to a 'none' context when unauthenticated / role-less", () => {
-    renderData({ user: null, effectiveRole: null } as any);
+    renderData({ user: null } as any);
     expect(data.isParent).toBe(false);
     expect(data.isSchoolContext).toBe(false);
     expect(data.isPlatformOwner).toBe(false);
@@ -196,12 +194,38 @@ describe("DataProvider — loading & error aggregation", () => {
 });
 
 describe("DataProvider — refresh routing", () => {
-  it("routes refreshData to the owner view (9 invalidations)", async () => {
+  it("routes refreshData to the owner view, covering every admin aggregate", async () => {
     renderData(OWNER as any);
     await act(async () => {
       await data.refreshData();
     });
-    expect(H.invalidateQueries).toHaveBeenCalledTimes(9);
+    // Was 9, and the four queries behind every headline figure on the admin
+    // dashboard (overview, students summary, breakdown, platform revenue) were
+    // not among them — so "Retry" left the numbers exactly as they were.
+    expect(H.invalidateQueries).toHaveBeenCalledTimes(15);
+
+    const keys = H.invalidateQueries.mock.calls
+      .map((c: any[]) => String(c[0].queryKey))
+      .sort();
+    expect(keys).toEqual(
+      [
+        "adminBreakdown",
+        "adminOverview",
+        "adminPendingFirstPayments",
+        "adminPendingInstallments",
+        "adminPlatformRevenue",
+        "adminSchoolBreakdown",
+        "adminSchoolsSummary",
+        "adminStudentsSummary",
+        "children",
+        "globalTransactions",
+        "notifications",
+        "pendingPayments",
+        "schoolStats",
+        "schoolStudents",
+        "schoolTransactions",
+      ].sort(),
+    );
   });
 
   it("routes refreshData to the school view (4 invalidations)", async () => {
@@ -212,16 +236,21 @@ describe("DataProvider — refresh routing", () => {
     expect(H.invalidateQueries).toHaveBeenCalledTimes(4);
   });
 
-  it("routes refreshData to the parent view (3 invalidations)", async () => {
+  it("routes refreshData to the parent view, including the dashboard headline", async () => {
     renderData(PARENT as any);
     await act(async () => {
       await data.refreshData();
     });
-    expect(H.invalidateQueries).toHaveBeenCalledTimes(3);
+    // The headline is its own server-computed query now, so a refresh that
+    // reloaded the plan list but not the summary would leave the two disagreeing.
+    expect(H.invalidateQueries).toHaveBeenCalledTimes(4);
+    expect(
+      H.invalidateQueries.mock.calls.map((c: any[]) => String(c[0].queryKey)),
+    ).toContain("parentDashboardSummary");
   });
 
   it("falls back to a blanket invalidation with no role", async () => {
-    renderData({ user: null, effectiveRole: null } as any);
+    renderData({ user: null } as any);
     await act(async () => {
       await data.refreshData();
     });
@@ -320,9 +349,7 @@ describe("DataProvider — context-guard hooks", () => {
     };
     H.auth.value = {
       user: { role: "parent" },
-      effectiveRole: "parent",
       isAuthenticated: true,
-      activeSchoolId: null,
     } as any;
     QUERY_NAMES.forEach((n) => (H.q[n] = {}));
     render(
@@ -340,9 +367,7 @@ describe("DataProvider — context-guard hooks", () => {
     };
     H.auth.value = {
       user: { role: "owner" },
-      effectiveRole: "owner",
       isAuthenticated: true,
-      activeSchoolId: null,
     } as any;
     QUERY_NAMES.forEach((n) => (H.q[n] = {}));
     expect(() =>
@@ -362,9 +387,7 @@ describe("DataProvider — context-guard hooks", () => {
     };
     H.auth.value = {
       user: { role: "owner" },
-      effectiveRole: "owner",
       isAuthenticated: true,
-      activeSchoolId: null,
     } as any;
     QUERY_NAMES.forEach((n) => (H.q[n] = {}));
     render(
@@ -382,9 +405,7 @@ describe("DataProvider — context-guard hooks", () => {
     };
     H.auth.value = {
       user: { role: "parent" },
-      effectiveRole: "parent",
       isAuthenticated: true,
-      activeSchoolId: null,
     } as any;
     QUERY_NAMES.forEach((n) => (H.q[n] = {}));
     expect(() =>
@@ -403,9 +424,7 @@ describe("DataProvider — context-guard hooks", () => {
     };
     H.auth.value = {
       user: { role: "school_owner" },
-      effectiveRole: "school_owner",
       isAuthenticated: true,
-      activeSchoolId: null,
     } as any;
     QUERY_NAMES.forEach((n) => (H.q[n] = {}));
     expect(() =>
@@ -425,9 +444,7 @@ describe("DataProvider — context-guard hooks", () => {
     };
     H.auth.value = {
       user: { role: "owner" },
-      effectiveRole: "owner",
       isAuthenticated: true,
-      activeSchoolId: null,
     } as any;
     QUERY_NAMES.forEach((n) => (H.q[n] = {}));
     render(

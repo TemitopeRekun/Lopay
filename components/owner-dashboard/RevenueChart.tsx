@@ -28,14 +28,23 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
   maxChartValue,
   onViewLogs,
 }) => {
-  // Period-over-period change from the two most recent buckets. Shown only when
-  // both exist and the baseline is non-zero; the old card hardcoded "+12.4%".
-  const previous = chartData[chartData.length - 2]?.value;
-  const latest = chartData[chartData.length - 1]?.value;
+  /*
+   * Period-over-period change between the two most recent COMPLETE buckets.
+   *
+   * The last bucket is the period in progress. Comparing it against the one
+   * before read sharply negative for most of every month — a partial period
+   * measured against a whole one — which looks like collapsing revenue rather
+   * than a month that has not finished. The two closed periods behind it are a
+   * like-for-like comparison. (The card before that hardcoded "+12.4%".)
+   */
+  const closedBuckets = chartData.slice(0, -1);
+  const previous = closedBuckets[closedBuckets.length - 2]?.value;
+  const latest = closedBuckets[closedBuckets.length - 1]?.value;
   const growthPercent =
     typeof previous === "number" && typeof latest === "number" && previous > 0
       ? ((latest - previous) / previous) * 100
       : undefined;
+  const comparisonLabel = chartView === "Weekly" ? "week" : "month";
 
   return (
     <div className="bg-white dark:bg-card-dark p-6 rounded-[32px] border border-gray-100 dark:border-gray-800 shadow-sm">
@@ -109,12 +118,12 @@ export const RevenueChart: React.FC<RevenueChartProps> = ({
             />
             <span className="text-xs font-bold text-text-secondary-light uppercase">
               {growthPercent >= 0 ? "+" : ""}
-              {growthPercent.toFixed(1)}% vs previous
+              {growthPercent.toFixed(1)}% last full {comparisonLabel}
             </span>
           </div>
         ) : (
           <span className="text-xs font-bold text-text-secondary-light uppercase">
-            No prior period to compare
+            No completed {comparisonLabel} to compare
           </span>
         )}
         <button

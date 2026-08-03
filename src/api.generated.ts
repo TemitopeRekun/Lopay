@@ -357,7 +357,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List the current user's notifications */
+        /** List the current user's notifications (bounded, newest first) */
         get: operations["NotificationsController_getUserNotifications"];
         put?: never;
         post?: never;
@@ -581,6 +581,23 @@ export interface paths {
         };
         /** List the current parent's enrolled children */
         get: operations["EnrollmentController_getMyChildren"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/enrollments/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The parent dashboard's next-collection and plan totals */
+        get: operations["EnrollmentController_getDashboardSummary"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1343,6 +1360,8 @@ export interface operations {
                 includeReceiptSignedUrls: string;
                 receiptType: string;
                 take: string;
+                from: string;
+                to: string;
             };
             header?: never;
             path?: never;
@@ -1364,6 +1383,8 @@ export interface operations {
                 includeReceiptSignedUrls: string;
                 receiptType: string;
                 take: string;
+                from: string;
+                to: string;
             };
             header?: never;
             path?: never;
@@ -1423,6 +1444,7 @@ export interface operations {
             query: {
                 includeReceiptSignedUrls: string;
                 receiptType: string;
+                paymentType: string;
             };
             header?: never;
             path?: never;
@@ -1627,7 +1649,10 @@ export interface operations {
     };
     NotificationsController_getUserNotifications: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Rows to return (default 100, max 200). */
+                limit?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -1910,6 +1935,23 @@ export interface operations {
             };
         };
     };
+    EnrollmentController_getDashboardSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     EnrollmentController_getEnrollmentHistory: {
         parameters: {
             query?: never;
@@ -2110,6 +2152,8 @@ export interface operations {
                 includeReceiptSignedUrls: string;
                 page: string;
                 limit: string;
+                /** @description Narrow to one school. Backs the dashboard's per-school drill-in, which used to switch the admin into a school-owner acting role and land on an unfiltered platform-wide list. */
+                schoolId?: string;
             };
             header?: never;
             path?: never;

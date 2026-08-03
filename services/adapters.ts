@@ -54,6 +54,9 @@ export const normalizeUser = (apiUser: ApiUser): User => {
     phoneNumber: apiUser.phoneNumber,
     schoolId: apiUser.schoolId,
     createdAt: apiUser.createdAt,
+    // Server-counted; carried through rather than derived. The admin directory
+    // used to compute this from a roster it could not legally fetch.
+    enrollmentCount: apiUser.enrollmentCount,
   };
 };
 
@@ -157,11 +160,28 @@ export const normalizeChild = (apiEnrollment: ApiEnrollment): Child => {
     logger.error("Missing ID in enrollment:", apiEnrollment);
   }
 
-  let remainingBalance = toNumber(apiEnrollment.remainingBalance);
+  /*
+   * The enrollment's own remaining balance is authoritative — it is the number
+   * the ledger decrements on every confirmed payment. Deriving
+   * `totalFee - paidAmount` instead is lossy: paidAmount is the GROSS the parent
+   * paid, and the 2.5% platform fee inside a first payment never reduced the
+   * school-fee balance, so the derivation comes out short by that fee.
+   *
+   * So it is used only when the payload genuinely omits the field. A present-
+   * but-zero balance is a real zero (a settled plan, or a defaulted enrollment
+   * that was paid off) and must not be second-guessed.
+   */
+  const hasRemainingField =
+    apiEnrollment.remainingBalance !== undefined &&
+    apiEnrollment.remainingBalance !== null;
+
+  let remainingBalance = hasRemainingField
+    ? Math.max(0, toNumber(apiEnrollment.remainingBalance))
+    : 0;
 
   const rawTotalFeeField = toNumber(apiEnrollment.totalFee ?? apiEnrollment.totalSchoolFee);
 
-  if (rawTotalFeeField > 0 && remainingBalance <= 0 && paidAmount >= 0) {
+  if (!hasRemainingField && rawTotalFeeField > 0 && paidAmount >= 0) {
     const derivedRemaining = rawTotalFeeField - paidAmount;
     remainingBalance = derivedRemaining > 0 ? derivedRemaining : 0;
   }
@@ -197,8 +217,12 @@ export const normalizeChild = (apiEnrollment: ApiEnrollment): Child => {
   /*
    * The next installment is the server's number.
    *
-   * It spreads the remaining balance over the installments still outstanding
-   * (`balance / (planCount - paidCount)`), so it shrinks as the plan progresses.
+   * It is the money needed to close the next slot of the plan's schedule, which
+   * the server derives from how much installment VALUE has been paid — so a
+   * parent who paid five slots in one transfer is quoted the sixth slot, not the
+   * balance re-spread over eleven. See the backend's
+   * `common/installment-schedule.ts`.
+   *
    * This adapter used to read `standardInstallmentAmount ?? installmentAmount` —
    * fields no enrollment endpoint returns — so the value was ALWAYS 0 and the
    * client silently fell back to its own guess: the previous installment's amount,
@@ -299,6 +323,14 @@ export const normalizeChild = (apiEnrollment: ApiEnrollment): Child => {
     schoolId: apiEnrollment.schoolId || "",
     installmentFrequency: apiEnrollment.installmentFrequency,
     installmentAmount: rawInstallmentAmountFromApi,
+    // Schedule position, straight from the server. Absent on payloads that
+    // predate it (admin lists, older backends), so both stay optional.
+    installmentsPaid: toNumber(apiEnrollment.installmentsPaid),
+    installmentsTotal:
+      toNumber(apiEnrollment.installmentsTotal) || defaultInstallmentCount,
+    creditTowardNextInstallment: toNumber(
+      apiEnrollment.creditTowardNextInstallment,
+    ),
     hasPendingInstallment,
     hasFailedFirstPayment,
     hasFailedInstallment,

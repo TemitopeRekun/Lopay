@@ -65,6 +65,20 @@ export const FIELD_ERROR_CODES = {
 
   // ── Whole-form / transport ─────────────────────────────────────────────────
   INVALID_CREDENTIALS: 'INVALID_CREDENTIALS',
+  /** Google sign-in is misconfigured or unavailable server-side. */
+  GOOGLE_UNAVAILABLE: 'GOOGLE_UNAVAILABLE',
+  /** The Google account offered belongs to a different email address. */
+  GOOGLE_EMAIL_MISMATCH: 'GOOGLE_EMAIL_MISMATCH',
+  /** That Google identity is already attached to another LOPAY account. */
+  GOOGLE_ALREADY_LINKED: 'GOOGLE_ALREADY_LINKED',
+  /** Linking failed for a reason we can't attribute to one cause. */
+  GOOGLE_LINK_FAILED: 'GOOGLE_LINK_FAILED',
+  /** Sign-in can't link Google to an unverified account — do it from the profile. */
+  GOOGLE_LINK_FROM_PROFILE: 'GOOGLE_LINK_FROM_PROFILE',
+  /** OAuth state was lost or tampered with; starting again is the only fix. */
+  GOOGLE_RETRY: 'GOOGLE_RETRY',
+  /** The user declined at Google's consent screen. */
+  GOOGLE_CANCELLED: 'GOOGLE_CANCELLED',
   RATE_LIMITED: 'RATE_LIMITED',
   NETWORK_UNAVAILABLE: 'NETWORK_UNAVAILABLE',
   SERVER_ERROR: 'SERVER_ERROR',
@@ -129,6 +143,23 @@ export const FIELD_ERROR_MESSAGES: Record<FieldErrorCode, string> = {
   PASSWORD_MISMATCH: "Both passwords must match. Check for typos.",
 
   INVALID_CREDENTIALS: 'That email and password combination is incorrect.',
+  // Names email/password explicitly: when Google is down, the useful thing to tell
+  // someone is the way in that still works, not that a button is broken.
+  GOOGLE_UNAVAILABLE:
+    "Google sign-in isn't available right now. Use your email and password instead.",
+  GOOGLE_EMAIL_MISMATCH:
+    'That Google account uses a different email address than your LOPAY account.',
+  GOOGLE_ALREADY_LINKED:
+    'That Google account is already connected to another LOPAY account.',
+  GOOGLE_LINK_FAILED:
+    "We couldn't connect your Google account. Please try again.",
+  // The one message that must be actionable rather than apologetic: this is the
+  // refusal a parent hits when their account predates Google sign-in, and the way
+  // out is the profile screen, not another attempt at this button.
+  GOOGLE_LINK_FROM_PROFILE:
+    'Sign in with your email and password, then connect Google from your profile.',
+  GOOGLE_RETRY: 'That Google sign-in expired. Please try again.',
+  GOOGLE_CANCELLED: 'Google sign-in was cancelled.',
   RATE_LIMITED: 'Too many attempts. Wait a minute and try again.',
   NETWORK_UNAVAILABLE:
     "Can't reach LOPAY. Check your internet connection and try again.",
@@ -161,6 +192,13 @@ export const FIELD_ERROR_FIELDS: Record<FieldErrorCode, FieldName> = {
   PASSWORD_MISMATCH: 'confirmPassword',
 
   INVALID_CREDENTIALS: 'form',
+  GOOGLE_UNAVAILABLE: 'form',
+  GOOGLE_EMAIL_MISMATCH: 'form',
+  GOOGLE_ALREADY_LINKED: 'form',
+  GOOGLE_LINK_FAILED: 'form',
+  GOOGLE_LINK_FROM_PROFILE: 'form',
+  GOOGLE_RETRY: 'form',
+  GOOGLE_CANCELLED: 'form',
   RATE_LIMITED: 'form',
   NETWORK_UNAVAILABLE: 'form',
   SERVER_ERROR: 'form',

@@ -18,6 +18,7 @@ import {
   useSchoolTransactions,
   useUpdateFee,
   useSchoolStats,
+  useParentDashboardSummary,
 } from "../hooks/useQueries";
 import {
   Child,
@@ -25,6 +26,7 @@ import {
   School,
   Transaction,
   ApiSchoolStats,
+  ApiParentDashboardSummary,
 } from "../types";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -39,6 +41,12 @@ interface DataContextType {
   schoolTransactions: Transaction[];
   globalTransactions: Transaction[];
   notifications: Notification[];
+  /**
+   * Unread total from the server, NOT `notifications.filter(...)`. The list is a
+   * bounded window, so counting it under-reports the badge for anyone with a
+   * long history.
+   */
+  unreadNotificationsCount: number;
   schools: School[];
   isLoading: boolean;
   hasError: boolean;
@@ -71,6 +79,8 @@ interface DataContextType {
   allStudents: Child[];
   pendingPayments: Transaction[];
   schoolStats: ApiSchoolStats | null;
+  /** Parent-only. Null for other roles and until the first response lands. */
+  parentDashboardSummary: ApiParentDashboardSummary | null;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -78,21 +88,21 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 export const DataProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
-  const { user, isAuthenticated, effectiveRole, activeSchoolId } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
 
-  const baseRole = user?.role;
-  const isPlatformOwner = baseRole === "owner" && effectiveRole === "owner";
-
-  const isParent = effectiveRole === "parent";
-
-  const isSchoolContext =
-    effectiveRole === "school_owner" || baseRole === "school_owner";
+  // Derived from the session's real role. The acting-role override (and the
+  // activeSchoolId scope that rode with it) is gone — it never reached the
+  // server, so every "previewed" context rendered fabricated data.
+  const role = user?.role ?? null;
+  const isPlatformOwner = role === "owner";
+  const isParent = role === "parent";
+  const isSchoolContext = role === "school_owner";
 
   const schoolContextKey = isPlatformOwner
     ? "owner"
     : isSchoolContext
-      ? activeSchoolId || "school"
+      ? "school"
       : "none";
 
   // --- Queries ---
@@ -117,11 +127,22 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({
   const { data: globalTransactions = [], isError: errorGlobalTransactions } =
     useGlobalTransactions(isAuthenticated && isPlatformOwner);
 
+  // The list is a bounded window; `unreadCount` is the server's count over the
+  // whole table, so the badge stays exact for a long-lived account whose unread
+  // rows fall outside the window.
   const {
-    data: notifications = [],
+    data: notificationData,
     isLoading: loadingNotifications,
     isError: errorNotifications,
   } = useNotifications(user?.id, isAuthenticated);
+  const notifications = notificationData?.items ?? [];
+  const unreadNotificationsCount = notificationData?.unreadCount ?? 0;
+
+  // The parent dashboard's headline, rolled up server-side rather than summed
+  // across whatever plans this client happens to hold.
+  const { data: parentDashboardSummary = null } = useParentDashboardSummary(
+    isAuthenticated && isParent,
+  );
 
   const {
     data: schools = [],
@@ -173,6 +194,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.children }),
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.transactions }),
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.parentDashboardSummary,
+      }),
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.notifications }),
     ]);
   };
@@ -188,26 +212,34 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({
     ]);
   };
 
+  /**
+   * Refresh everything the admin dashboard renders.
+   *
+   * This used to invalidate the transaction/pending lists but NOT `adminOverview`,
+   * `adminStudentsSummary`, `adminBreakdown` or `adminPlatformRevenue` — which
+   * are the four queries behind every headline figure on the screen. "Retry"
+   * therefore left the numbers exactly as they were.
+   */
   const refreshOwnerView = async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({
-        queryKey: QUERY_KEYS.globalTransactions,
-      }),
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.children }),
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.schoolStudents }),
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.pendingPayments }),
-      queryClient.invalidateQueries({
-        queryKey: QUERY_KEYS.schoolTransactions,
-      }),
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.schoolStats }),
-      queryClient.invalidateQueries({
-        queryKey: QUERY_KEYS.adminPendingFirstPayments,
-      }),
-      queryClient.invalidateQueries({
-        queryKey: QUERY_KEYS.adminPendingInstallments,
-      }),
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.notifications }),
-    ]);
+    await Promise.all(
+      [
+        QUERY_KEYS.globalTransactions,
+        QUERY_KEYS.children,
+        QUERY_KEYS.schoolStudents,
+        QUERY_KEYS.pendingPayments,
+        QUERY_KEYS.schoolTransactions,
+        QUERY_KEYS.schoolStats,
+        QUERY_KEYS.adminPendingFirstPayments,
+        QUERY_KEYS.adminPendingInstallments,
+        QUERY_KEYS.adminOverview,
+        QUERY_KEYS.adminStudentsSummary,
+        QUERY_KEYS.adminSchoolsSummary,
+        QUERY_KEYS.adminPlatformRevenue,
+        QUERY_KEYS.adminBreakdown,
+        QUERY_KEYS.adminSchoolBreakdown,
+        QUERY_KEYS.notifications,
+      ].map((queryKey) => queryClient.invalidateQueries({ queryKey })),
+    );
   };
 
   const refreshData = async () => {
@@ -300,6 +332,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({
         schoolTransactions,
         globalTransactions,
         notifications,
+        unreadNotificationsCount,
         schools,
         isLoading,
         hasError,
@@ -317,6 +350,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({
         allStudents,
         pendingPayments,
         schoolStats,
+        parentDashboardSummary,
       }}
     >
       {children}

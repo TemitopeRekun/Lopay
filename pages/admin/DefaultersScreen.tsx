@@ -4,6 +4,7 @@ import { Layout } from '../../components/Layout';
 import { Header } from '../../components/Header';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
+import { getChildBalance } from '../../services/ledger';
 
 /**
  * Defaulted students for a school context.
@@ -22,10 +23,10 @@ import { useData } from '../../context/DataContext';
  */
 const DefaultersScreen: React.FC = () => {
   const { allStudents } = useData();
-  const { effectiveRole, userRole } = useAuth();
+  const { userRole } = useAuth();
   const navigate = useNavigate();
 
-  const isPlatformAdmin = userRole === 'owner' && effectiveRole === 'owner';
+  const isPlatformAdmin = userRole === 'owner';
   const defaulters = allStudents.filter(child => child.status === 'Defaulted');
 
   return (
@@ -76,17 +77,16 @@ const DefaultersScreen: React.FC = () => {
                         <div className="flex justify-between items-center text-sm p-3 bg-gray-50 dark:bg-white/5 rounded-lg">
                             <span className="text-text-secondary-light">Outstanding</span>
                             <span className="font-bold text-text-primary-light dark:text-text-primary-dark">
-                                ₦{(() => {
-                                  const totalFee = Number.isFinite(child.totalFee)
-                                    ? child.totalFee
-                                    : 0;
-                                  const paidAmount = Number.isFinite(
-                                    child.paidAmount,
-                                  )
-                                    ? child.paidAmount
-                                    : 0;
-                                  return (totalFee - paidAmount).toLocaleString();
-                                })()}
+                                {/*
+                                  The enrollment's own remaining balance — the
+                                  same number the ledger reduces on each
+                                  confirmed payment. `totalFee - paidAmount`
+                                  used to stand
+                                  in for it and came out short by the platform
+                                  fee inside the first payment, since paidAmount
+                                  is the gross the parent paid.
+                                */}
+                                ₦{getChildBalance(child).remaining.toLocaleString()}
                             </span>
                         </div>
                     </div>

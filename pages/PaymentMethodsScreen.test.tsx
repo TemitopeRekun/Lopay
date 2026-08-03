@@ -10,8 +10,11 @@ const navigate = vi.fn();
 const showToast = vi.fn();
 const submitPayment = vi.fn();
 const childrenData: Child[] = [];
+let directorySchools: { id: string; name: string }[] = [];
 let bankDetails: Record<string, string> | null = null;
 let bankQueryState = { isLoading: false, isError: false };
+/** Args the screen passed to useSchoolBankDetails, so per-child routing is assertable. */
+let bankDetailsQueriedFor: string | null | undefined;
 
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual<typeof import("react-router-dom")>(
@@ -24,7 +27,7 @@ vi.mock("../context/DataContext", () => ({
   useData: () => ({
     submitPayment,
     childrenData,
-    schools: [{ id: "school-1", name: "Acme School" }],
+    schools: directorySchools,
   }),
 }));
 
@@ -33,11 +36,14 @@ vi.mock("../store/uiStore", () => ({
 }));
 
 vi.mock("../hooks/useQueries", () => ({
-  useSchoolBankDetails: () => ({
-    data: bankDetails,
-    isLoading: bankQueryState.isLoading,
-    isError: bankQueryState.isError,
-  }),
+  useSchoolBankDetails: (schoolId?: string | null) => {
+    bankDetailsQueriedFor = schoolId;
+    return {
+      data: bankDetails,
+      isLoading: bankQueryState.isLoading,
+      isError: bankQueryState.isError,
+    };
+  },
 }));
 
 vi.mock("../services/backend", () => ({
@@ -93,6 +99,8 @@ const renderScreen = (state: Record<string, unknown> | null) =>
 beforeEach(() => {
   childrenData.length = 0;
   childrenData.push(child);
+  directorySchools = [{ id: "school-1", name: "Acme School" }];
+  bankDetailsQueriedFor = undefined;
   bankDetails = {
     bankName: "Acme Bank",
     accountName: "Acme School",
@@ -137,6 +145,45 @@ describe("PaymentMethodsScreen — destination account", () => {
     expect(
       screen.getByText(/Unable to load this school’s bank details/),
     ).toBeInTheDocument();
+  });
+
+  it("asks for the bank details of THIS child's school", () => {
+    // A parent with children at three schools gets three different destination
+    // accounts; the enrollment's schoolId is what picks the right one.
+    renderScreen(INSTALLMENT_STATE);
+
+    expect(bankDetailsQueriedFor).toBe("school-1");
+  });
+
+  it("routes a second child to their own school's account", () => {
+    childrenData.length = 0;
+    childrenData.push({ ...child, id: "enr-2", schoolId: "school-2" } as Child);
+
+    renderScreen({ ...INSTALLMENT_STATE, childId: "enr-2" });
+
+    expect(bankDetailsQueriedFor).toBe("school-2");
+  });
+
+  it("still pays out when the school is missing from the public directory", () => {
+    // The enrollment is the source of truth for which school this payment belongs
+    // to. Requiring a directory hit meant a soft-deleted school — or a failed
+    // directory request — made a live, payable enrollment look unpayable.
+    directorySchools = [];
+
+    renderScreen(INSTALLMENT_STATE);
+
+    expect(screen.getByText("0123456789")).toBeInTheDocument();
+    expect(
+      screen.queryByText(/has not published its bank details/),
+    ).not.toBeInTheDocument();
+  });
+
+  it("names the school from the enrollment when the directory is empty", () => {
+    directorySchools = [];
+
+    renderScreen(INSTALLMENT_STATE);
+
+    expect(screen.getAllByText(/Acme School/).length).toBeGreaterThan(0);
   });
 });
 

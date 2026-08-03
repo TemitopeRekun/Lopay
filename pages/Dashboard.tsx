@@ -6,33 +6,22 @@ import { useAuth } from "../context/AuthContext";
 import { useData } from "../context/DataContext";
 import { PlanCard } from "../components/PlanCard";
 import { RecentTransactionsList } from "../components/RecentTransactionsList";
-import { ImpersonationBanner } from "../components/ImpersonationBanner";
 import { NotificationIconButton } from "../components/NotificationIconButton";
-import { useUsers } from "../hooks/useQueries";
 import { installmentCount, toPlanType } from "../utils/plan";
 
 const Dashboard: React.FC = () => {
-  const {
-    user: currentUser,
-    setActingRole,
-    actingUserId,
-    isOwnerAccount,
-  } = useAuth();
+  const { user: currentUser } = useAuth();
   const {
     childrenData = [],
     transactions = [],
-    notifications = [],
+    unreadNotificationsCount,
     schools = [],
+    parentDashboardSummary,
     isLoading,
     hasError,
     refreshData,
   } = useData();
-  const { data: allUsers = [] } = useUsers(isOwnerAccount);
   const navigate = useNavigate();
-
-  const unreadNotifications = React.useMemo(() => {
-    return notifications.filter((n) => !n.read).length;
-  }, [notifications]);
 
   // Safety check to prevent crashes if data is corrupted
   const validChildren = React.useMemo(() => {
@@ -52,68 +41,22 @@ const Dashboard: React.FC = () => {
 
   const entityType = "School";
 
-  const actingAs = actingUserId
-    ? allUsers.find((u) => u.id === actingUserId)
-    : null;
-
-  const activeEnrollments = React.useMemo(() => {
-    return validChildren.filter((child) => {
-      const remaining =
-        typeof child.remainingBalance === "number" ? child.remainingBalance : 0;
-      return (
-        remaining > 0 &&
-        child.status !== "Completed" &&
-        child.status !== "Defaulted"
-      );
-    });
-  }, [validChildren]);
-
-  const enrollmentsWithNext = React.useMemo(() => {
-    return activeEnrollments.filter((child) => {
-      const amount =
-        typeof child.nextInstallmentAmount === "number"
-          ? child.nextInstallmentAmount
-          : 0;
-      return amount > 0;
-    });
-  }, [activeEnrollments]);
-
-  const totalNextCollection = React.useMemo(() => {
-    return enrollmentsWithNext.reduce((sum, child) => {
-      const amount =
-        typeof child.nextInstallmentAmount === "number"
-          ? child.nextInstallmentAmount
-          : 0;
-      return sum + amount;
-    }, 0);
-  }, [enrollmentsWithNext]);
-
-  const singleNextEnrollment =
-    enrollmentsWithNext.length === 1 ? enrollmentsWithNext[0] : null;
-
-  const earliestDueDate = React.useMemo(() => {
-    if (enrollmentsWithNext.length === 0) {
-      return null;
-    }
-    const dates = enrollmentsWithNext
-      .map((child) => child.nextDueDate)
-      .filter((d): d is string => !!d);
-    if (dates.length === 0) {
-      return null;
-    }
-    return dates.sort()[0];
-  }, [enrollmentsWithNext]);
-
-  const nextCollectionAmount = React.useMemo(() => {
-    if (singleNextEnrollment) {
-      const amount =
-        typeof singleNextEnrollment.nextInstallmentAmount === "number"
-          ? singleNextEnrollment.nextInstallmentAmount
-          : 0;
-      return amount;
-    }
-    return totalNextCollection;
-  }, [singleNextEnrollment, totalNextCollection]);
+  /*
+   * "Next Collection Due" is the server's number, not a local sum.
+   *
+   * This screen used to filter enrollments on a client-normalised status string,
+   * add up their `nextInstallmentAmount`s and take the minimum `nextDueDate`.
+   * That put the busiest figure in the app on an aggregate no endpoint ever
+   * validated, and it counted plans whose first payment had never been
+   * collected — quoting money the parent could not actually pay. The rollup is
+   * `GET /enrollments/summary` now; see the backend's `enrollment-view.ts`.
+   */
+  const nextCollection = parentDashboardSummary?.nextCollection;
+  const nextCollectionAmount = nextCollection?.amount;
+  const contributingPlanCount = nextCollection?.enrollmentCount ?? 0;
+  // Named only when a single plan contributes, so the card can say whose it is.
+  const singleNextChildName = nextCollection?.childName ?? null;
+  const nextDueDate = nextCollection?.dueDate ?? null;
 
   const handleQuickPay = (
     child: (typeof validChildren)[number],
@@ -187,23 +130,11 @@ const Dashboard: React.FC = () => {
     });
   };
 
-  const handleReturnToAdmin = () => {
-    setActingRole("owner");
-    navigate("/owner-dashboard");
-  };
-
   const hasPlans = validChildren.length > 0;
 
   if (isLoading) {
     return (
       <Layout showBottomNav>
-        {actingUserId && isOwnerAccount && (
-          <ImpersonationBanner
-            mode="user"
-            label={actingAs?.name || "User"}
-            onExit={handleReturnToAdmin}
-          />
-        )}
         <main className="flex flex-col items-center justify-center flex-1 p-6">
           <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin mb-4" />
           <p className="text-sm font-bold text-text-secondary-light">
@@ -217,23 +148,13 @@ const Dashboard: React.FC = () => {
 
   return (
     <Layout showBottomNav>
-      {actingUserId && isOwnerAccount && (
-        <ImpersonationBanner
-          mode="user"
-          label={actingAs?.name || "User"}
-          onExit={handleReturnToAdmin}
-        />
-      )}
-
-      <div
-        className={`sticky top-0 z-10 flex items-center justify-between bg-white dark:bg-background-dark p-6 pb-2 border-b border-gray-100 dark:border-gray-800 ${actingUserId ? "top-[42px]" : ""}`}
-      >
+      <div className="sticky top-0 z-10 flex items-center justify-between bg-white dark:bg-background-dark p-6 pb-2 border-b border-gray-100 dark:border-gray-800">
         <h1 className="text-2xl font-bold tracking-tight text-text-primary-light dark:text-text-primary-dark">
           Dashboard
         </h1>
         <div className="flex items-center gap-3">
           <NotificationIconButton
-            unreadCount={unreadNotifications}
+            unreadCount={unreadNotificationsCount}
             onClick={() => navigate("/notifications")}
             variant="round"
           />
@@ -250,7 +171,7 @@ const Dashboard: React.FC = () => {
             className="size-10 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 border-2 border-white dark:border-gray-600 shadow-sm"
           >
             <img
-              src={`https://ui-avatars.com/api/?name=${actingAs?.name || currentUser?.name || "User"}&background=random`}
+              src={`https://ui-avatars.com/api/?name=${currentUser?.name || "User"}&background=random`}
               alt="Profile"
               className="w-full h-full object-cover"
             />
@@ -296,7 +217,7 @@ const Dashboard: React.FC = () => {
             </div>
             <h2 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark mb-2">
               Welcome,{" "}
-              {(actingAs?.name || currentUser?.name || "User").split(" ")[0]}!
+              {(currentUser?.name || "User").split(" ")[0]}!
             </h2>
             <p className="text-text-secondary-light dark:text-text-secondary-dark max-w-xs mb-8">
               Your dashboard is empty. Add a child and set up a payment plan to
@@ -317,11 +238,14 @@ const Dashboard: React.FC = () => {
               <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">
                 Next Collection Due
               </p>
+              {/* Undefined until the endpoint answers — rendered as "—", never
+                  as a ₦0.00 the parent might read as "nothing owed". */}
               <p className="text-4xl font-extrabold tracking-tight mb-2">
-                ₦
-                {(nextCollectionAmount || 0).toLocaleString("en-US", {
-                  minimumFractionDigits: 2,
-                })}
+                {typeof nextCollectionAmount === "number"
+                  ? `₦${nextCollectionAmount.toLocaleString("en-US", {
+                      minimumFractionDigits: 2,
+                    })}`
+                  : "—"}
               </p>
               <div className="flex flex-col gap-1 mt-2">
                 <div className="flex items-center gap-2">
@@ -330,16 +254,24 @@ const Dashboard: React.FC = () => {
                     Direct Settlement Active
                   </p>
                 </div>
-                {singleNextEnrollment && singleNextEnrollment.nextDueDate && (
+                {nextDueDate && contributingPlanCount === 1 && (
                   <p className="text-white/70 text-xs font-bold uppercase tracking-wider">
-                    Due {singleNextEnrollment.nextDueDate}
+                    {singleNextChildName
+                      ? `${singleNextChildName} — due ${nextDueDate}`
+                      : `Due ${nextDueDate}`}
                   </p>
                 )}
-                {!singleNextEnrollment && earliestDueDate && (
+                {nextDueDate && contributingPlanCount > 1 && (
                   <p className="text-white/70 text-xs font-bold uppercase tracking-wider">
-                    Earliest due: {earliestDueDate}
+                    Earliest of {contributingPlanCount} plans: {nextDueDate}
                   </p>
                 )}
+                {contributingPlanCount === 0 &&
+                  typeof nextCollectionAmount === "number" && (
+                    <p className="text-white/70 text-xs font-bold uppercase tracking-wider">
+                      No installment due yet
+                    </p>
+                  )}
               </div>
             </div>
 
@@ -391,18 +323,6 @@ const Dashboard: React.FC = () => {
           <span className="material-symbols-outlined text-3xl">add</span>
         </button>
       </div>
-
-      {isOwnerAccount && !actingUserId && (
-        <button
-          onClick={handleReturnToAdmin}
-          className="fixed bottom-24 left-4 z-50 bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-5 py-3 rounded-full shadow-xl font-bold flex items-center gap-2 hover:scale-105 transition-transform"
-        >
-          <span className="material-symbols-outlined text-lg">
-            admin_panel_settings
-          </span>
-          <span className="text-xs uppercase tracking-wide">Back to Admin</span>
-        </button>
-      )}
 
       <BottomNav />
     </Layout>

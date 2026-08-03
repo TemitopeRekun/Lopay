@@ -151,7 +151,85 @@ describe("useRealtime", () => {
     expect(useRealtimeStore.getState().lastEventAt).not.toBeNull();
   });
 
-  it("on payments:changed: invalidates every payment-related query", () => {
+  /**
+   * Every query whose data the SERVER derives must be invalidated by a money or
+   * enrollment event.
+   *
+   * Pinned against QUERY_KEYS rather than hand-listed, because the failure this
+   * guards against is a new server-derived query being added and quietly left out
+   * of the map: the number renders once and then silently stops tracking the
+   * ledger. `adminBreakdown` was missing for exactly that reason, which froze the
+   * admin dashboard Overdue tile and the whole collections-breakdown screen on any
+   * open tab.
+   *
+   * The excluded keys below are the ones a payment or enrollment genuinely cannot
+   * change. Adding a key to QUERY_KEYS therefore forces a decision here.
+   */
+  const CLIENT_OR_STATIC_KEYS = [
+    // Identity / directory — not money.
+    "user",
+    "users",
+    "schools",
+    // Published prices. Invalidated explicitly on a fee write instead.
+    "schoolFees",
+    "myClassFees",
+    "schoolBankDetails",
+    // A pure function of a fee, cached for the session.
+    "paymentCalculation",
+    // Notifications have their own event.
+    "notifications",
+  ];
+
+  it("invalidates every server-derived query, on both event types", () => {
+    // Compared by NAME. Every entry in QUERY_KEYS — array or factory — puts its
+    // own name first in the key tuple, and React Query matches by prefix, so the
+    // leading segment is exactly what an invalidation has to hit. Working from
+    // names also means a factory key never has to be called with placeholder
+    // arguments to be checked.
+    const serverDerived = Object.keys(QUERY_KEYS).filter(
+      (name) => !CLIENT_OR_STATIC_KEYS.includes(name),
+    );
+
+    for (const event of ["payments:changed", "enrollments:changed"] as const) {
+      const { wrapper, invalidateSpy } = makeWrapper();
+      renderHook(() => useRealtime(), { wrapper });
+      invalidateSpy.mockClear();
+
+      act(() => socketMock.handlers.realtime({ type: event }));
+
+      const invalidated = invalidateSpy.mock.calls.map((c) =>
+        String((c[0] as { queryKey: unknown[] }).queryKey[0]),
+      );
+
+      const missing = serverDerived.filter(
+        (name) => !invalidated.includes(name),
+      );
+
+      // Reported as `[event, ...missing]` so a failure names both the event and
+      // the query that would have stopped tracking the ledger.
+      expect([event, ...missing]).toEqual([event]);
+    }
+  });
+
+  it("does not invalidate identity, price or notification queries on a money event", () => {
+    const { wrapper, invalidateSpy } = makeWrapper();
+    renderHook(() => useRealtime(), { wrapper });
+    invalidateSpy.mockClear();
+
+    act(() => socketMock.handlers.realtime({ type: "payments:changed" }));
+
+    const invalidated = invalidateSpy.mock.calls.map((c) =>
+      String((c[0] as { queryKey: unknown[] }).queryKey[0]),
+    );
+
+    expect(invalidated).not.toContain("schools");
+    expect(invalidated).not.toContain("myClassFees");
+    // Notifications arrive as their own event; a payment event must not refetch
+    // them or every confirm would cost two requests.
+    expect(invalidated).not.toContain("notifications");
+  });
+
+  it("covers the parent dashboard headline, which is a server aggregate", () => {
     const { wrapper, invalidateSpy } = makeWrapper();
     renderHook(() => useRealtime(), { wrapper });
     invalidateSpy.mockClear();
@@ -159,29 +237,11 @@ describe("useRealtime", () => {
     act(() => socketMock.handlers.realtime({ type: "payments:changed" }));
 
     expect(invalidateSpy).toHaveBeenCalledWith({
-      queryKey: QUERY_KEYS.pendingPayments,
+      queryKey: QUERY_KEYS.parentDashboardSummary,
     });
     expect(invalidateSpy).toHaveBeenCalledWith({
-      queryKey: QUERY_KEYS.transactions,
+      queryKey: QUERY_KEYS.adminBreakdown,
     });
-    // 12 payment keys are invalidated on this event.
-    expect(invalidateSpy).toHaveBeenCalledTimes(12);
-  });
-
-  it("on enrollments:changed: invalidates every enrollment-related query", () => {
-    const { wrapper, invalidateSpy } = makeWrapper();
-    renderHook(() => useRealtime(), { wrapper });
-    invalidateSpy.mockClear();
-
-    act(() => socketMock.handlers.realtime({ type: "enrollments:changed" }));
-
-    expect(invalidateSpy).toHaveBeenCalledWith({
-      queryKey: QUERY_KEYS.children,
-    });
-    expect(invalidateSpy).toHaveBeenCalledWith({
-      queryKey: QUERY_KEYS.adminSchoolsSummary,
-    });
-    expect(invalidateSpy).toHaveBeenCalledTimes(12);
   });
 
   it("ignores an unknown event type but still marks the event", () => {

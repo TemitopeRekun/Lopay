@@ -1,50 +1,32 @@
 
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/Layout';
 import { Header } from '../../components/Header';
-import { useAuth } from '../../context/AuthContext';
-import { useUsers, useSchoolStudents, useDeleteUser } from '../../hooks/useQueries';
+import { useUsers, useDeleteUser } from '../../hooks/useQueries';
 
+/**
+ * Read-only directory of registered users, with delete as the only write.
+ *
+ * Rows used to be clickable to "impersonate" the user. That is gone: the acting
+ * role it set never reached the server, so the parent dashboard it opened was
+ * the admin's own session data labelled with someone else's name. Per-user
+ * figures live in the admin breakdown screens, which read real data.
+ */
 const UsersListScreen: React.FC = () => {
-  const { setActingRole } = useAuth();
   const { data: allUsers = [] } = useUsers();
-  const { data: childrenData = [] } = useSchoolStudents();
   const { mutate: deleteUser } = useDeleteUser();
-  
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isRedirecting, setIsRedirecting] = useState<string | null>(null);
-  const navigate = useNavigate();
 
-  const filteredUsers = allUsers.filter(user => 
-    user.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredUsers = allUsers.filter(user =>
+    user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     user.email.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleDeleteUser = (e: React.MouseEvent, id: string, name: string) => {
-      e.stopPropagation();
+  const handleDeleteUser = (id: string, name: string) => {
       if (window.confirm(`Are you sure you want to delete user "${name}"? This will also remove all their registered children and payment records. This action cannot be undone.`)) {
           deleteUser(id);
       }
-  };
-
-  const handleUserImpersonation = (user: any) => {
-      if (user.role === 'owner') return; // Don't impersonate self/other admins
-      
-      setIsRedirecting(user.id);
-      
-      // Short delay for visual feedback of the "switching" state
-      setTimeout(() => {
-          setActingRole(user.role, user.schoolId, user.id);
-          
-          // Direct to the specific dashboard based on role
-          if (user.role === 'school_owner') {
-              navigate('/school-owner-dashboard');
-          } else {
-              navigate('/dashboard');
-          }
-          setIsRedirecting(null);
-      }, 600);
   };
 
   return (
@@ -80,26 +62,27 @@ const UsersListScreen: React.FC = () => {
                 </div>
             ) : (
                 filteredUsers.map(user => {
-                    const childrenCount = childrenData.filter(c => c.parentId === user.id).length;
-                    const isImpersonatable = user.role !== 'owner';
-                    const isBeingRedirected = isRedirecting === user.id;
-                    
+                    /*
+                     * The server's count.
+                     *
+                     * This used to call `useSchoolStudents()` with no arguments —
+                     * defaulting to enabled — and filter the result on
+                     * `child.parentId`. Two things were wrong with that: the
+                     * endpoint is SCHOOL_OWNER-only, so it 403'd for the admin
+                     * looking at this screen, and `parentId` is hard-coded to ""
+                     * by normalizeChild, so the count was 0 for every parent
+                     * regardless of the data.
+                     */
+                    const planCount = user.enrollmentCount ?? 0;
+
                     return (
-                        <div 
-                            key={user.id} 
-                            onClick={() => isImpersonatable && handleUserImpersonation(user)}
-                            className={`group bg-white dark:bg-card-dark p-4 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm flex items-center justify-between transition-all ${isImpersonatable ? 'cursor-pointer hover:border-primary/50 hover:shadow-xl active:scale-[0.98]' : 'opacity-80'}`}
+                        <div
+                            key={user.id}
+                            className="bg-white dark:bg-card-dark p-4 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm flex items-center justify-between"
                         >
                             <div className="flex items-center gap-4 flex-1">
-                                <div className="relative">
-                                    <div className={`size-14 rounded-2xl flex items-center justify-center font-black text-white shrink-0 shadow-lg ${user.role === 'owner' ? 'bg-slate-900' : user.role === 'school_owner' ? 'bg-secondary' : 'bg-primary'}`}>
-                                        {user.name.charAt(0).toUpperCase()}
-                                    </div>
-                                    {isBeingRedirected && (
-                                        <div className="absolute inset-0 bg-black/20 rounded-2xl flex items-center justify-center">
-                                            <span className="size-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                                        </div>
-                                    )}
+                                <div className={`size-14 rounded-2xl flex items-center justify-center font-black text-white shrink-0 shadow-lg ${user.role === 'owner' ? 'bg-slate-900' : user.role === 'school_owner' ? 'bg-secondary' : 'bg-primary'}`}>
+                                    {user.name.charAt(0).toUpperCase()}
                                 </div>
                                 <div className="overflow-hidden">
                                     <div className="flex items-center gap-2 mb-0.5">
@@ -113,23 +96,17 @@ const UsersListScreen: React.FC = () => {
                                             <div className="flex items-center gap-1 px-2 py-0.5 bg-gray-100 dark:bg-white/5 rounded-md">
                                                 <span className="material-symbols-outlined text-[10px]">family_restroom</span>
                                                 <span className="text-[9px] text-text-secondary-light font-black uppercase tracking-widest">
-                                                    {childrenCount} {childrenCount === 1 ? 'Plan' : 'Plans'}
+                                                    {planCount} {planCount === 1 ? 'Plan' : 'Plans'}
                                                 </span>
-                                            </div>
-                                        )}
-                                        {isImpersonatable && (
-                                            <div className="flex items-center gap-1 px-2 py-0.5 bg-primary/10 rounded-md">
-                                                <span className="material-symbols-outlined text-[10px] text-primary">login</span>
-                                                <span className="text-[9px] text-primary font-black uppercase tracking-widest">Impersonate</span>
                                             </div>
                                         )}
                                     </div>
                                 </div>
                             </div>
-                            
-                            <button 
+
+                            <button
                                 type="button"
-                                onClick={(e) => handleDeleteUser(e, user.id, user.name)}
+                                onClick={() => handleDeleteUser(user.id, user.name)}
                                 className="size-10 flex items-center justify-center text-text-secondary-light hover:text-danger hover:bg-danger/10 transition-all rounded-xl"
                                 title="Delete User"
                             >
