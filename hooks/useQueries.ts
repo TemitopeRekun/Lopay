@@ -43,9 +43,9 @@ export const QUERY_KEYS = {
     grade,
   ],
   myClassFees: ["myClassFees"],
+  parentDashboardSummary: ["parentDashboardSummary"],
   adminPendingFirstPayments: ["adminPendingFirstPayments"],
   adminPendingInstallments: ["adminPendingInstallments"],
-  adminSchoolStudents: (schoolId: string) => ["adminSchoolStudents", schoolId],
   adminPlatformRevenue: ["adminPlatformRevenue"],
   adminStudentsSummary: ["adminStudentsSummary"],
   adminSchoolsSummary: ["adminSchoolsSummary"],
@@ -72,16 +72,42 @@ export const useChildren = (enabled: boolean = true) => {
   });
 };
 
+/**
+ * The caller's notifications.
+ *
+ * `unreadCount` is the server's count over the WHOLE table, not over the window
+ * returned — the list is bounded, so deriving the badge from `items` would
+ * under-report it for anyone with a long history.
+ */
 export const useNotifications = (userId?: string, enabled: boolean = true) => {
   return useQuery({
     queryKey: QUERY_KEYS.notifications,
     queryFn: async () => {
-      const data = await BackendAPI.notifications.get();
-      return (Array.isArray(data) ? data : []).map(normalizeNotification);
+      const { items, unreadCount } = await BackendAPI.notifications.get();
+      return {
+        items: items.map(normalizeNotification),
+        unreadCount,
+      };
     },
     enabled: enabled && !!userId,
     // Notifications arrive live over the socket; this is just a fallback.
     refetchInterval: FALLBACK_POLL_MS,
+  });
+};
+
+/**
+ * The parent dashboard's headline figures, computed by the server.
+ *
+ * Deliberately a separate query from `useChildren`: the card must show the
+ * ledger's own aggregate, not a total re-derived from whatever plans the client
+ * happens to be holding.
+ */
+export const useParentDashboardSummary = (enabled: boolean = true) => {
+  return useQuery({
+    queryKey: QUERY_KEYS.parentDashboardSummary,
+    queryFn: BackendAPI.parent.getDashboardSummary,
+    enabled,
+    staleTime: 1000 * 30,
   });
 };
 
@@ -298,15 +324,25 @@ export const useSchoolBankDetails = (
   });
 };
 
+/**
+ * First payments awaiting settlement, optionally for one school.
+ *
+ * `schoolId` is part of the key AND sent to the server: the list is paginated,
+ * so a client-side filter would page over the wrong set.
+ */
 export const useAdminPendingFirstPayments = (
   enabled: boolean = true,
   page: number = 1,
   pollIntervalMs?: number,
+  schoolId?: string,
 ) => {
   return useQuery({
-    queryKey: [...QUERY_KEYS.adminPendingFirstPayments, page],
+    queryKey: [...QUERY_KEYS.adminPendingFirstPayments, page, schoolId ?? null],
     queryFn: async () => {
-      const data = await BackendAPI.admin.getPendingFirstPayments({ page });
+      const data = await BackendAPI.admin.getPendingFirstPayments({
+        page,
+        ...(schoolId ? { schoolId } : {}),
+      });
       const items = Array.isArray(data) ? data : (data?.items ?? []);
       return {
         items: items
@@ -408,13 +444,21 @@ export const useAdminOverview = (
   });
 };
 
-/** Per-school outstanding / overdue / student counts for the breakdown screen. */
+/**
+ * Per-school outstanding / overdue / student counts for the breakdown screen,
+ * and the Overdue tile on the admin dashboard.
+ *
+ * Carries the same safety-net poll as every other admin aggregate. Without it
+ * this query's only refresh was a window-focus refetch, so an admin watching the
+ * dashboard saw the Overdue figure freeze while every tile beside it moved.
+ */
 export const useAdminBreakdown = (enabled: boolean = true) => {
   return useQuery({
     queryKey: QUERY_KEYS.adminBreakdown,
     queryFn: BackendAPI.admin.getBreakdownSummary,
     enabled,
     staleTime: 1000 * 30,
+    refetchInterval: enabled ? FALLBACK_POLL_MS : false,
     refetchOnWindowFocus: true,
   });
 };
@@ -439,24 +483,17 @@ export const useAdminSchoolBreakdown = (
   });
 };
 
-export const useAdminSchoolStudents = (
-  schoolId: string | null,
-  enabled: boolean = true,
-) => {
-  return useQuery({
-    queryKey: schoolId
-      ? QUERY_KEYS.adminSchoolStudents(schoolId)
-      : ["adminSchoolStudents", "none"],
-    queryFn: async () => {
-      if (!schoolId) return [];
-      const data = await BackendAPI.admin.getSchoolStudents(schoolId);
-      // Paginated envelope (M4); tolerate a bare array for back-compat.
-      const items = Array.isArray(data) ? data : (data?.items ?? []);
-      return items.map(normalizeChild);
-    },
-    enabled: enabled && !!schoolId,
-  });
-};
+/*
+ * `useAdminSchoolStudents` is gone. No screen mounted it — the admin reads one
+ * school's students through `useAdminSchoolBreakdown`, which the collections
+ * breakdown screen actually renders — and being server-derived but absent from
+ * the realtime invalidation map, it was a query that would have rendered once and
+ * then silently stopped tracking the ledger. It was also the one roster shape
+ * keyed on `childId` rather than the enrollment id, unlike every other list.
+ *
+ * `BackendAPI.admin.getSchoolStudents` stays: the endpoint is live and tested,
+ * and the typed wrapper is the client for it.
+ */
 
 export const useUser = (
   userId: string | null | undefined,

@@ -430,11 +430,36 @@ describe("normalizeChild", () => {
     expect(err).toHaveBeenCalled();
   });
 
+  it("carries the server's schedule position through untouched", () => {
+    // Five slots of a 12-week plan closed by one transfer. These figures are
+    // derived server-side from payment VALUE; the client must not recount rows.
+    const out = normalizeChild(
+      baseEnrollment({
+        installmentFrequency: "WEEKLY",
+        nextInstallmentAmount: 1000,
+        installmentsPaid: 5,
+        installmentsTotal: 12,
+        creditTowardNextInstallment: 250,
+      }),
+    );
+    expect(out.installmentsPaid).toBe(5);
+    expect(out.installmentsTotal).toBe(12);
+    expect(out.creditTowardNextInstallment).toBe(250);
+  });
+
+  it("defaults the schedule position when an older payload omits it", () => {
+    const out = normalizeChild(
+      baseEnrollment({ installmentFrequency: "WEEKLY" }),
+    );
+    expect(out.installmentsPaid).toBe(0);
+    expect(out.installmentsTotal).toBe(12); // cadence default, never 0
+    expect(out.creditTowardNextInstallment).toBe(0);
+  });
+
   it("uses the server's nextInstallmentAmount above every local derivation", () => {
-    // The server spreads the balance over the installments STILL outstanding, so
-    // it shrinks as the plan progresses. This adapter used to read only
-    // `standardInstallmentAmount`/`installmentAmount` — fields no enrollment
-    // endpoint returns — and silently fell back to its own guess.
+    // The server quotes what closes the next slot of the schedule. This adapter
+    // used to read only `standardInstallmentAmount`/`installmentAmount` — fields
+    // no enrollment endpoint returns — and silently fell back to its own guess.
     const out = normalizeChild(
       baseEnrollment({
         nextInstallmentAmount: 450,

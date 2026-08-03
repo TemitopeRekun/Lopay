@@ -12,19 +12,18 @@ import { ContactDetailsSection } from "../components/profile/ContactDetailsSecti
 import { InstitutionalLinkCard } from "../components/profile/InstitutionalLinkCard";
 import { SettlementAccountSection } from "../components/profile/SettlementAccountSection";
 import { AccountAccessMenu } from "../components/profile/AccountAccessMenu";
+import { LinkedAccountsSection } from "../components/profile/LinkedAccountsSection";
 import { ProfileFooter } from "../components/profile/ProfileFooter";
 import { normalizePhone, validatePhone } from "../utils/phone";
+import { useGoogleLink } from "../hooks/useGoogleLink";
 
 const ProfileScreen: React.FC = () => {
   const {
     logout,
     role: userRole,
     user,
-    switchRole,
     updateUser: updateAuthUser,
     isOwnerAccount,
-    effectiveRole,
-    activeSchoolId,
   } = useAuth();
   const { schools } = useData();
   const { showToast } = useUIStore();
@@ -32,11 +31,17 @@ const ProfileScreen: React.FC = () => {
 
   const updateSchool = useUpdateSchool();
 
+  // Which sign-in methods this account has, plus the "connect Google" action.
+  // Linking has to happen from a signed-in session: Better Auth refuses to attach
+  // Google to an unverified email/password account at sign-in time, and this app
+  // sends no verification email. See hooks/useGoogleLink.ts.
+  const googleLink = useGoogleLink();
+
   // Always the signed-in user. This screen used to render another user's
   // profile while an admin "impersonated" them; that entry point is gone, so
   // everything here is self-service and every write targets the real session.
-  const isSchoolOwner = effectiveRole === "school_owner";
-  const schoolId = user?.schoolId || activeSchoolId || null;
+  const isSchoolOwner = userRole === "school_owner";
+  const schoolId = user?.schoolId || null;
 
   // Edit state for bank details
   const [isEditingBank, setIsEditingBank] = useState(false);
@@ -123,15 +128,6 @@ const ProfileScreen: React.FC = () => {
           : user?.accountNumber || "",
     });
     setIsEditingBank(true);
-  };
-
-  const handleSwitch = () => {
-    if (switchRole) switchRole();
-    if (userRole === "owner") {
-      navigate("/dashboard");
-    } else {
-      navigate("/owner-dashboard");
-    }
   };
 
   const handleSaveBank = async () => {
@@ -274,10 +270,17 @@ const ProfileScreen: React.FC = () => {
             />
           )}
 
+          <LinkedAccountsSection
+            isGoogleLinked={googleLink.isGoogleLinked}
+            isPasswordEnabled={googleLink.isPasswordEnabled}
+            isLoading={googleLink.isLoading}
+            onConnectGoogle={() => void googleLink.connect()}
+            isConnecting={googleLink.isConnecting}
+            error={googleLink.error}
+          />
+
           <AccountAccessMenu
             isOwnerAccount={isOwnerAccount}
-            userRole={userRole}
-            onSwitch={handleSwitch}
             onSettings={() => navigate("/settings")}
             onSupport={() => navigate("/support")}
             onDirectory={() => navigate("/admin/users")}

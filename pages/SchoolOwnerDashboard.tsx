@@ -6,7 +6,6 @@ import { useAuth } from "../context/AuthContext";
 import { useData } from "../context/DataContext";
 import { PlanCard } from "../components/PlanCard";
 import { RecentTransactionsList } from "../components/RecentTransactionsList";
-import { SchoolContextBanner } from "../components/SchoolContextBanner";
 import { NotificationIconButton } from "../components/NotificationIconButton";
 import { useUIStore } from "../store/uiStore";
 import { BackendAPI } from "../services/backend";
@@ -15,18 +14,13 @@ import { getErrorMessage } from "../utils/errors";
 import { normalizeTransaction } from "../services/adapters";
 
 const SchoolOwnerDashboard: React.FC = () => {
-  const {
-    user: currentUser,
-    isOwnerAccount,
-    setActingRole,
-    activeSchoolId,
-  } = useAuth();
+  const { user: currentUser } = useAuth();
   const {
     schoolTransactions,
     pendingPayments,
     allStudents: childrenData,
     schools,
-    notifications,
+    unreadNotificationsCount,
     isLoading,
     schoolStats,
     hasError,
@@ -38,10 +32,13 @@ const SchoolOwnerDashboard: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const mySchool = useMemo(() => {
-    const sId = activeSchoolId || currentUser?.schoolId;
-    return schools.find((s) => s.id === sId);
-  }, [schools, currentUser, activeSchoolId]);
+  // The signed-in owner's own school. There is no longer an `activeSchoolId`
+  // override: a platform admin cannot reach this screen, because every query it
+  // renders is SCHOOL_OWNER-only and produced fabricated zeros for anyone else.
+  const mySchool = useMemo(
+    () => schools.find((s) => s.id === currentUser?.schoolId),
+    [schools, currentUser?.schoolId],
+  );
 
   const schoolStudents = useMemo(() => {
     return childrenData;
@@ -64,11 +61,6 @@ const SchoolOwnerDashboard: React.FC = () => {
   }, [schoolStudents, searchQuery]);
 
   const pendingCount = useMemo(() => pendingPayments.length, [pendingPayments]);
-
-  const unreadNotificationsCount = useMemo(
-    () => (notifications ? notifications.filter((n) => !n.read).length : 0),
-    [notifications],
-  );
 
   const uniqueTransactions = useMemo(() => {
     const seen = new Set<string>();
@@ -145,11 +137,6 @@ const SchoolOwnerDashboard: React.FC = () => {
     }
     return schoolStudents.filter((s) => s.status === "Active").length;
   }, [schoolStats, schoolStudents]);
-
-  const handleReturnToAdmin = () => {
-    setActingRole("owner");
-    navigate("/owner-dashboard");
-  };
 
   const months = [
     "January",
@@ -251,12 +238,6 @@ const SchoolOwnerDashboard: React.FC = () => {
   if (isLoading) {
     return (
       <Layout showBottomNav>
-        {activeSchoolId && isOwnerAccount && (
-          <SchoolContextBanner
-            label={mySchool?.name || "School"}
-            onExit={handleReturnToAdmin}
-          />
-        )}
         <main className="flex flex-col items-center justify-center flex-1 p-6">
           <div className="w-12 h-12 border-4 border-secondary/30 border-t-secondary rounded-full animate-spin mb-4" />
           <p className="text-sm font-bold text-text-secondary-light">
@@ -270,15 +251,8 @@ const SchoolOwnerDashboard: React.FC = () => {
 
   return (
     <Layout showBottomNav>
-      {activeSchoolId && isOwnerAccount && (
-        <SchoolContextBanner
-          label={mySchool?.name || "School"}
-          onExit={handleReturnToAdmin}
-        />
-      )}
-
       <div
-        className={`sticky top-0 z-10 bg-white dark:bg-background-dark p-6 pb-2 border-b border-gray-100 dark:border-gray-800 ${activeSchoolId && isOwnerAccount ? "top-[42px]" : ""}`}
+        className="sticky top-0 z-10 bg-white dark:bg-background-dark p-6 pb-2 border-b border-gray-100 dark:border-gray-800"
       ></div>
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
@@ -577,18 +551,6 @@ const SchoolOwnerDashboard: React.FC = () => {
           </div>
         </div>
       </main>
-
-      {isOwnerAccount && (
-        <button
-          onClick={handleReturnToAdmin}
-          className="fixed bottom-24 left-6 z-50 bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-6 py-4 rounded-[20px] shadow-2xl font-black flex items-center gap-3 hover:scale-105 active:scale-95 transition-all border-2 border-white/10"
-        >
-          <span className="material-symbols-outlined text-lg">logout</span>
-          <span className="text-[10px] uppercase tracking-[0.25em]">
-            Admin Hub
-          </span>
-        </button>
-      )}
 
       <BottomNav />
     </Layout>

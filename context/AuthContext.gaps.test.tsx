@@ -10,9 +10,9 @@ import { render, screen, waitFor, act } from "@testing-library/react";
 import { AuthProvider, useAuth } from "./AuthContext";
 
 // Covers the behaviour the existing AuthContext.test.tsx leaves out: login /
-// register / logout / updateUser flows plus context switching (setActingRole /
-// switchRole) and localStorage hydration. Only the auth client, the backend
-// profile call and the query client are mocked — normalizeUser runs for real.
+// register / logout / updateUser flows, the derived role flags, and
+// localStorage hydration. Only the auth client, the backend profile call and
+// the query client are mocked — normalizeUser runs for real.
 const M = vi.hoisted(() => ({
   getSession: vi.fn(),
   signInEmail: vi.fn(),
@@ -49,11 +49,8 @@ const Probe = () => {
     <div>
       <span data-testid="isAuth">{auth.isAuthenticated ? "yes" : "no"}</span>
       <span data-testid="role">{auth.role ?? "null"}</span>
-      <span data-testid="effectiveRole">{auth.effectiveRole ?? "null"}</span>
       <span data-testid="userRole">{auth.userRole ?? "null"}</span>
       <span data-testid="isOwner">{auth.isOwnerAccount ? "yes" : "no"}</span>
-      <span data-testid="actingRole">{auth.actingRole ?? "null"}</span>
-      <span data-testid="activeSchoolId">{auth.activeSchoolId ?? "null"}</span>
       <span data-testid="userName">{auth.user?.name ?? "null"}</span>
       <span data-testid="userPhone">{auth.user?.phoneNumber ?? "null"}</span>
       <span data-testid="userSchoolId">{auth.user?.schoolId ?? "null"}</span>
@@ -191,6 +188,9 @@ describe("AuthProvider — login / register / logout", () => {
     expect(M.signInSocial).toHaveBeenCalledWith({
       provider: "google",
       callbackURL: expect.stringContaining("/#/home"),
+      // Post-redirect failures must land back in the SPA, not on the API's own
+      // error page — see AuthContext.google.test.tsx for the full behaviour.
+      errorCallbackURL: expect.stringContaining("/#/auth"),
     });
   });
 
@@ -423,7 +423,7 @@ describe("AuthProvider — updateUser", () => {
   });
 });
 
-describe("AuthProvider — context switching & derived roles", () => {
+describe("AuthProvider — derived roles", () => {
   it("exposes owner-derived flags after hydration", async () => {
     M.getSession.mockResolvedValue(OWNER_SESSION);
 
@@ -432,58 +432,27 @@ describe("AuthProvider — context switching & derived roles", () => {
       expect(screen.getByTestId("userRole")).toHaveTextContent("owner"),
     );
     expect(screen.getByTestId("isOwner")).toHaveTextContent("yes");
-    expect(screen.getByTestId("effectiveRole")).toHaveTextContent("owner");
+    expect(screen.getByTestId("role")).toHaveTextContent("owner");
   });
 
-  it("setActingRole overrides the effective role with a school scope", async () => {
-    M.getSession.mockResolvedValue(OWNER_SESSION);
+  it("role and userRole are the same value — the session's real role", async () => {
+    M.getSession.mockResolvedValue(PARENT_SESSION);
 
     renderAuth();
     await waitFor(() =>
-      expect(screen.getByTestId("userRole")).toHaveTextContent("owner"),
+      expect(screen.getByTestId("userRole")).toHaveTextContent("parent"),
     );
-
-    act(() => {
-      auth.setActingRole("parent" as any, "school-9");
-    });
-
-    expect(screen.getByTestId("actingRole")).toHaveTextContent("parent");
-    expect(screen.getByTestId("activeSchoolId")).toHaveTextContent("school-9");
-    expect(screen.getByTestId("effectiveRole")).toHaveTextContent("parent");
     expect(screen.getByTestId("role")).toHaveTextContent("parent");
+    expect(screen.getByTestId("isOwner")).toHaveTextContent("no");
   });
 
-  it("setActingRole clears the school id when it is omitted", async () => {
-    M.getSession.mockResolvedValue(OWNER_SESSION);
-
-    renderAuth();
-    await waitFor(() =>
-      expect(screen.getByTestId("userRole")).toHaveTextContent("owner"),
-    );
-
-    act(() => {
-      auth.setActingRole("parent" as any);
-    });
-
-    expect(screen.getByTestId("activeSchoolId")).toHaveTextContent("null");
-  });
-
-  it("setActingRole is a no-op with no logged-in user", async () => {
-    M.getSession.mockResolvedValue(session(null));
-
-    renderAuth();
-    await waitFor(() => expect(M.getSession).toHaveBeenCalled());
-
-    act(() => {
-      auth.setActingRole("parent" as any, "s");
-    });
-
-    expect(screen.getByTestId("actingRole")).toHaveTextContent("null");
-  });
-
-  // Guards the removal of user impersonation: the context must not expose any
-  // way to act as another person, only to preview a role / scope to a school.
-  it("exposes no acting-user identity on the auth context", async () => {
+  /*
+   * Guards the removal of impersonation AND the acting-role preview. Neither
+   * ever reached the server, so every view they produced was the caller's own
+   * session data wearing a different label. The context must expose no way to
+   * present as anything but the session's real role.
+   */
+  it("exposes no role-switching machinery of any kind", async () => {
     M.getSession.mockResolvedValue(OWNER_SESSION);
 
     renderAuth();
@@ -492,37 +461,11 @@ describe("AuthProvider — context switching & derived roles", () => {
     );
 
     expect(auth).not.toHaveProperty("actingUserId");
-    expect(auth.setActingRole).toHaveLength(2);
-  });
-
-  it("switchRole toggles an owner between owner and parent views", async () => {
-    M.getSession.mockResolvedValue(OWNER_SESSION);
-
-    renderAuth();
-    await waitFor(() =>
-      expect(screen.getByTestId("userRole")).toHaveTextContent("owner"),
-    );
-
-    act(() => auth.switchRole());
-    expect(screen.getByTestId("actingRole")).toHaveTextContent("parent");
-    expect(screen.getByTestId("effectiveRole")).toHaveTextContent("parent");
-
-    act(() => auth.switchRole());
-    expect(screen.getByTestId("actingRole")).toHaveTextContent("null");
-    expect(screen.getByTestId("effectiveRole")).toHaveTextContent("owner");
-  });
-
-  it("switchRole does nothing for a non-owner user", async () => {
-    M.getSession.mockResolvedValue(PARENT_SESSION);
-
-    renderAuth();
-    await waitFor(() =>
-      expect(screen.getByTestId("userRole")).toHaveTextContent("parent"),
-    );
-
-    act(() => auth.switchRole());
-    expect(screen.getByTestId("actingRole")).toHaveTextContent("null");
-    expect(screen.getByTestId("effectiveRole")).toHaveTextContent("parent");
+    expect(auth).not.toHaveProperty("actingRole");
+    expect(auth).not.toHaveProperty("setActingRole");
+    expect(auth).not.toHaveProperty("switchRole");
+    expect(auth).not.toHaveProperty("activeSchoolId");
+    expect(auth).not.toHaveProperty("effectiveRole");
   });
 });
 

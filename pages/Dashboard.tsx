@@ -10,21 +10,18 @@ import { NotificationIconButton } from "../components/NotificationIconButton";
 import { installmentCount, toPlanType } from "../utils/plan";
 
 const Dashboard: React.FC = () => {
-  const { user: currentUser, isOwnerAccount, setActingRole } = useAuth();
+  const { user: currentUser } = useAuth();
   const {
     childrenData = [],
     transactions = [],
-    notifications = [],
+    unreadNotificationsCount,
     schools = [],
+    parentDashboardSummary,
     isLoading,
     hasError,
     refreshData,
   } = useData();
   const navigate = useNavigate();
-
-  const unreadNotifications = React.useMemo(() => {
-    return notifications.filter((n) => !n.read).length;
-  }, [notifications]);
 
   // Safety check to prevent crashes if data is corrupted
   const validChildren = React.useMemo(() => {
@@ -44,64 +41,22 @@ const Dashboard: React.FC = () => {
 
   const entityType = "School";
 
-  const activeEnrollments = React.useMemo(() => {
-    return validChildren.filter((child) => {
-      const remaining =
-        typeof child.remainingBalance === "number" ? child.remainingBalance : 0;
-      return (
-        remaining > 0 &&
-        child.status !== "Completed" &&
-        child.status !== "Defaulted"
-      );
-    });
-  }, [validChildren]);
-
-  const enrollmentsWithNext = React.useMemo(() => {
-    return activeEnrollments.filter((child) => {
-      const amount =
-        typeof child.nextInstallmentAmount === "number"
-          ? child.nextInstallmentAmount
-          : 0;
-      return amount > 0;
-    });
-  }, [activeEnrollments]);
-
-  const totalNextCollection = React.useMemo(() => {
-    return enrollmentsWithNext.reduce((sum, child) => {
-      const amount =
-        typeof child.nextInstallmentAmount === "number"
-          ? child.nextInstallmentAmount
-          : 0;
-      return sum + amount;
-    }, 0);
-  }, [enrollmentsWithNext]);
-
-  const singleNextEnrollment =
-    enrollmentsWithNext.length === 1 ? enrollmentsWithNext[0] : null;
-
-  const earliestDueDate = React.useMemo(() => {
-    if (enrollmentsWithNext.length === 0) {
-      return null;
-    }
-    const dates = enrollmentsWithNext
-      .map((child) => child.nextDueDate)
-      .filter((d): d is string => !!d);
-    if (dates.length === 0) {
-      return null;
-    }
-    return dates.sort()[0];
-  }, [enrollmentsWithNext]);
-
-  const nextCollectionAmount = React.useMemo(() => {
-    if (singleNextEnrollment) {
-      const amount =
-        typeof singleNextEnrollment.nextInstallmentAmount === "number"
-          ? singleNextEnrollment.nextInstallmentAmount
-          : 0;
-      return amount;
-    }
-    return totalNextCollection;
-  }, [singleNextEnrollment, totalNextCollection]);
+  /*
+   * "Next Collection Due" is the server's number, not a local sum.
+   *
+   * This screen used to filter enrollments on a client-normalised status string,
+   * add up their `nextInstallmentAmount`s and take the minimum `nextDueDate`.
+   * That put the busiest figure in the app on an aggregate no endpoint ever
+   * validated, and it counted plans whose first payment had never been
+   * collected — quoting money the parent could not actually pay. The rollup is
+   * `GET /enrollments/summary` now; see the backend's `enrollment-view.ts`.
+   */
+  const nextCollection = parentDashboardSummary?.nextCollection;
+  const nextCollectionAmount = nextCollection?.amount;
+  const contributingPlanCount = nextCollection?.enrollmentCount ?? 0;
+  // Named only when a single plan contributes, so the card can say whose it is.
+  const singleNextChildName = nextCollection?.childName ?? null;
+  const nextDueDate = nextCollection?.dueDate ?? null;
 
   const handleQuickPay = (
     child: (typeof validChildren)[number],
@@ -175,13 +130,6 @@ const Dashboard: React.FC = () => {
     });
   };
 
-  // An admin previewing their own parent view (Profile → "Switch to Parent
-  // View") needs a way back to the admin hub.
-  const handleReturnToAdmin = () => {
-    setActingRole("owner");
-    navigate("/owner-dashboard");
-  };
-
   const hasPlans = validChildren.length > 0;
 
   if (isLoading) {
@@ -206,7 +154,7 @@ const Dashboard: React.FC = () => {
         </h1>
         <div className="flex items-center gap-3">
           <NotificationIconButton
-            unreadCount={unreadNotifications}
+            unreadCount={unreadNotificationsCount}
             onClick={() => navigate("/notifications")}
             variant="round"
           />
@@ -290,11 +238,14 @@ const Dashboard: React.FC = () => {
               <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">
                 Next Collection Due
               </p>
+              {/* Undefined until the endpoint answers — rendered as "—", never
+                  as a ₦0.00 the parent might read as "nothing owed". */}
               <p className="text-4xl font-extrabold tracking-tight mb-2">
-                ₦
-                {(nextCollectionAmount || 0).toLocaleString("en-US", {
-                  minimumFractionDigits: 2,
-                })}
+                {typeof nextCollectionAmount === "number"
+                  ? `₦${nextCollectionAmount.toLocaleString("en-US", {
+                      minimumFractionDigits: 2,
+                    })}`
+                  : "—"}
               </p>
               <div className="flex flex-col gap-1 mt-2">
                 <div className="flex items-center gap-2">
@@ -303,16 +254,24 @@ const Dashboard: React.FC = () => {
                     Direct Settlement Active
                   </p>
                 </div>
-                {singleNextEnrollment && singleNextEnrollment.nextDueDate && (
+                {nextDueDate && contributingPlanCount === 1 && (
                   <p className="text-white/70 text-xs font-bold uppercase tracking-wider">
-                    Due {singleNextEnrollment.nextDueDate}
+                    {singleNextChildName
+                      ? `${singleNextChildName} — due ${nextDueDate}`
+                      : `Due ${nextDueDate}`}
                   </p>
                 )}
-                {!singleNextEnrollment && earliestDueDate && (
+                {nextDueDate && contributingPlanCount > 1 && (
                   <p className="text-white/70 text-xs font-bold uppercase tracking-wider">
-                    Earliest due: {earliestDueDate}
+                    Earliest of {contributingPlanCount} plans: {nextDueDate}
                   </p>
                 )}
+                {contributingPlanCount === 0 &&
+                  typeof nextCollectionAmount === "number" && (
+                    <p className="text-white/70 text-xs font-bold uppercase tracking-wider">
+                      No installment due yet
+                    </p>
+                  )}
               </div>
             </div>
 
@@ -364,18 +323,6 @@ const Dashboard: React.FC = () => {
           <span className="material-symbols-outlined text-3xl">add</span>
         </button>
       </div>
-
-      {isOwnerAccount && (
-        <button
-          onClick={handleReturnToAdmin}
-          className="fixed bottom-24 left-4 z-50 bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-5 py-3 rounded-full shadow-xl font-bold flex items-center gap-2 hover:scale-105 transition-transform"
-        >
-          <span className="material-symbols-outlined text-lg">
-            admin_panel_settings
-          </span>
-          <span className="text-xs uppercase tracking-wide">Back to Admin</span>
-        </button>
-      )}
 
       <BottomNav />
     </Layout>

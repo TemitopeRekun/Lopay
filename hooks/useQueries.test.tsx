@@ -133,27 +133,27 @@ describe("useChildren", () => {
 });
 
 describe("useNotifications", () => {
-  it("normalizes notifications when a userId is present", async () => {
-    api.notifications.get.mockResolvedValue([
-      {
-        id: "n1",
-        title: "Payment confirmed",
-        message: "ok",
-        createdAt: "2026-01-01",
-        isRead: false,
-      },
-    ]);
+  it("normalizes the items and keeps the server's unread count", async () => {
+    api.notifications.get.mockResolvedValue({
+      items: [
+        {
+          id: "n1",
+          title: "Payment confirmed",
+          message: "ok",
+          createdAt: "2026-01-01",
+          isRead: false,
+        },
+      ],
+      // Deliberately larger than `items` — the list is a bounded window, so the
+      // badge must come from the server rather than from the rows on screen.
+      unreadCount: 12,
+      limit: 100,
+    });
     const { result } = await renderQuery(() => Q.useNotifications("u1"));
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.data![0].title).toBe("Payment confirmed");
-    expect(result.current.data![0].status).toBe("success");
-  });
-
-  it("tolerates a non-array response", async () => {
-    api.notifications.get.mockResolvedValue(null);
-    const { result } = await renderQuery(() => Q.useNotifications("u1"));
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.data).toEqual([]);
+    expect(result.current.data!.items[0].title).toBe("Payment confirmed");
+    expect(result.current.data!.items[0].status).toBe("success");
+    expect(result.current.data!.unreadCount).toBe(12);
   });
 
   it("is disabled without a userId", async () => {
@@ -486,35 +486,6 @@ describe("useAdminOverview", () => {
     const { result } = await renderQuery(() => Q.useAdminOverview());
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data!.recentTransactions).toEqual([]);
-  });
-});
-
-describe("useAdminSchoolStudents", () => {
-  it("normalizes an envelope for a given school", async () => {
-    api.admin.getSchoolStudents.mockResolvedValue({
-      items: [{ id: "c1", childName: "Bob" }],
-    });
-    const { result } = await renderQuery(() => Q.useAdminSchoolStudents("s1"));
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(api.admin.getSchoolStudents).toHaveBeenCalledWith("s1");
-    expect(result.current.data![0].name).toBe("Bob");
-  });
-
-  it("normalizes a bare array for a given school", async () => {
-    api.admin.getSchoolStudents.mockResolvedValue([
-      { id: "c2", childName: "Cara" },
-    ]);
-    const { result } = await renderQuery(() => Q.useAdminSchoolStudents("s2"));
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.data![0].name).toBe("Cara");
-  });
-
-  it("is disabled when schoolId is null", async () => {
-    const { result } = await renderQuery(() =>
-      Q.useAdminSchoolStudents(null),
-    );
-    expect(result.current.fetchStatus).toBe("idle");
-    expect(api.admin.getSchoolStudents).not.toHaveBeenCalled();
   });
 });
 

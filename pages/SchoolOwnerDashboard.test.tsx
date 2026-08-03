@@ -47,11 +47,10 @@ vi.mock("../components/RecentTransactionsList", () => ({
   ),
 }));
 
+// The screen reads only `user` — the acting-role fields it once consumed are
+// gone from the auth context entirely.
 const authState = {
   user: { id: "o1", name: "Owner", role: "school_owner", schoolId: "s1" },
-  isOwnerAccount: false,
-  setActingRole: vi.fn(),
-  activeSchoolId: null as string | null,
 };
 vi.mock("../context/AuthContext", () => ({ useAuth: () => authState }));
 
@@ -118,8 +117,6 @@ beforeEach(() => {
   dataState.isLoading = false;
   dataState.hasError = false;
   dataState.schoolStats = stats();
-  authState.activeSchoolId = null;
-  authState.isOwnerAccount = false;
   getTransactions.mockImplementation(async () => []);
 });
 

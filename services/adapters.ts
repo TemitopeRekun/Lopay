@@ -54,6 +54,9 @@ export const normalizeUser = (apiUser: ApiUser): User => {
     phoneNumber: apiUser.phoneNumber,
     schoolId: apiUser.schoolId,
     createdAt: apiUser.createdAt,
+    // Server-counted; carried through rather than derived. The admin directory
+    // used to compute this from a roster it could not legally fetch.
+    enrollmentCount: apiUser.enrollmentCount,
   };
 };
 
@@ -214,8 +217,12 @@ export const normalizeChild = (apiEnrollment: ApiEnrollment): Child => {
   /*
    * The next installment is the server's number.
    *
-   * It spreads the remaining balance over the installments still outstanding
-   * (`balance / (planCount - paidCount)`), so it shrinks as the plan progresses.
+   * It is the money needed to close the next slot of the plan's schedule, which
+   * the server derives from how much installment VALUE has been paid — so a
+   * parent who paid five slots in one transfer is quoted the sixth slot, not the
+   * balance re-spread over eleven. See the backend's
+   * `common/installment-schedule.ts`.
+   *
    * This adapter used to read `standardInstallmentAmount ?? installmentAmount` —
    * fields no enrollment endpoint returns — so the value was ALWAYS 0 and the
    * client silently fell back to its own guess: the previous installment's amount,
@@ -316,6 +323,14 @@ export const normalizeChild = (apiEnrollment: ApiEnrollment): Child => {
     schoolId: apiEnrollment.schoolId || "",
     installmentFrequency: apiEnrollment.installmentFrequency,
     installmentAmount: rawInstallmentAmountFromApi,
+    // Schedule position, straight from the server. Absent on payloads that
+    // predate it (admin lists, older backends), so both stay optional.
+    installmentsPaid: toNumber(apiEnrollment.installmentsPaid),
+    installmentsTotal:
+      toNumber(apiEnrollment.installmentsTotal) || defaultInstallmentCount,
+    creditTowardNextInstallment: toNumber(
+      apiEnrollment.creditTowardNextInstallment,
+    ),
     hasPendingInstallment,
     hasFailedFirstPayment,
     hasFailedInstallment,

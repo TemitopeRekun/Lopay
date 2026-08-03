@@ -23,10 +23,10 @@ import { getChildBalance } from '../../services/ledger';
  */
 const DefaultersScreen: React.FC = () => {
   const { allStudents } = useData();
-  const { effectiveRole, userRole } = useAuth();
+  const { userRole } = useAuth();
   const navigate = useNavigate();
 
-  const isPlatformAdmin = userRole === 'owner' && effectiveRole === 'owner';
+  const isPlatformAdmin = userRole === 'owner';
   const defaulters = allStudents.filter(child => child.status === 'Defaulted');
 
   return (

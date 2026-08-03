@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Layout } from "../components/Layout";
 import { BottomNav } from "../components/BottomNav";
@@ -21,18 +21,13 @@ import { PendingFirstPaymentsCard } from "../components/owner-dashboard/PendingF
 import { QuickOperations } from "../components/owner-dashboard/QuickOperations";
 
 const OwnerDashboard: React.FC = () => {
-  const { userRole, setActingRole, effectiveRole } = useAuth();
-  const { notifications, isLoading, hasError, refreshData } = useData();
+  const { userRole } = useAuth();
+  const { unreadNotificationsCount, isLoading, hasError, refreshData } =
+    useData();
   const navigate = useNavigate();
   const [chartView, setChartView] = useState<ChartView>("Monthly");
 
   const isOwner = userRole === "owner";
-
-  useEffect(() => {
-    if (userRole === "owner" && effectiveRole !== "owner") {
-      setActingRole("owner");
-    }
-  }, [userRole, effectiveRole, setActingRole]);
 
   const {
     data: adminPendingFirstPage,
@@ -88,10 +83,6 @@ const OwnerDashboard: React.FC = () => {
   /** Land the breakdown screen on the tab matching the card that was tapped. */
   const openBreakdown = (tab: BreakdownTab) =>
     navigate("/admin/breakdown", { state: { tab } });
-
-  const unreadNotificationsCount = useMemo(() => {
-    return notifications ? notifications.filter((n) => !n.read).length : 0;
-  }, [notifications]);
 
   // Every headline figure is read straight off the admin endpoints. There is
   // deliberately no client-side fallback: a locally re-derived total diverges
@@ -161,10 +152,19 @@ const OwnerDashboard: React.FC = () => {
     );
   }
 
+  /**
+   * Open one school's pending first payments.
+   *
+   * This used to call `setActingRole("school_owner", schoolId)` first. Acting role
+   * is UI-only state that never reaches the server, so it achieved nothing on the
+   * approvals screen (which reads the real role and showed the unfiltered
+   * platform-wide queue) while flipping DataContext into school mode — firing four
+   * SCHOOL_OWNER-only requests that 403 for a SUPER_ADMIN. The school travels in
+   * router state and the server applies the filter.
+   */
   const handleReviewFirstPayments = (schoolId: string) => {
     if (!schoolId) return;
-    setActingRole("school_owner", schoolId);
-    navigate("/admin/approvals", { state: { mode: "first" } });
+    navigate("/admin/approvals", { state: { schoolId } });
   };
 
   return (

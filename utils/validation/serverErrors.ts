@@ -51,6 +51,22 @@ const SERVER_CODE_MAP: Record<string, FieldErrorCode> = {
   // field was at fault in that case.
   FAILED_TO_CREATE_USER: FIELD_ERROR_CODES.SIGNUP_FAILED,
 
+  // ── Google sign-in / account linking (library-defined) ─────────────────────
+  // Raised when the provider has no client id/secret configured — which is the
+  // state the live deploy is in, and which used to surface as nothing at all
+  // because the client never checked for it.
+  CLIENT_ID_AND_SECRET_REQUIRED: FIELD_ERROR_CODES.GOOGLE_UNAVAILABLE,
+  PROVIDER_NOT_FOUND: FIELD_ERROR_CODES.GOOGLE_UNAVAILABLE,
+  ID_TOKEN_NOT_SUPPORTED: FIELD_ERROR_CODES.GOOGLE_UNAVAILABLE,
+  LINKING_DIFFERENT_EMAILS_NOT_ALLOWED:
+    FIELD_ERROR_CODES.GOOGLE_EMAIL_MISMATCH,
+  LINKING_NOT_ALLOWED: FIELD_ERROR_CODES.GOOGLE_LINK_FAILED,
+  // NOTE: "already linked to a different user" and "email doesn't match" also occur
+  // AFTER the redirect to Google, where they arrive as `?error=` parameters in
+  // lower_snake rather than in a response body. Those spellings live in
+  // oauthRedirectErrors.ts — mapping them here as well would be dead code.
+  LINKING_FAILED: FIELD_ERROR_CODES.GOOGLE_LINK_FAILED,
+
   // ── Ours, from signup-guard.ts (same spelling both sides) ──────────────────
   NAME_REQUIRED: FIELD_ERROR_CODES.NAME_REQUIRED,
   NAME_LENGTH: FIELD_ERROR_CODES.NAME_LENGTH,

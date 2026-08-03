@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Layout } from '../../components/Layout';
 import { Header } from '../../components/Header';
-import { useUsers, useSchoolStudents, useDeleteUser } from '../../hooks/useQueries';
+import { useUsers, useDeleteUser } from '../../hooks/useQueries';
 
 /**
  * Read-only directory of registered users, with delete as the only write.
@@ -14,7 +14,6 @@ import { useUsers, useSchoolStudents, useDeleteUser } from '../../hooks/useQueri
  */
 const UsersListScreen: React.FC = () => {
   const { data: allUsers = [] } = useUsers();
-  const { data: childrenData = [] } = useSchoolStudents();
   const { mutate: deleteUser } = useDeleteUser();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -63,7 +62,18 @@ const UsersListScreen: React.FC = () => {
                 </div>
             ) : (
                 filteredUsers.map(user => {
-                    const childrenCount = childrenData.filter(c => c.parentId === user.id).length;
+                    /*
+                     * The server's count.
+                     *
+                     * This used to call `useSchoolStudents()` with no arguments —
+                     * defaulting to enabled — and filter the result on
+                     * `child.parentId`. Two things were wrong with that: the
+                     * endpoint is SCHOOL_OWNER-only, so it 403'd for the admin
+                     * looking at this screen, and `parentId` is hard-coded to ""
+                     * by normalizeChild, so the count was 0 for every parent
+                     * regardless of the data.
+                     */
+                    const planCount = user.enrollmentCount ?? 0;
 
                     return (
                         <div
@@ -86,7 +96,7 @@ const UsersListScreen: React.FC = () => {
                                             <div className="flex items-center gap-1 px-2 py-0.5 bg-gray-100 dark:bg-white/5 rounded-md">
                                                 <span className="material-symbols-outlined text-[10px]">family_restroom</span>
                                                 <span className="text-[9px] text-text-secondary-light font-black uppercase tracking-widest">
-                                                    {childrenCount} {childrenCount === 1 ? 'Plan' : 'Plans'}
+                                                    {planCount} {planCount === 1 ? 'Plan' : 'Plans'}
                                                 </span>
                                             </div>
                                         )}

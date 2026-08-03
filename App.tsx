@@ -248,7 +248,7 @@ const AppRoutes = () => {
         <Route
           path="/dashboard"
           element={
-            <ProtectedRoute allowedRoles={["parent", "owner"]}>
+            <ProtectedRoute allowedRoles={["parent"]}>
               <Dashboard />
             </ProtectedRoute>
           }
@@ -263,10 +263,20 @@ const AppRoutes = () => {
           }
         />
 
+        {/*
+          School owners only.
+
+          A platform admin used to be allowed here. Every screen-scoped query is
+          SCHOOL_OWNER-only, so landing an admin on it produced a dashboard
+          reporting ₦0 collections, 0 registered and 0 active plans for a real
+          school — with no error banner, because the queries were never enabled
+          rather than failing. Fabricated zeros are worse than no screen. Admins
+          read real per-school figures at /admin/breakdown.
+        */}
         <Route
           path="/school-owner-dashboard"
           element={
-            <ProtectedRoute allowedRoles={["school_owner", "owner"]}>
+            <ProtectedRoute allowedRoles={["school_owner"]}>
               <SchoolSetupGate>
                 <SchoolOwnerDashboard />
               </SchoolSetupGate>
@@ -313,10 +323,14 @@ const AppRoutes = () => {
             </ProtectedRoute>
           }
         />
+        {/*
+          Scoped to a single school's roster, which only a school owner can fetch.
+          The admin equivalent is /admin/breakdown (tab: overdue).
+        */}
         <Route
           path="/admin/defaulters"
           element={
-            <ProtectedRoute allowedRoles={["owner", "school_owner"]}>
+            <ProtectedRoute allowedRoles={["school_owner"]}>
               <DefaultersScreen />
             </ProtectedRoute>
           }

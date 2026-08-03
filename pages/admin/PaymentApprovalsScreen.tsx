@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Layout } from "../../components/Layout";
 import { Header } from "../../components/Header";
 import { Pagination } from "../../components/Pagination";
@@ -38,30 +38,61 @@ const PaymentApprovalsScreen: React.FC = () => {
   const isOwner = userRole === "owner";
   const isSchoolOwner = userRole === "school_owner";
 
+  /*
+   * Which school queue to show, when the admin dashboard drilled into one.
+   *
+   * The dashboard used to reach this screen by calling `setActingRole
+   * ("school_owner", schoolId)`. Acting role is UI-only state that never reaches
+   * the server, so that produced two wrong things at once: this screen still read
+   * the REAL role and rendered the unfiltered platform-wide queue, while the
+   * acting role flipped DataContext into school mode and fired four
+   * SCHOOL_OWNER-only requests that 403 for a SUPER_ADMIN. The scope travels in
+   * router state and is applied by the server instead.
+   */
+  const location = useLocation();
+  const navState = location.state as { schoolId?: string } | null;
+  const schoolScope = isOwner ? navState?.schoolId : undefined;
+
   // Server-side pagination: the admin pending lists are capped per page (M4).
   const [page, setPage] = useState(1);
 
+  /*
+   * The owner has two queues and they are now genuinely switchable.
+   *
+   * `viewMode` was hard-wired to "first" for any owner, so the pending-installment
+   * query was fetched on every visit and never rendered — minting a signed receipt
+   * URL per invisible row on the way — and the "tabs" above were non-interactive
+   * divs. First payments are the platform to settle; installments belong to the
+   * school, so the admin view of them is read-only.
+   */
+  const [ownerTab, setOwnerTab] = useState<"first" | "installments">("first");
+  const viewMode: "installments" | "first" = isOwner
+    ? ownerTab
+    : "installments";
+
   // Live updates arrive over the socket (see useRealtime); the hooks keep a
-  // slow safety-net poll on their own.
+  // slow safety-net poll on their own. Each list is fetched only when shown.
   const { data: pendingFirstPage } = useAdminPendingFirstPayments(
-    isOwner,
+    isOwner && ownerTab === "first",
     page,
+    undefined,
+    schoolScope,
   );
   const { data: pendingInstallmentsPage } = useAdminPendingInstallments(
-    isOwner,
+    isOwner && ownerTab === "installments",
     page,
   );
   const adminPendingFirst = pendingFirstPage?.items ?? [];
   const adminPendingInstallments = pendingInstallmentsPage?.items ?? [];
-  // Owner sees the paginated "first payments" list; school-owner installments
-  // come from the (unchanged) school endpoints via DataContext.
-  const totalPages = pendingFirstPage?.totalPages ?? 1;
+  const totalPages =
+    (ownerTab === "first"
+      ? pendingFirstPage?.totalPages
+      : pendingInstallmentsPage?.totalPages) ?? 1;
   const settleFirstPayment = useSettleFirstPayment();
   const rejectFirstPayment = useRejectFirstPayment();
 
   const canApproveInstallments = isSchoolOwner;
   const canActivateFirst = isOwner;
-  const viewMode: "installments" | "first" = isOwner ? "first" : "installments";
 
   const pendingTransactions = useMemo(() => {
     if (isOwner) {
@@ -187,12 +218,14 @@ const PaymentApprovalsScreen: React.FC = () => {
     const { id, type, scope } = confirmAction;
     setProcessingId(id);
     try {
+      // Deliberately no navigation on decline. Declining one of N queued payments
+      // used to bounce the reviewer to the dashboard; the row simply leaves the
+      // list (the mutation invalidates it) and the rest stay reviewable.
       if (scope === "installment") {
         if (type === "approve") {
           await confirmPayment(id);
         } else {
           await declinePayment(id);
-          navigate("/home");
         }
       } else {
         if (!canActivateFirst) return;
@@ -201,7 +234,6 @@ const PaymentApprovalsScreen: React.FC = () => {
             await settleFirstPayment.mutateAsync(id);
           } else {
             await rejectFirstPayment.mutateAsync(id);
-            navigate("/home");
           }
         } else {
           if (type === "approve") {
@@ -245,12 +277,45 @@ const PaymentApprovalsScreen: React.FC = () => {
               Installments
             </div>
           )}
-          {isOwner && (
-            <div className="flex-1 py-2 rounded-xl text-xs font-black uppercase tracking-widest border bg-secondary text-white border-secondary text-center">
-              First Payments
-            </div>
-          )}
+          {isOwner &&
+            (
+              [
+                { key: "first", label: "First Payments" },
+                { key: "installments", label: "Installments" },
+              ] as const
+            ).map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => {
+                  setOwnerTab(tab.key);
+                  setPage(1);
+                }}
+                className={`flex-1 py-2 rounded-xl text-xs font-black uppercase tracking-widest border text-center transition-colors ${
+                  ownerTab === tab.key
+                    ? "bg-secondary text-white border-secondary"
+                    : "bg-white dark:bg-card-dark text-text-secondary-light border-gray-200 dark:border-gray-800"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
         </div>
+
+        {schoolScope && adminPendingFirst.length > 0 && (
+          <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-secondary/20 bg-secondary/5 px-4 py-2.5">
+            <p className="text-[10px] font-black uppercase tracking-widest text-secondary">
+              Showing {adminPendingFirst[0].schoolName}
+            </p>
+            <button
+              type="button"
+              onClick={() => navigate("/admin/approvals", { replace: true })}
+              className="text-[10px] font-black uppercase tracking-widest text-secondary underline"
+            >
+              All schools
+            </button>
+          </div>
+        )}
 
         {viewMode === "installments" ? (
           pendingTransactions.length === 0 ? (
@@ -308,6 +373,12 @@ const PaymentApprovalsScreen: React.FC = () => {
                       </div>
                     </button>
                   </div>
+
+                  {isOwner && (
+                    <p className="text-[10px] font-bold text-text-secondary-light uppercase tracking-widest">
+                      Awaiting the school&apos;s approval &mdash; read-only here
+                    </p>
+                  )}
 
                   {canApproveInstallments ? (
                     <div className="flex gap-3 mt-2">
@@ -434,11 +505,19 @@ const PaymentApprovalsScreen: React.FC = () => {
               }
 
               const s = item;
-              const totalFee = Number.isFinite(s.totalFee) ? s.totalFee : 0;
               const paidAmount = Number.isFinite(s.paidAmount)
                 ? s.paidAmount
                 : 0;
-              const remaining = totalFee - paidAmount;
+              /*
+               * The enrollment own balance — the number the ledger decrements.
+               *
+               * This was `totalFee - paidAmount`, which is short by exactly the
+               * platform fee inside the first payment: `paidAmount` is the GROSS
+               * the parent paid, and that fee never reduced the school-fee balance.
+               */
+              const remaining = Number.isFinite(s.remainingBalance)
+                ? (s.remainingBalance as number)
+                : 0;
 
               return (
                 <div

@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
 import { BackendAPI } from '../services/backend';
 import { useQueryClient } from '@tanstack/react-query';
+import { QUERY_KEYS } from '../hooks/useQueries';
 import { formatDateTime } from '../utils/date';
 import type { Transaction } from '../types';
 
@@ -57,8 +58,28 @@ const HistoryScreen: React.FC = () => {
     setReverseError(null);
     try {
       await BackendAPI.school.reversePayment(reverseTarget.id, reverseReason || undefined);
-      queryClient.invalidateQueries({ queryKey: ['transactions'] });
-      queryClient.invalidateQueries({ queryKey: ['schoolHistory'] });
+      /*
+       * A reversal restores a balance, so it moves this list, the school's stats,
+       * the roster and the platform-wide ledger.
+       *
+       * This used to invalidate `['transactions']` and `['schoolHistory']` — and
+       * `schoolHistory` is not a key anywhere in the app. The school owner's own
+       * history lives under `schoolTransactions`, so the list they were looking at
+       * never refetched. It only appeared to work because the server also pushes
+       * `payments:changed` over the socket; with the socket down, the row stayed
+       * "Successful" until the fallback poll.
+       */
+      await Promise.all(
+        [
+          QUERY_KEYS.transactions,
+          QUERY_KEYS.schoolTransactions,
+          QUERY_KEYS.globalTransactions,
+          QUERY_KEYS.schoolStats,
+          QUERY_KEYS.schoolStudents,
+          QUERY_KEYS.children,
+          QUERY_KEYS.notifications,
+        ].map((queryKey) => queryClient.invalidateQueries({ queryKey })),
+      );
       setReverseTarget(null);
     } catch (err: any) {
       setReverseError(err?.response?.data?.message ?? 'Reversal failed. Please try again.');

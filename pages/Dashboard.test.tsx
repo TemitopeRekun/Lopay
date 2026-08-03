@@ -9,6 +9,30 @@ import type { Child } from "../types";
 const navigate = vi.fn();
 const childrenData: Child[] = [];
 
+/**
+ * The dashboard headline is `GET /enrollments/summary`, not a local sum.
+ *
+ * Mutated per test the way `childrenData` is. Setting it to null models "the
+ * endpoint has not answered yet", which must render as an em dash rather than
+ * ₦0.00 — a parent reading ₦0.00 concludes nothing is owed.
+ */
+let dashboardSummary: any = null;
+
+const summary = (over: Record<string, any> = {}) => ({
+  nextCollection: {
+    amount: 0,
+    dueDate: null,
+    enrollmentCount: 0,
+    enrollmentId: null,
+    childName: null,
+    ...(over.nextCollection ?? {}),
+  },
+  activePlans: 0,
+  totalPlans: 0,
+  totalOutstanding: 0,
+  ...over,
+});
+
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual<typeof import("react-router-dom")>(
     "react-router-dom",
@@ -19,8 +43,6 @@ vi.mock("react-router-dom", async () => {
 vi.mock("../context/AuthContext", () => ({
   useAuth: () => ({
     user: { id: "u1", name: "Ada Parent" },
-    setActingRole: vi.fn(),
-    isOwnerAccount: false,
   }),
 }));
 
@@ -28,8 +50,9 @@ vi.mock("../context/DataContext", () => ({
   useData: () => ({
     childrenData,
     transactions: [],
-    notifications: [],
+    unreadNotificationsCount: 0,
     schools: [{ id: "school-1", name: "Acme School" }],
+    parentDashboardSummary: dashboardSummary,
     isLoading: false,
     hasError: false,
     refreshData: vi.fn(),
@@ -76,6 +99,7 @@ const renderScreen = () =>
 
 beforeEach(() => {
   childrenData.length = 0;
+  dashboardSummary = null;
   vi.clearAllMocks();
 });
 
@@ -212,29 +236,66 @@ describe("Dashboard — first-payment retry", () => {
 });
 
 describe("Dashboard — next collection", () => {
-  it("totals the next installment across enrollments", () => {
+  it("renders the server total verbatim, without re-deriving it", () => {
+    // Two plans quoting 25,000 each. The screen must show what the server said
+    // (35,000 here, deliberately NOT their sum) — the whole point is that the
+    // figure comes from the ledger rather than from whatever plans this client
+    // happens to be holding.
     childrenData.push(
       child({ id: "a", nextInstallmentAmount: 25_000 }),
-      child({ id: "b", nextInstallmentAmount: 10_000 }),
+      child({ id: "b", nextInstallmentAmount: 25_000 }),
     );
+    dashboardSummary = summary({
+      nextCollection: {
+        amount: 35_000,
+        dueDate: "2026-08-15",
+        enrollmentCount: 2,
+      },
+    });
     renderScreen();
 
     expect(screen.getByText("₦35,000.00")).toBeInTheDocument();
+    expect(screen.getByText(/Earliest of 2 plans: 2026-08-15/)).toBeInTheDocument();
   });
 
-  it("excludes a completed enrollment from the total", () => {
-    childrenData.push(
-      child({ id: "a", nextInstallmentAmount: 25_000 }),
-      child({
-        id: "b",
-        status: "Completed",
-        remainingBalance: 0,
-        nextInstallmentAmount: 0,
-      }),
-    );
+  it("names the plan when exactly one is due", () => {
+    childrenData.push(child({ id: "a" }));
+    dashboardSummary = summary({
+      nextCollection: {
+        amount: 25_000,
+        dueDate: "2026-08-15",
+        enrollmentCount: 1,
+        enrollmentId: "a",
+        childName: "Ada Lovelace",
+      },
+    });
     renderScreen();
 
     expect(screen.getByText("₦25,000.00")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Ada Lovelace — due 2026-08-15/),
+    ).toBeInTheDocument();
+  });
+
+  it("says nothing is due rather than showing a bare zero", () => {
+    // A parent whose plans are all settled or still awaiting a first payment.
+    childrenData.push(
+      child({ id: "a", status: "Completed", remainingBalance: 0, nextInstallmentAmount: 0 }),
+    );
+    dashboardSummary = summary();
+    renderScreen();
+
+    expect(screen.getByText(/No installment due yet/)).toBeInTheDocument();
+  });
+
+  it('shows "—" until the summary endpoint answers', () => {
+    // ₦0.00 while loading reads as "you owe nothing", which is a worse lie than
+    // an obvious placeholder.
+    childrenData.push(child({ id: "a" }));
+    dashboardSummary = null;
+    renderScreen();
+
+    expect(screen.getByText("—")).toBeInTheDocument();
   });
 
   it("prompts a first plan when the parent has none", () => {

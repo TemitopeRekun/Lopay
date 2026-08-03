@@ -67,11 +67,8 @@ vi.mock("../context/AuthContext", () => ({
       schoolId: fixture.schoolId,
     },
     isAuthenticated: true,
-    effectiveRole: "school_owner",
     userRole: "school_owner",
     isOwnerAccount: false,
-    activeSchoolId: null,
-    setActingRole: vi.fn(),
   }),
 }));
 

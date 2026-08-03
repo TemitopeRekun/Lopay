@@ -2,18 +2,24 @@ import React from "react";
 
 interface AccountAccessMenuProps {
   isOwnerAccount: boolean;
-  userRole: string | null;
-  onSwitch: () => void;
   onSettings: () => void;
   onSupport: () => void;
   onDirectory: () => void;
 }
 
-/** "Account & Access" menu: role switch plus navigation to settings/support/directory. */
+/**
+ * "Account & Access" menu: navigation to settings/support/directory.
+ *
+ * The "Switch to Parent View" toggle is gone. It set an acting role, which is
+ * UI-only state the server never sees, so the parent dashboard it opened
+ * immediately 403'd: `GET /enrollments/my-children` is PARENT/SCHOOL_OWNER-only
+ * and `GET /transactions` default-denies a SUPER_ADMIN. An admin who genuinely
+ * has children signs in as that parent; support reads real data through the admin
+ * endpoints. This is the last of the acting-role entry points — the directory
+ * previously lost an "impersonate" row for exactly the same reason.
+ */
 export const AccountAccessMenu: React.FC<AccountAccessMenuProps> = ({
   isOwnerAccount,
-  userRole,
-  onSwitch,
   onSettings,
   onSupport,
   onDirectory,
@@ -22,27 +28,6 @@ export const AccountAccessMenu: React.FC<AccountAccessMenuProps> = ({
     <h3 className="text-[10px] font-black text-text-secondary-light uppercase tracking-[0.2em] mb-1 px-1">
       Account & Access
     </h3>
-
-    {isOwnerAccount && (
-      <button
-        onClick={onSwitch}
-        className="w-full p-4 bg-primary/5 border border-primary/20 text-primary rounded-2xl flex items-center justify-between shadow-sm hover:bg-primary/10 transition-all group"
-      >
-        <div className="flex items-center gap-3">
-          <span className="material-symbols-outlined text-xl transition-transform group-hover:rotate-180 duration-500">
-            swap_horiz
-          </span>
-          <span className="text-xs font-black uppercase tracking-wider">
-            {userRole === "owner"
-              ? "Switch to Parent View"
-              : "Switch to Admin Hub"}
-          </span>
-        </div>
-        <span className="material-symbols-outlined text-sm">
-          arrow_forward_ios
-        </span>
-      </button>
-    )}
 
     <div className="bg-white dark:bg-card-dark rounded-3xl border border-gray-100 dark:border-gray-800 overflow-hidden shadow-sm">
       <button

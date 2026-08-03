@@ -10,40 +10,53 @@ import {
 } from "../services/socket";
 import { QUERY_KEYS } from "./useQueries";
 
-// Query keys touched when payment/balance data changes server-side. Keys are
-// matched by prefix, so contextual variants (e.g. pendingPayments + contextKey)
-// are covered too.
-const PAYMENT_KEYS = [
+/**
+ * Every server-derived key that a money or enrollment event can invalidate.
+ *
+ * Both events touch the same set. They were maintained as two hand-curated
+ * lists, and each had drifted: `adminBreakdown` was in NEITHER, so the admin
+ * dashboard's Overdue tile and the whole collections-breakdown screen never
+ * updated on an open tab (that query has no poll either — only a window-focus
+ * refetch). `adminPlatformRevenue` was missing from the enrollment list and
+ * `adminSchoolsSummary` from the payment list, for no reason either could state.
+ *
+ * A single list is now shared by both. Over-invalidating a query React Query
+ * isn't currently observing costs nothing — it only marks cached data stale, and
+ * an unmounted query refetches on its next mount. A MISSING key, by contrast, is
+ * a number on screen that silently stops tracking the ledger, which is the whole
+ * failure this map exists to prevent.
+ *
+ * `hooks/useRealtime.test.tsx` pins this against QUERY_KEYS so a new
+ * server-derived query cannot be added without landing here.
+ */
+const SERVER_DERIVED_KEYS = [
+  // Parent
+  QUERY_KEYS.children,
+  QUERY_KEYS.transactions,
+  QUERY_KEYS.parentDashboardSummary,
+  // School owner
   QUERY_KEYS.pendingPayments,
   QUERY_KEYS.schoolStats,
   QUERY_KEYS.schoolTransactions,
   QUERY_KEYS.schoolStudents,
+  // Platform admin
   QUERY_KEYS.globalTransactions,
-  QUERY_KEYS.transactions,
-  QUERY_KEYS.children,
   QUERY_KEYS.adminPendingFirstPayments,
   QUERY_KEYS.adminPendingInstallments,
   QUERY_KEYS.adminPlatformRevenue,
   QUERY_KEYS.adminStudentsSummary,
-  QUERY_KEYS.adminOverview,
-];
-
-// Query keys touched when enrollment state changes (PENDING/ACTIVE/COMPLETED/
-// DEFAULTED).
-const ENROLLMENT_KEYS = [
-  QUERY_KEYS.children,
-  QUERY_KEYS.schoolStudents,
-  QUERY_KEYS.schoolStats,
-  QUERY_KEYS.transactions,
-  QUERY_KEYS.schoolTransactions,
-  QUERY_KEYS.globalTransactions,
-  QUERY_KEYS.pendingPayments,
-  QUERY_KEYS.adminPendingFirstPayments,
-  QUERY_KEYS.adminPendingInstallments,
-  QUERY_KEYS.adminStudentsSummary,
   QUERY_KEYS.adminSchoolsSummary,
   QUERY_KEYS.adminOverview,
+  QUERY_KEYS.adminBreakdown,
+  QUERY_KEYS.adminSchoolBreakdown,
 ];
+
+// Kept as named exports so the two event types stay legible at the call site
+// even though they currently resolve to the same set.
+const PAYMENT_KEYS = SERVER_DERIVED_KEYS;
+const ENROLLMENT_KEYS = SERVER_DERIVED_KEYS;
+
+export const REALTIME_INVALIDATED_KEYS = SERVER_DERIVED_KEYS;
 
 const invalidate = (queryClient: QueryClient, keys: readonly string[][]) => {
   for (const queryKey of keys) {

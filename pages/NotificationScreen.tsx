@@ -1,5 +1,5 @@
 
-import React, { useMemo, useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { Layout } from '../components/Layout';
@@ -27,8 +27,12 @@ const NAVIGABLE_LINKS = new Set([
 ]);
 
 const NotificationScreen: React.FC = () => {
-  const { notifications, markNotificationRead, markAllNotificationsRead } =
-    useData();
+  const {
+    notifications,
+    unreadNotificationsCount,
+    markNotificationRead,
+    markAllNotificationsRead,
+  } = useData();
   const navigate = useNavigate();
   const [filter, setFilter] =
     useState<"All" | "Payments" | "Announcements">("All");
@@ -80,9 +84,14 @@ const NotificationScreen: React.FC = () => {
       return true;
   });
 
-  const unreadCount = useMemo(() => {
-    return notifications.filter((n) => !n.read).length;
-  }, [notifications]);
+  /*
+   * The server's count, not `notifications.filter(...)`.
+   *
+   * The list is a bounded window (newest 100), so counting the rows on screen
+   * under-reports the badge for anyone whose unread notifications have scrolled
+   * out of that window.
+   */
+  const unreadCount = unreadNotificationsCount;
 
   const handleOpenNotification = async (
     notification: (typeof notifications)[number],

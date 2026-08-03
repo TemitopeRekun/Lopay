@@ -58,6 +58,12 @@ const PaymentMethodsScreen: React.FC = () => {
 
   const schoolIdForBankDetails = child?.schoolId || school?.id || null;
 
+  // The enrollment is the source of truth for WHICH school this payment belongs
+  // to; the public directory is only a nicety for the display name. Deriving the
+  // name from the child means a school missing from that list (soft-deleted, or a
+  // directory request that failed) no longer makes a live enrollment look unpayable.
+  const schoolName = school?.name || child?.school || "your school";
+
   const {
     data: schoolBankDetails,
     isLoading: isLoadingSchoolBankDetails,
@@ -71,14 +77,14 @@ const PaymentMethodsScreen: React.FC = () => {
   // backend (there is no offline bypass), so it could show bank details for a
   // payment nothing would ever record.
   const activeBankDetails = useMemo(() => {
-    if (!school || !schoolBankDetails) return null;
+    if (!schoolBankDetails) return null;
     return {
-      accountName: schoolBankDetails.accountName || school.name,
+      accountName: schoolBankDetails.accountName || schoolName,
       bankName: schoolBankDetails.bankName,
       accountNumber: schoolBankDetails.accountNumber,
-      institutionName: school.name,
+      institutionName: schoolName,
     };
-  }, [school, schoolBankDetails]);
+  }, [schoolName, schoolBankDetails]);
 
   const canEditAmount = !!activeBankDetails && !!state?.allowCustom;
 
@@ -299,9 +305,7 @@ const PaymentMethodsScreen: React.FC = () => {
 
   const entityType = "School";
 
-  const primaryHeadingLabel = school
-    ? `Ongoing installments (${school.name} account)`
-    : "School account";
+  const primaryHeadingLabel = `Ongoing installments (${schoolName} account)`;
 
   const paymentInfoCopy =
     "These installments are paid directly to your school. Please pay into the school's account shown below.";
@@ -383,7 +387,7 @@ const PaymentMethodsScreen: React.FC = () => {
 
         <BankDetailsCard
           bankDetails={activeBankDetails}
-          schoolName={school?.name}
+          schoolName={schoolName}
           paymentInfoCopy={paymentInfoCopy}
           onCopy={copyToClipboard}
         />

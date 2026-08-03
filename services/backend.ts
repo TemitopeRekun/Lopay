@@ -7,6 +7,8 @@ import {
   ApiTransaction,
   Paginated,
   ApiNotification,
+  ApiNotificationList,
+  ApiParentDashboardSummary,
   ApiUser,
   ApiSchoolBankDetails,
   ApiClassFee,
@@ -147,9 +149,15 @@ export const BackendAPI = {
       });
       return response.data;
     },
+    /**
+     * First payments awaiting settlement. `schoolId` narrows to one school —
+     * applied server-side because the list is paginated, so filtering a page
+     * client-side would page over the wrong set.
+     */
     getPendingFirstPayments: async (params?: {
       page?: number;
       limit?: number;
+      schoolId?: string;
     }) => {
       const response = await apiClient.get<Paginated<ApiPendingPayment>>(
         "/admin/pending-first-payments",
@@ -525,14 +533,50 @@ export const BackendAPI = {
       });
       return response.data;
     },
+    /**
+     * The dashboard headline (next collection, active plans, outstanding),
+     * rolled up by the server across the caller's own plans.
+     *
+     * The client used to compute this by summing `nextInstallmentAmount` across
+     * enrollments and taking the earliest `nextDueDate`, filtering on a locally
+     * normalised status — an aggregate no endpoint validated, which counted
+     * plans whose first payment had never been collected.
+     */
+    getDashboardSummary: async () => {
+      const response = await apiClient.get<ApiParentDashboardSummary>(
+        "/enrollments/summary",
+      );
+      return response.data;
+    },
     // `deleteChild` (DELETE /enrollments/:id) is gone — no such route exists on the
     // backend, and nothing called it. Removing an enrollment would have to unwind
     // settled money, so it is a ledger operation, not a client delete.
   },
   notifications: {
+    /**
+     * A bounded window of the caller's notifications plus the true unread total.
+     *
+     * The endpoint used to return the whole history as a bare array. Both shapes
+     * are tolerated so a version skew degrades to "no unread badge" instead of an
+     * empty notification screen.
+     */
     get: async () => {
-      const response = await apiClient.get<ApiNotification[]>("/notifications");
-      return response.data;
+      const response = await apiClient.get<
+        ApiNotificationList | ApiNotification[]
+      >("/notifications");
+      const data = response.data;
+      if (Array.isArray(data)) {
+        return {
+          items: data,
+          unreadCount: data.filter((n) => !n.isRead).length,
+          limit: data.length,
+        };
+      }
+      return {
+        items: data?.items ?? [],
+        unreadCount: data?.unreadCount ?? 0,
+        limit: data?.limit ?? 0,
+      };
     },
     markRead: async (id: string) => {
       const response = await apiClient.patch(`/notifications/${id}/read`);
