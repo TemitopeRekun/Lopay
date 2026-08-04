@@ -441,10 +441,17 @@ const AppRoutes = () => {
             </ProtectedRoute>
           }
         />
+        {/*
+          Parent-only: every query this screen renders (`/transactions`,
+          `/enrollments/my-children`) serves a parent's own plans and 403s for
+          anyone else. It was reachable by any authenticated user via URL — only
+          the parent dashboard links to it — so an admin got an empty calendar
+          built from two failed requests.
+        */}
         <Route
           path="/calendar"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={["parent"]}>
               <CalendarScreen />
             </ProtectedRoute>
           }

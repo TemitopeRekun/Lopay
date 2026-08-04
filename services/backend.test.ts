@@ -392,23 +392,6 @@ describe("BackendAPI.school (non-ledger reads/writes)", () => {
     });
   });
 
-  it("updateFee POSTs class + amount without schoolId when omitted", async () => {
-    await BackendAPI.school.updateFee("JSS1", 5000);
-    expect(post).toHaveBeenCalledWith("/school-payments/fees", {
-      className: "JSS1",
-      feeAmount: 5000,
-    });
-  });
-
-  it("updateFee includes schoolId when provided", async () => {
-    await BackendAPI.school.updateFee("JSS1", 5000, "s1");
-    expect(post).toHaveBeenCalledWith("/school-payments/fees", {
-      className: "JSS1",
-      feeAmount: 5000,
-      schoolId: "s1",
-    });
-  });
-
   it("updateStudentStatus PATCHes the status endpoint", async () => {
     await BackendAPI.school.updateStudentStatus("st1", "ACTIVE");
     expect(patch).toHaveBeenCalledWith("/school-payments/students/st1/status", {

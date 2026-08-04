@@ -12,6 +12,7 @@ import {
   ApiUser,
   ApiSchoolBankDetails,
   ApiClassFee,
+  ApiPaymentStatus,
 } from "../types";
 import type {
   CreateReceiptUploadDto,
@@ -180,11 +181,19 @@ export const BackendAPI = {
         await apiClient.get<ApiPlatformRevenue>("/admin/revenue");
       return response.data;
     },
+    /**
+     * The platform-wide ledger, one page at a time.
+     *
+     * `status` is sent to the server rather than applied to the returned page:
+     * the list is paginated, so filtering here would search only the fetched
+     * page and present it as the whole set.
+     */
     getAllTransactions: async (params?: {
       includeReceiptSignedUrls?: boolean;
       receiptType?: "ALL" | "FIRST_PAYMENT" | "INSTALLMENT";
       page?: number;
       limit?: number;
+      status?: ApiPaymentStatus;
     }) => {
       const response = await apiClient.get<Paginated<ApiTransaction>>(
         "/admin/transactions",
@@ -383,15 +392,26 @@ export const BackendAPI = {
       return { items, total, truncated: items.length < total };
     },
 
+    /**
+     * The school's payment history.
+     *
+     * Serves both the paged history screen and the monthly CSV export, so it
+     * takes a page/status as well as the export's date window and `take`.
+     * `status` goes to the server for the same reason as everywhere else: the
+     * list is paginated, so filtering here would search one page only.
+     */
     getTransactions: async (params?: {
       from?: string;
       to?: string;
       take?: number;
+      page?: number;
+      status?: ApiPaymentStatus;
     }) => {
-      const response = await apiClient.get<ApiTransaction[]>(
-        "/school-payments/history",
-        { params: { includeReceiptSignedUrls: true, ...params } },
-      );
+      const response = await apiClient.get<
+        Paginated<ApiTransaction> | ApiTransaction[]
+      >("/school-payments/history", {
+        params: { includeReceiptSignedUrls: true, ...params },
+      });
       return response.data;
     },
     confirmFirstPayment: async (enrollmentId: string) => {
@@ -413,16 +433,16 @@ export const BackendAPI = {
       });
       return response.data;
     },
-    updateFee: async (
-      className: string,
-      feeAmount: number,
-      schoolId?: string,
-    ) => {
-      const payload: any = { className, feeAmount };
-      if (schoolId) payload.schoolId = schoolId;
-      const response = await apiClient.post("/school-payments/fees", payload);
-      return response.data;
-    },
+    /*
+     * `updateFee` is gone. It took an optional `schoolId` and put it in the body,
+     * which implied a platform admin could rewrite another school's fees — they
+     * cannot, and never could: POST /school-payments/fees is SCHOOL_OWNER-only
+     * and derives the school from the session, so the field was silently dropped
+     * by the server's whitelisting ValidationPipe. Fees are school-owned; a
+     * school publishes its own schedule through `setMyFees` (the /school/fees
+     * screen), which is scoped to the caller's session and cannot be pointed
+     * elsewhere. Nothing rendered `updateFee`.
+     */
     updateStudentStatus: async (studentId: string, status: string) => {
       const response = await apiClient.patch(
         `/school-payments/students/${studentId}/status`,
@@ -527,9 +547,22 @@ export const BackendAPI = {
       });
       return response.data;
     },
-    getHistory: async () => {
-      const response = await apiClient.get<any[]>("/transactions", {
-        params: { includeReceiptSignedUrls: true },
+    /**
+     * The caller's own payment history, one page at a time.
+     *
+     * `status` is sent to the server, not applied to the returned page: the
+     * list is paginated, so a client-side filter would search only the fetched
+     * page and render it as the complete set.
+     */
+    getHistory: async (params?: {
+      page?: number;
+      limit?: number;
+      status?: ApiPaymentStatus;
+    }) => {
+      const response = await apiClient.get<
+        Paginated<ApiTransaction> | ApiTransaction[]
+      >("/transactions", {
+        params: { includeReceiptSignedUrls: true, ...params },
       });
       return response.data;
     },

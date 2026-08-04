@@ -1,6 +1,7 @@
 import {
   ApiEnrollment,
   ApiNotification,
+  ApiPaymentStatus,
   ApiPendingPayment,
   ApiSchool,
   ApiTransaction,
@@ -58,6 +59,29 @@ export const normalizeUser = (apiUser: ApiUser): User => {
     // used to compute this from a roster it could not legally fetch.
     enrollmentCount: apiUser.enrollmentCount,
   };
+};
+
+/**
+ * A UI status label → the API enum value the server filters on.
+ *
+ * The inverse of the status mapping in `normalizeTransaction` below. History
+ * screens send this to the server instead of filtering a fetched page, because
+ * the lists are paginated: a client-side filter searches only the current page
+ * and renders the result as if it were the whole set.
+ *
+ * `Successful` maps to `SUCCESS` — the enum the backend actually stores. The
+ * normalizer accepts several spellings on the way in, but only this one is a
+ * valid filter value, and the server ignores anything it doesn't recognise
+ * rather than returning an empty page that would read as "no transactions".
+ */
+export const API_PAYMENT_STATUS: Record<
+  Exclude<Transaction["status"], never>,
+  ApiPaymentStatus
+> = {
+  Successful: "SUCCESS",
+  Pending: "PENDING",
+  Failed: "FAILED",
+  Reversed: "REVERSED",
 };
 
 export const normalizeTransaction = (
@@ -143,10 +167,28 @@ export const normalizeChild = (apiEnrollment: ApiEnrollment): Child => {
     apiEnrollment.paidAmount !== null;
   const paidFromField = hasPaidField ? toNumber(apiEnrollment.paidAmount) : 0;
 
-  const paidFromPayments = (apiEnrollment.payments || []).reduce(
-    (sum, p) => sum + toNumber(p.amount ?? p.amountPaid),
-    0,
-  );
+  /*
+   * Fallback only — the server sends `paidAmount`, summed over CONFIRMED
+   * payments (see the backend's `enrollment-view.ts`).
+   *
+   * This sum used to include every payment row regardless of status, so on a
+   * payload without the field a PENDING transfer counted as paid the moment it
+   * was submitted, and a FAILED or REVERSED one stayed counted forever —
+   * overstating what the parent had paid and understating what they owed.
+   * Mirroring the server's rule keeps the two derivations in agreement.
+   */
+  const paidFromPayments = (apiEnrollment.payments || []).reduce((sum, p) => {
+    const status = p.status ? String(p.status).toUpperCase() : "";
+    const isConfirmed =
+      typeof p.isConfirmed === "boolean" ? p.isConfirmed : undefined;
+    // A reversal flips isConfirmed to false, which is the signal the server
+    // itself uses; fall back to the status when the flag isn't on the payload.
+    const counts =
+      isConfirmed !== undefined
+        ? isConfirmed
+        : status === "SUCCESS" || status === "SUCCESSFUL" || status === "PAID";
+    return counts ? sum + toNumber(p.amount ?? p.amountPaid) : sum;
+  }, 0);
 
   const paidAmount = hasPaidField ? paidFromField : paidFromPayments;
 
@@ -300,6 +342,20 @@ export const normalizeChild = (apiEnrollment: ApiEnrollment): Child => {
     return type === "INSTALLMENT" && status === "FAILED";
   });
 
+  /*
+   * A payment the school took back.
+   *
+   * REVERSED was the one ledger status with nowhere to surface on the parent's
+   * plan card: the balance silently went back up (the server re-increments it
+   * and reopens a COMPLETED plan to ACTIVE) while the card showed no reason why.
+   * The parent is notified — "Payment Reversed" — so the plan they open next
+   * must be able to say the same thing.
+   */
+  const hasReversedPayment = payments.some((p) => {
+    const status = p.status ? String(p.status).toUpperCase() : "";
+    return status === "REVERSED";
+  });
+
   return {
     id: apiEnrollment.id || apiEnrollment.childId || apiEnrollment.child?.id || '',
     parentId: "",
@@ -334,6 +390,7 @@ export const normalizeChild = (apiEnrollment: ApiEnrollment): Child => {
     hasPendingInstallment,
     hasFailedFirstPayment,
     hasFailedInstallment,
+    hasReversedPayment,
     payments,
   };
 };

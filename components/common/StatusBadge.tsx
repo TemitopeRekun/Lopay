@@ -6,6 +6,7 @@ type StatusType =
   | "Completed"
   | "Defaulted"
   | "Failed"
+  | "Reversed"
   | string;
 
 interface StatusBadgeProps {
@@ -42,6 +43,12 @@ const getStatusColor = (status: string) => {
   }
   if (normalized === "failed" || normalized === "rejected") {
     return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200";
+  }
+  // Slate, matching the reversed styling on the history and recent-payments
+  // lists. It used to hit the grey fallback below, which is the same colour as
+  // "unknown status" — a real ledger state reading as an unrecognised one.
+  if (normalized === "reversed") {
+    return "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200";
   }
   if (normalized === "not active" || normalized === "inactive") {
     return "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400";

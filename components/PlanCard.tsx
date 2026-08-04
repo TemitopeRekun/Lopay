@@ -120,6 +120,7 @@ export const PlanCard: React.FC<PlanCardProps> = ({
   const hasPendingInstallment = !!child.hasPendingInstallment;
   const hasFailedFirstPayment = !!child.hasFailedFirstPayment;
   const hasFailedInstallment = !!child.hasFailedInstallment;
+  const hasReversedPayment = !!child.hasReversedPayment;
   const isPending = child.status === "Pending" || hasPendingInstallment;
   const isActivating = displayStatus === "Awaiting Approval";
   const isFullyInactive =
@@ -172,7 +173,13 @@ export const PlanCard: React.FC<PlanCardProps> = ({
     latestStatus === "FAILED" ||
     latestStatus === "REJECTED" ||
     latestStatus === "DECLINED";
-
+  /*
+   * REVERSED is deliberately in neither list. It is not a failed attempt (the
+   * payment succeeded, then was undone), so it must not turn the badge red; and
+   * it is not a success, so it must not clear an earlier failure. Falling
+   * through to the flags below is the correct handling — the reversal itself is
+   * surfaced by its own notice.
+   */
   const hasPendingPayment = latestIsPending || hasPendingInstallment;
   const hasFailedPayment = latestIsFailed
     ? true
@@ -283,6 +290,28 @@ export const PlanCard: React.FC<PlanCardProps> = ({
                   {hasFailedFirstPayment && balance.paid === 0
                     ? "Your first payment couldn’t be verified (receipt not clear). Please upload a clearer receipt."
                     : "Your last installment attempt was rejected (receipt not clear). Please upload a clearer image."}
+                </p>
+              </div>
+            ) : null}
+            {/*
+              A reversal puts the amount back onto the balance, and the parent
+              gets notified — but the plan card said nothing, so the amount owed
+              simply went up with no explanation on the screen they'd check.
+
+              The wording matters here. Installments are paid bank-to-bank
+              straight to the school (receiver: SCHOOL, platformAmount: 0) and
+              the platform never holds the money, so nothing was refunded. What
+              the school undid is its own confirmation of the receipt. Saying
+              "your payment was reversed" to someone who transferred real money
+              reads as "the school sent it back", which is false and sends them
+              looking for a refund that does not exist.
+            */}
+            {hasReversedPayment && !hasFailedPayment ? (
+              <div className="w-full rounded-xl border border-slate-400/30 bg-slate-500/10 px-3 py-2">
+                <p className="text-[10px] text-slate-600 dark:text-slate-300 font-bold leading-snug text-center">
+                  The school has withdrawn its confirmation of an earlier
+                  payment, so that amount is showing as owed again. No money has
+                  been refunded — please contact the school.
                 </p>
               </div>
             ) : null}

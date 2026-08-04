@@ -38,9 +38,22 @@ const TRANSACTION_EVENT_STYLES = {
 } as const;
 
 export const CalendarScreen: React.FC = () => {
-  const { user } = useAuth();
-  const { data: transactions = [] } = useTransactions(user?.id);
-  const { data: childrenData = [] } = useChildren();
+  const { user, userRole } = useAuth();
+
+  /*
+   * Parent-scoped, like the two queries below it.
+   *
+   * These were enabled for whoever landed here, but `/transactions` and
+   * `/enrollments/my-children` only serve a parent's own plans — a platform
+   * admin reaching this screen by URL re-enabled the very queries DataContext
+   * disables off-parent and got a 403 apiece. Gating here keeps one rule for
+   * these keys across the app instead of two that disagree.
+   */
+  const isParent = userRole === "parent";
+  // The newest page of history — the calendar marks the days it covers.
+  const { data: transactionPage } = useTransactions(user?.id, isParent);
+  const transactions = transactionPage?.items ?? [];
+  const { data: childrenData = [] } = useChildren(isParent);
   
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());

@@ -1362,6 +1362,10 @@ export interface operations {
                 take: string;
                 from: string;
                 to: string;
+                /** @description Filter by payment status. Applied in SQL so the history tabs page over the matching set, not over one already-fetched page. */
+                status?: "PENDING" | "SUCCESS" | "FAILED" | "REVERSED";
+                /** @description Page number for the paged history screen (1-based). */
+                page?: number;
             };
             header?: never;
             path?: never;
@@ -1903,6 +1907,8 @@ export interface operations {
                 receiptType: string;
                 page: string;
                 limit: string;
+                /** @description Filter by payment status. Applied in SQL so the history tabs page over the matching set, not over one already-fetched page. */
+                status?: "PENDING" | "SUCCESS" | "FAILED" | "REVERSED";
             };
             header?: never;
             path?: never;
@@ -2275,6 +2281,8 @@ export interface operations {
                 receiptType: string;
                 page: string;
                 limit: string;
+                /** @description Filter by payment status. Applied in SQL so the admin history tabs page over the matching set, not over one already-fetched page. */
+                status?: "PENDING" | "SUCCESS" | "FAILED" | "REVERSED";
             };
             header?: never;
             path?: never;

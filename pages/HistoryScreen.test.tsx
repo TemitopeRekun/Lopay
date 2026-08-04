@@ -9,14 +9,54 @@ import type { Transaction } from "../types";
 
 const transactions: Transaction[] = [];
 let role = "parent";
+/** The status the screen last asked the SERVER for, per history hook. */
+let requestedStatus: string | undefined;
+let requestedPage = 1;
 
 vi.mock("../context/AuthContext", () => ({
-  useAuth: () => ({ role }),
+  useAuth: () => ({ role, user: { id: "u1" } }),
 }));
 
-vi.mock("../context/DataContext", () => ({
-  useData: () => ({ transactions }),
-}));
+/*
+ * The three history hooks are mocked at the query layer rather than at
+ * DataContext: this screen owns its own page and status filter and sends both
+ * to the server, so the filter assertions below are about what it REQUESTS, not
+ * about what it removes from a list it was handed.
+ */
+vi.mock("../hooks/useQueries", async () => {
+  const actual =
+    await vi.importActual<typeof import("../hooks/useQueries")>(
+      "../hooks/useQueries",
+    );
+  const page = (
+    _enabledOrUserId?: unknown,
+    _enabled?: unknown,
+    options: { page?: number; status?: string } = {},
+  ) => {
+    requestedStatus = options.status;
+    requestedPage = options.page ?? 1;
+    return {
+      data: {
+        items: transactions,
+        total: transactions.length,
+        page: requestedPage,
+        totalPages: 1,
+      },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    };
+  };
+  return {
+    ...actual,
+    useTransactions: page,
+    // The school/owner variants take (enabled, options) — one arg fewer.
+    useSchoolTransactions: (enabled?: unknown, options = {}) =>
+      page(enabled, undefined, options),
+    useGlobalTransactions: (enabled?: unknown, options = {}) =>
+      page(enabled, undefined, options),
+  };
+});
 
 vi.mock("../components/Layout", () => ({
   Layout: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -54,6 +94,8 @@ const renderScreen = () => {
 beforeEach(() => {
   transactions.length = 0;
   role = "parent";
+  requestedStatus = undefined;
+  requestedPage = 1;
 });
 
 describe("HistoryScreen — dates", () => {
@@ -81,28 +123,57 @@ describe("HistoryScreen — reversed payments", () => {
     expect(screen.queryByText("Pending", { selector: "div" })).not.toBeInTheDocument();
   });
 
-  it("offers a Reversed filter that isolates those rows", async () => {
+  /*
+   * The tabs filter SERVER-side. They used to filter the fetched array, and
+   * every history endpoint returns one bounded page (50 rows for the admin
+   * ledger), so a tab showed only the matches within that page and rendered
+   * them as the complete set — with no pager to reach the rest. These assert on
+   * the request the screen makes, which is where the filtering now happens.
+   */
+  it("asks the server for the Reversed set rather than filtering a page", async () => {
     const user = userEvent.setup();
-    transactions.push(
-      tx({ id: "ok", status: "Successful", childName: "Settled Child" }),
-      tx({ id: "rev", status: "Reversed", childName: "Reversed Child" }),
-    );
+    transactions.push(tx({ id: "ok", status: "Successful" }));
     renderScreen();
 
     await user.click(screen.getByRole("button", { name: "Reversed" }));
 
-    expect(screen.getByText("Reversed Child")).toBeInTheDocument();
-    expect(screen.queryByText("Settled Child")).not.toBeInTheDocument();
+    expect(requestedStatus).toBe("REVERSED");
   });
 
-  it("keeps a reversed row out of the Pending tab", async () => {
+  it("maps each tab to its API status value", async () => {
     const user = userEvent.setup();
-    transactions.push(tx({ status: "Reversed", childName: "Reversed Child" }));
     renderScreen();
 
-    await user.click(screen.getByRole("button", { name: "Pending" }));
+    // "Successful" is the UI label; SUCCESS is what the enum stores. Sending
+    // the label would match nothing and empty the tab.
+    await user.click(screen.getByRole("button", { name: "Successful" }));
+    expect(requestedStatus).toBe("SUCCESS");
 
-    expect(screen.queryByText("Reversed Child")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Pending" }));
+    expect(requestedStatus).toBe("PENDING");
+
+    await user.click(screen.getByRole("button", { name: "Failed" }));
+    expect(requestedStatus).toBe("FAILED");
+  });
+
+  it("sends no status filter on the All tab", async () => {
+    const user = userEvent.setup();
+    renderScreen();
+
+    await user.click(screen.getByRole("button", { name: "Failed" }));
+    await user.click(screen.getByRole("button", { name: "All" }));
+
+    expect(requestedStatus).toBeUndefined();
+  });
+
+  it("returns to page 1 when the filter changes", async () => {
+    const user = userEvent.setup();
+    renderScreen();
+
+    await user.click(screen.getByRole("button", { name: "Failed" }));
+
+    // Staying on page 4 of the old set would land past the end of the new one.
+    expect(requestedPage).toBe(1);
   });
 });
 

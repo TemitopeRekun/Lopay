@@ -51,7 +51,6 @@ const api = vi.hoisted(() => ({
     getTransactions: vi.fn(),
     getStudents: vi.fn(),
     getAllStudents: vi.fn(),
-    updateFee: vi.fn(),
     confirmPayment: vi.fn(),
     confirmFirstPayment: vi.fn(),
     declinePayment: vi.fn(),
@@ -170,8 +169,30 @@ describe("useTransactions", () => {
     ]);
     const { result } = await renderQuery(() => Q.useTransactions("u1"));
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.data![0].amount).toBe(500);
-    expect(result.current.data![0].status).toBe("Successful");
+    expect(result.current.data!.items[0].amount).toBe(500);
+    expect(result.current.data!.items[0].status).toBe("Successful");
+  });
+
+  /*
+   * The status tabs must narrow the QUERY. Filtering the fetched page instead
+   * would search one page and render it as the whole history.
+   */
+  it("sends the status filter and page to the server", async () => {
+    api.parent.getHistory.mockResolvedValue({
+      items: [],
+      total: 0,
+      page: 2,
+      totalPages: 4,
+    });
+    await renderQuery(() =>
+      Q.useTransactions("u1", true, { page: 2, status: "FAILED" }),
+    );
+    await waitFor(() =>
+      expect(api.parent.getHistory).toHaveBeenCalledWith({
+        page: 2,
+        status: "FAILED",
+      }),
+    );
   });
 
   it("is disabled without a userId", async () => {
@@ -190,19 +211,26 @@ describe("useGlobalTransactions", () => {
     expect(api.admin.getAllTransactions).toHaveBeenCalledWith({
       includeReceiptSignedUrls: true,
       receiptType: "ALL",
+      page: 1,
     });
-    expect(result.current.data![0].status).toBe("Failed");
+    expect(result.current.data!.items[0].status).toBe("Failed");
   });
 
   it("unwraps a paginated envelope", async () => {
     api.admin.getAllTransactions.mockResolvedValue({
       items: [{ id: "t2", amount: 20, status: "PENDING" }],
-      total: 1,
+      total: 137,
+      page: 1,
+      totalPages: 3,
     });
     const { result } = await renderQuery(() => Q.useGlobalTransactions());
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.data).toHaveLength(1);
-    expect(result.current.data![0].id).toBe("t2");
+    expect(result.current.data!.items).toHaveLength(1);
+    expect(result.current.data!.items[0].id).toBe("t2");
+    // The envelope's totals must survive: they are what tells the screen the
+    // page it is holding is not the whole ledger.
+    expect(result.current.data!.total).toBe(137);
+    expect(result.current.data!.totalPages).toBe(3);
   });
 });
 
@@ -260,7 +288,7 @@ describe("useSchoolTransactions", () => {
     ]);
     const { result } = await renderQuery(() => Q.useSchoolTransactions());
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.data![0].amount).toBe(42);
+    expect(result.current.data!.items[0].amount).toBe(42);
   });
 });
 
@@ -587,29 +615,6 @@ describe("notification mutations", () => {
     );
     expect(api.notifications.markAllRead).toHaveBeenCalledTimes(1);
     expect(invalidatedKeys(spy)).toContainEqual(Q.QUERY_KEYS.notifications);
-  });
-});
-
-describe("useUpdateFee", () => {
-  it("invalidates that school's fees when a schoolId is given", async () => {
-    api.school.updateFee.mockResolvedValue({ ok: true });
-    const { spy } = await runMutation(() => Q.useUpdateFee(), {
-      className: "JSS1",
-      feeAmount: 100,
-      schoolId: "s1",
-    });
-    expect(api.school.updateFee).toHaveBeenCalledWith("JSS1", 100, "s1");
-    expect(invalidatedKeys(spy)).toContainEqual(Q.QUERY_KEYS.schoolFees("s1"));
-  });
-
-  it("invalidates nothing when no schoolId is given", async () => {
-    api.school.updateFee.mockResolvedValue({ ok: true });
-    const { spy } = await runMutation(() => Q.useUpdateFee(), {
-      className: "JSS1",
-      feeAmount: 100,
-    });
-    expect(api.school.updateFee).toHaveBeenCalledWith("JSS1", 100, undefined);
-    expect(spy).not.toHaveBeenCalled();
   });
 });
 

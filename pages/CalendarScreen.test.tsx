@@ -10,11 +10,20 @@ const transactions: Transaction[] = [];
 const childrenData: Child[] = [];
 
 vi.mock("../context/AuthContext", () => ({
-  useAuth: () => ({ user: { id: "u1" } }),
+  // Parent-scoped screen: the queries below are only enabled for this role.
+  useAuth: () => ({ user: { id: "u1" }, userRole: "parent" }),
 }));
 
 vi.mock("../hooks/useQueries", () => ({
-  useTransactions: () => ({ data: transactions }),
+  // `useTransactions` returns a page envelope, not a bare array.
+  useTransactions: () => ({
+    data: {
+      items: transactions,
+      total: transactions.length,
+      page: 1,
+      totalPages: 1,
+    },
+  }),
   useChildren: () => ({ data: childrenData }),
 }));
 
