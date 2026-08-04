@@ -68,6 +68,12 @@ export interface Child {
   hasPendingInstallment?: boolean;
   hasFailedFirstPayment?: boolean;
   hasFailedInstallment?: boolean;
+  /**
+   * A payment on this plan was reversed, restoring the balance. The parent gets
+   * a "Payment Reversed" notification, so the plan card must be able to explain
+   * the balance going back up.
+   */
+  hasReversedPayment?: boolean;
   payments?: ApiPayment[];
 }
 
@@ -197,6 +203,14 @@ export interface Paginated<T> {
   limit: number;
   totalPages: number;
 }
+
+/**
+ * The `PaymentTransactionStatus` enum as the API accepts it for filtering.
+ *
+ * Distinct from the display labels on `Transaction["status"]`; see
+ * `API_PAYMENT_STATUS` in services/adapters.ts for the mapping between them.
+ */
+export type ApiPaymentStatus = "PENDING" | "SUCCESS" | "FAILED" | "REVERSED";
 
 export interface ApiTransaction {
   id: string;

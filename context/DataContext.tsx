@@ -1,7 +1,6 @@
 import React, { createContext, useContext, ReactNode } from "react";
 import { useAuth } from "./AuthContext";
 import {
-  QUERY_KEYS,
   useChildren,
   useNotifications,
   useSchools,
@@ -16,7 +15,6 @@ import {
   useSchoolStudents,
   usePendingPayments,
   useSchoolTransactions,
-  useUpdateFee,
   useSchoolStats,
   useParentDashboardSummary,
 } from "../hooks/useQueries";
@@ -69,11 +67,13 @@ interface DataContextType {
   confirmPayment: (paymentId: string) => Promise<void>;
   confirmFirstPayment: (enrollmentId: string) => Promise<void>;
   declinePayment: (paymentId: string) => Promise<void>;
-  updateFee: (
-    className: string,
-    feeAmount: number,
-    schoolId?: string,
-  ) => Promise<void>;
+  /*
+   * No `updateFee` here. Fees are school-owned and written only through the
+   * session-scoped /school/fees screen (`useSetMyClassFees`) — exposing a
+   * schoolId-taking fee write on the shared context implied a platform admin
+   * could edit a school's fee, which the SCHOOL_OWNER-only endpoint never
+   * allowed.
+   */
 
   // Additional data for school owners (can be null/empty for parents)
   allStudents: Child[];
@@ -84,6 +84,15 @@ interface DataContextType {
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
+
+/**
+ * Shared empty list.
+ *
+ * A fresh `[]` per render is a new reference, so every consumer memoized on
+ * `transactions` would recompute on each render while a history query is
+ * loading or disabled.
+ */
+const EMPTY_TRANSACTIONS: Transaction[] = [];
 
 export const DataProvider: React.FC<{ children: ReactNode }> = ({
   children,
@@ -112,20 +121,32 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({
     isError: errorChildren,
   } = useChildren(isAuthenticated && isParent);
 
+  /*
+   * The first, unfiltered page of each history.
+   *
+   * The dashboards render a "recent transactions" strip off these, so page 1
+   * newest-first is exactly right. The history SCREEN does not read them: it
+   * owns its own page and status filter, both of which go to the server (see
+   * HistoryScreen). Keeping that state out of the shared context is what stops
+   * one screen's paging from moving another screen's list.
+   */
   const {
-    data: parentTransactions = [],
+    data: parentTransactionPage,
     isLoading: loadingTransactions,
     isError: errorTransactions,
   } = useTransactions(user?.id, isAuthenticated && isParent);
+  const parentTransactions = parentTransactionPage?.items ?? EMPTY_TRANSACTIONS;
 
   const {
-    data: schoolTransactions = [],
+    data: schoolTransactionPage,
     isLoading: loadingSchoolTransactions,
     isError: errorSchoolTransactions,
   } = useSchoolTransactions(isAuthenticated && isSchoolContext);
+  const schoolTransactions = schoolTransactionPage?.items ?? EMPTY_TRANSACTIONS;
 
-  const { data: globalTransactions = [], isError: errorGlobalTransactions } =
+  const { data: globalTransactionPage, isError: errorGlobalTransactions } =
     useGlobalTransactions(isAuthenticated && isPlatformOwner);
+  const globalTransactions = globalTransactionPage?.items ?? EMPTY_TRANSACTIONS;
 
   // The list is a bounded window; `unreadCount` is the server's count over the
   // whole table, so the badge stays exact for a long-lived account whose unread
@@ -188,75 +209,46 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({
   const confirmPaymentMutation = useConfirmPayment();
   const confirmFirstPaymentMutation = useConfirmFirstPayment();
   const declinePaymentMutation = useDeclinePayment();
-  const updateFeeMutation = useUpdateFee();
-
-  const refreshParentView = async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.children }),
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.transactions }),
-      queryClient.invalidateQueries({
-        queryKey: QUERY_KEYS.parentDashboardSummary,
-      }),
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.notifications }),
-    ]);
-  };
-
-  const refreshSchoolView = async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.schoolStudents }),
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.pendingPayments }),
-      queryClient.invalidateQueries({
-        queryKey: QUERY_KEYS.schoolTransactions,
-      }),
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.schoolStats }),
-    ]);
-  };
 
   /**
-   * Refresh everything the admin dashboard renders.
+   * Reload everything the current screen is actually rendering.
    *
-   * This used to invalidate the transaction/pending lists but NOT `adminOverview`,
-   * `adminStudentsSummary`, `adminBreakdown` or `adminPlatformRevenue` — which
-   * are the four queries behind every headline figure on the screen. "Retry"
-   * therefore left the numbers exactly as they were.
+   * This was three hand-maintained lists of query keys, one per role, and the
+   * approach failed twice. First on the admin dashboard: the lists invalidated
+   * the transaction/pending queries but not `adminOverview`,
+   * `adminStudentsSummary`, `adminBreakdown` or `adminPlatformRevenue` — the
+   * four behind every headline figure — so "Retry" left the numbers exactly as
+   * they were. Appending those four fixed that screen and left the mechanism
+   * intact, so the same failure simply moved: `["schools"]` (SchoolListScreen),
+   * `["users"]` (UsersListScreen), `["auditLogs", …]` (AuditLogsScreen) and
+   * `["myClassFees"]` (SchoolSetupScreen) appear in no list, so on those four
+   * screens a pull-to-refresh ran the spinner and fetched nothing.
+   *
+   * `refetchQueries({ type: "active" })` asks React Query which queries are
+   * mounted right now and refetches those. A screen's data is refreshed because
+   * the screen is on it, not because someone remembered to add its key here —
+   * so a new query cannot be born stale.
+   *
+   * `refetch`, not `invalidate`: invalidation only marks data stale and resolves
+   * as soon as it has done so, which let the spinner stop before any response
+   * arrived. Awaiting the refetch means the gesture ends when the data lands.
+   *
+   * `throwOnError` is required for this to reject. query-core catches each
+   * query's failure with `noop` unless it is set, so the returned promise
+   * resolves whether the network succeeded or failed — a caller that reports
+   * errors (Layout's pull-to-refresh) would never see one.
    */
-  const refreshOwnerView = async () => {
-    await Promise.all(
-      [
-        QUERY_KEYS.globalTransactions,
-        QUERY_KEYS.children,
-        QUERY_KEYS.schoolStudents,
-        QUERY_KEYS.pendingPayments,
-        QUERY_KEYS.schoolTransactions,
-        QUERY_KEYS.schoolStats,
-        QUERY_KEYS.adminPendingFirstPayments,
-        QUERY_KEYS.adminPendingInstallments,
-        QUERY_KEYS.adminOverview,
-        QUERY_KEYS.adminStudentsSummary,
-        QUERY_KEYS.adminSchoolsSummary,
-        QUERY_KEYS.adminPlatformRevenue,
-        QUERY_KEYS.adminBreakdown,
-        QUERY_KEYS.adminSchoolBreakdown,
-        QUERY_KEYS.notifications,
-      ].map((queryKey) => queryClient.invalidateQueries({ queryKey })),
-    );
+  const refreshData = async () => {
+    await queryClient.refetchQueries({ type: "active" }, { throwOnError: true });
   };
 
-  const refreshData = async () => {
-    if (isPlatformOwner) {
-      await refreshOwnerView();
-      return;
-    }
-    if (isSchoolContext) {
-      await refreshSchoolView();
-      return;
-    }
-    if (isParent) {
-      await refreshParentView();
-      return;
-    }
-    await queryClient.invalidateQueries();
-  };
+  // Role-scoped aliases. Every caller wants "reload what I'm looking at", which
+  // is what refreshData does regardless of role; these are kept because call
+  // sites grew up naming them. They are deliberately the same function rather
+  // than three drifting key lists.
+  const refreshParentView = refreshData;
+  const refreshSchoolView = refreshData;
+  const refreshOwnerView = refreshData;
 
   const submitPayment = async (
     childId: string,
@@ -290,14 +282,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({
 
   const declinePayment = async (paymentId: string) => {
     await declinePaymentMutation.mutateAsync(paymentId);
-  };
-
-  const updateFee = async (
-    className: string,
-    feeAmount: number,
-    schoolId?: string,
-  ) => {
-    await updateFeeMutation.mutateAsync({ className, feeAmount, schoolId });
   };
 
   const isLoading =
@@ -346,7 +330,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({
         confirmPayment,
         confirmFirstPayment,
         declinePayment,
-        updateFee,
         allStudents,
         pendingPayments,
         schoolStats,

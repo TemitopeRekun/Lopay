@@ -2,11 +2,17 @@ import React, { useState } from 'react';
 import { Layout } from '../components/Layout';
 import { Header } from '../components/Header';
 import { BottomNav } from '../components/BottomNav';
+import { Pagination } from '../components/Pagination';
 import { useAuth } from '../context/AuthContext';
-import { useData } from '../context/DataContext';
 import { BackendAPI } from '../services/backend';
 import { useQueryClient } from '@tanstack/react-query';
-import { QUERY_KEYS } from '../hooks/useQueries';
+import {
+  QUERY_KEYS,
+  useGlobalTransactions,
+  useSchoolTransactions,
+  useTransactions,
+} from '../hooks/useQueries';
+import { API_PAYMENT_STATUS } from '../services/adapters';
 import { formatDateTime } from '../utils/date';
 import type { Transaction } from '../types';
 
@@ -14,11 +20,50 @@ const FILTERS = ['All', 'Successful', 'Pending', 'Failed', 'Reversed'] as const;
 type HistoryFilter = (typeof FILTERS)[number];
 
 const HistoryScreen: React.FC = () => {
-  const { role: userRole } = useAuth();
-  const { transactions } = useData();
+  const { user, role: userRole } = useAuth();
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<HistoryFilter>('All');
+  const [page, setPage] = useState(1);
   const [searchQuery] = useState('');
+
+  const isOwner = userRole === 'owner';
+  const isSchoolOwner = userRole === 'school_owner';
+
+  /*
+   * The status filter is a SERVER filter.
+   *
+   * This screen used to read the whole list off DataContext and filter it in
+   * memory. Every one of those lists is a single bounded page — 50 rows for the
+   * admin ledger — so "Failed" showed the failures among the 50 most recent
+   * payments and presented them as the complete set, with no pager to reach the
+   * rest. The tab now narrows the query and the results are paged.
+   */
+  const status = filter === 'All' ? undefined : API_PAYMENT_STATUS[filter];
+
+  const parentQuery = useTransactions(user?.id, !isOwner && !isSchoolOwner, {
+    page,
+    status,
+  });
+  const schoolQuery = useSchoolTransactions(isSchoolOwner, { page, status });
+  const ownerQuery = useGlobalTransactions(isOwner, { page, status });
+
+  const activeQuery = isOwner
+    ? ownerQuery
+    : isSchoolOwner
+      ? schoolQuery
+      : parentQuery;
+
+  const transactions = activeQuery.data?.items ?? [];
+  const totalPages = activeQuery.data?.totalPages ?? 1;
+  const total = activeQuery.data?.total ?? 0;
+  const isLoading = activeQuery.isLoading;
+  const isError = activeQuery.isError;
+
+  /** Changing the filter re-queries from the first page of the new set. */
+  const handleFilterChange = (next: HistoryFilter) => {
+    setFilter(next);
+    setPage(1);
+  };
 
   // The receipt the payer uploaded, opened in a lightbox. The list already fetches
   // `receiptSignedUrl` (`includeReceiptSignedUrls=true`) but never rendered it, so a
@@ -31,15 +76,17 @@ const HistoryScreen: React.FC = () => {
   const [reversing, setReversing] = useState(false);
   const [reverseError, setReverseError] = useState<string | null>(null);
 
-  const filteredTransactions = transactions.filter(t => {
-    const matchesFilter = filter === 'All' ? true : t.status === filter;
-    const matchesSearch = searchQuery.trim() === '' ||
-      t.childName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.schoolName.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesFilter && matchesSearch;
-  });
-
-  const isSchoolOwner = userRole === 'school_owner';
+  /*
+   * Search stays client-side deliberately: there is no search parameter on any
+   * history endpoint, so this narrows the page on screen and nothing more. The
+   * status tabs, which DO have a server parameter, are applied to the query
+   * above rather than here — filtering a page can only ever hide rows from it.
+   */
+  const filteredTransactions = searchQuery.trim() === ''
+    ? transactions
+    : transactions.filter(t =>
+        t.childName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        t.schoolName.toLowerCase().includes(searchQuery.toLowerCase()));
 
   const canReverse = (t: typeof transactions[0]) =>
     isSchoolOwner &&
@@ -143,7 +190,8 @@ const HistoryScreen: React.FC = () => {
           {FILTERS.map((f) => (
             <button
               key={f}
-              onClick={() => setFilter(f)}
+              onClick={() => handleFilterChange(f)}
+              aria-pressed={filter === f}
               className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest whitespace-nowrap transition-all border-2 ${
                 filter === f
                   ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20'
@@ -155,12 +203,54 @@ const HistoryScreen: React.FC = () => {
           ))}
         </div>
 
+        {/* The size of the filtered set, so a page is never mistaken for all of it. */}
+        {!isLoading && !isError && total > 0 && (
+          <p className="text-[10px] font-bold uppercase tracking-widest text-text-secondary-light px-1">
+            {total.toLocaleString()} {filter === 'All' ? '' : `${filter.toLowerCase()} `}
+            payment{total === 1 ? '' : 's'}
+            {totalPages > 1 && ` — page ${page} of ${totalPages}`}
+          </p>
+        )}
+
         {/* List */}
         <div className="flex flex-col gap-3 pb-4">
-          {filteredTransactions.length === 0 ? (
+          {isLoading ? (
+            <div className="flex flex-col items-center py-20 gap-3">
+              <div className="w-10 h-10 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                Loading transactions…
+              </p>
+            </div>
+          ) : isError ? (
+            /* An error must not render as an empty list — that reads as "no
+               payments", which is a very different thing from "couldn't load". */
+            <div className="flex items-center justify-between gap-3 rounded-2xl border border-danger/20 bg-danger/5 px-4 py-3">
+              <div className="flex items-start gap-3">
+                <span className="material-symbols-outlined text-danger">wifi_off</span>
+                <div>
+                  <p className="text-xs font-bold text-text-primary-light dark:text-text-primary-dark">
+                    Couldn&apos;t load transactions
+                  </p>
+                  <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                    Check your connection and try again.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => activeQuery.refetch()}
+                className="px-3 py-1.5 rounded-full bg-danger text-white text-[10px] font-bold uppercase tracking-[0.15em] active:scale-95 transition-transform"
+              >
+                Retry
+              </button>
+            </div>
+          ) : filteredTransactions.length === 0 ? (
             <div className="text-center py-20 px-8 bg-gray-50/50 dark:bg-white/5 rounded-[32px] border-2 border-dashed border-gray-100 dark:border-gray-800">
               <span className="material-symbols-outlined text-4xl text-gray-300 mb-2">receipt_long</span>
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">No matching transactions found</p>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+                {filter === 'All'
+                  ? 'No transactions yet'
+                  : `No ${filter.toLowerCase()} transactions`}
+              </p>
             </div>
           ) : (
             filteredTransactions.map((t) => (
@@ -216,6 +306,18 @@ const HistoryScreen: React.FC = () => {
             ))
           )}
         </div>
+
+        {/* Reaches the rest of the ledger. Without it the first page WAS the
+            history as far as anyone on this screen could tell. */}
+        {!isLoading && !isError && (
+          <div className="pb-4">
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              onPageChange={setPage}
+            />
+          </div>
+        )}
       </div>
       <BottomNav />
 
@@ -274,16 +376,23 @@ const HistoryScreen: React.FC = () => {
                 <span className="material-symbols-outlined text-warning text-2xl">undo</span>
               </div>
               <div>
-                <h2 className="font-black text-base text-text-primary-light dark:text-text-primary-dark">Reverse Payment</h2>
+                <h2 className="font-black text-base text-text-primary-light dark:text-text-primary-dark">Withdraw Confirmation</h2>
                 <p className="text-xs text-text-secondary-light mt-0.5">
                   ₦{reverseTarget.amount.toLocaleString()} — {reverseTarget.childName}
                 </p>
               </div>
             </div>
 
+            {/* Says what this actually does. Installments are transferred
+                bank-to-bank to the school, so this moves no money — it undoes
+                THIS school's confirmation of the receipt. Calling it a
+                "reversal" invited it to be read as issuing a refund. */}
             <p className="text-xs text-text-secondary-light leading-relaxed">
-              This will mark the payment as reversed and restore the student's outstanding balance.
-              This action is recorded in the audit log.
+              Use this if you confirmed this payment in error — for example the
+              transfer never arrived, or the receipt turned out to be invalid.
+              The amount goes back onto the student&apos;s balance and the parent
+              is notified. <span className="font-bold">No money is moved:</span>{' '}
+              this does not refund the parent. Recorded in the audit log.
             </p>
 
             <div className="flex flex-col gap-1.5">
@@ -316,7 +425,7 @@ const HistoryScreen: React.FC = () => {
                 disabled={reversing}
                 className="flex-1 py-3.5 rounded-2xl bg-warning text-white text-xs font-black uppercase tracking-widest shadow-lg shadow-warning/20 disabled:opacity-50 transition-opacity"
               >
-                {reversing ? 'Reversing…' : 'Confirm Reversal'}
+                {reversing ? 'Withdrawing…' : 'Withdraw Confirmation'}
               </button>
             </div>
           </div>

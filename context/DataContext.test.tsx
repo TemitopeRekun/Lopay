@@ -1,5 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, act } from "@testing-library/react";
+// The module is mocked below, so the genuine implementations have to be pulled
+// in separately for the real-client test at the end of the refresh suite.
+const { QueryClient: RealQueryClient, QueryObserver: RealQueryObserver } =
+  await vi.importActual<typeof import("@tanstack/react-query")>(
+    "@tanstack/react-query",
+  );
 import {
   DataProvider,
   useData,
@@ -21,11 +27,15 @@ const H = vi.hoisted(() => ({
   q: {} as Record<string, any>,
   mutateAsync: vi.fn(),
   invalidateQueries: vi.fn(),
+  refetchQueries: vi.fn(),
 }));
 
 vi.mock("./AuthContext", () => ({ useAuth: () => H.auth.value }));
 vi.mock("@tanstack/react-query", () => ({
-  useQueryClient: () => ({ invalidateQueries: H.invalidateQueries }),
+  useQueryClient: () => ({
+    invalidateQueries: H.invalidateQueries,
+    refetchQueries: H.refetchQueries,
+  }),
 }));
 vi.mock("../hooks/useQueries", () => {
   const mutation = () => ({ mutateAsync: H.mutateAsync });
@@ -97,11 +107,15 @@ const SCHOOL = { user: { role: "school_owner" } };
 beforeEach(() => {
   H.mutateAsync.mockReset().mockResolvedValue(undefined);
   H.invalidateQueries.mockReset().mockResolvedValue(undefined);
+  H.refetchQueries.mockReset().mockResolvedValue(undefined);
 });
 
 describe("DataProvider — role-derived flags & selectors", () => {
   it("resolves parent context and picks parent transactions", () => {
-    renderData(PARENT as any, { useTransactions: { data: [{ id: "t1" }] } });
+    // The history hooks return a page envelope; the context unwraps `.items`.
+    renderData(PARENT as any, {
+      useTransactions: { data: { items: [{ id: "t1" }], total: 1, page: 1, totalPages: 1 } },
+    });
     expect(data.isParent).toBe(true);
     expect(data.isSchoolContext).toBe(false);
     expect(data.isPlatformOwner).toBe(false);
@@ -110,7 +124,9 @@ describe("DataProvider — role-derived flags & selectors", () => {
 
   it("resolves platform-owner context and picks global transactions", () => {
     renderData(OWNER as any, {
-      useGlobalTransactions: { data: [{ id: "g1" }] },
+      useGlobalTransactions: {
+        data: { items: [{ id: "g1" }], total: 1, page: 1, totalPages: 1 },
+      },
     });
     expect(data.isPlatformOwner).toBe(true);
     expect(data.isParent).toBe(false);
@@ -124,7 +140,9 @@ describe("DataProvider — role-derived flags & selectors", () => {
     renderData(
       SCHOOL as any,
       {
-        useSchoolTransactions: { data: [{ id: "s1" }] },
+        useSchoolTransactions: {
+          data: { items: [{ id: "s1" }], total: 1, page: 1, totalPages: 1 },
+        },
         useSchoolStudents: { data: [{ id: "stu-1" }] },
         usePendingPayments: { data: [{ id: "pend-1" }] },
         useSchoolStats: { data: { totalRevenue: 5 } },
@@ -193,70 +211,96 @@ describe("DataProvider — loading & error aggregation", () => {
   });
 });
 
-describe("DataProvider — refresh routing", () => {
-  it("routes refreshData to the owner view, covering every admin aggregate", async () => {
-    renderData(OWNER as any);
+describe("DataProvider — refresh", () => {
+  /**
+   * Refresh used to be three hand-maintained key lists, one per role, and the
+   * tests here pinned their exact contents. That is the thing that kept
+   * breaking: a screen whose key nobody remembered to add (`schools`, `users`,
+   * `auditLogs`, `myClassFees`) refreshed nothing, and a test asserting "15
+   * invalidations" happily passed while it did. So these assert the property
+   * that matters — whatever is mounted gets refetched — and no longer encode a
+   * list that can drift from the screens.
+   */
+  it.each([
+    ["parent", PARENT],
+    ["school owner", SCHOOL],
+    ["platform owner", OWNER],
+    ["no role", { user: null }],
+  ])("refetches the active queries for %s", async (_label, auth) => {
+    renderData(auth as any);
     await act(async () => {
       await data.refreshData();
     });
-    // Was 9, and the four queries behind every headline figure on the admin
-    // dashboard (overview, students summary, breakdown, platform revenue) were
-    // not among them — so "Retry" left the numbers exactly as they were.
-    expect(H.invalidateQueries).toHaveBeenCalledTimes(15);
-
-    const keys = H.invalidateQueries.mock.calls
-      .map((c: any[]) => String(c[0].queryKey))
-      .sort();
-    expect(keys).toEqual(
-      [
-        "adminBreakdown",
-        "adminOverview",
-        "adminPendingFirstPayments",
-        "adminPendingInstallments",
-        "adminPlatformRevenue",
-        "adminSchoolBreakdown",
-        "adminSchoolsSummary",
-        "adminStudentsSummary",
-        "children",
-        "globalTransactions",
-        "notifications",
-        "pendingPayments",
-        "schoolStats",
-        "schoolStudents",
-        "schoolTransactions",
-      ].sort(),
+    expect(H.refetchQueries).toHaveBeenCalledTimes(1);
+    expect(H.refetchQueries).toHaveBeenCalledWith(
+      { type: "active" },
+      { throwOnError: true },
     );
   });
 
-  it("routes refreshData to the school view (4 invalidations)", async () => {
-    renderData(SCHOOL as any);
-    await act(async () => {
-      await data.refreshData();
-    });
-    expect(H.invalidateQueries).toHaveBeenCalledTimes(4);
-  });
-
-  it("routes refreshData to the parent view, including the dashboard headline", async () => {
+  it("refetches rather than invalidating, so the spinner outlasts the request", async () => {
+    // invalidateQueries only marks data stale and resolves once it has, which
+    // let the pull-to-refresh spinner stop before any response arrived.
     renderData(PARENT as any);
     await act(async () => {
       await data.refreshData();
     });
-    // The headline is its own server-computed query now, so a refresh that
-    // reloaded the plan list but not the summary would leave the two disagreeing.
-    expect(H.invalidateQueries).toHaveBeenCalledTimes(4);
-    expect(
-      H.invalidateQueries.mock.calls.map((c: any[]) => String(c[0].queryKey)),
-    ).toContain("parentDashboardSummary");
+    expect(H.invalidateQueries).not.toHaveBeenCalled();
   });
 
-  it("falls back to a blanket invalidation with no role", async () => {
-    renderData({ user: null } as any);
-    await act(async () => {
-      await data.refreshData();
-    });
-    expect(H.invalidateQueries).toHaveBeenCalledTimes(1);
-    expect(H.invalidateQueries.mock.calls[0]).toHaveLength(0);
+  it("propagates a failed refresh so callers can report it", async () => {
+    H.refetchQueries.mockRejectedValueOnce(new Error("network"));
+    renderData(PARENT as any);
+    await expect(data.refreshData()).rejects.toThrow("network");
   });
+
+  /**
+   * Against a REAL QueryClient, not the mock above.
+   *
+   * The mock resolves or rejects as told, so it cannot see that query-core
+   * catches every query failure with `noop` unless `throwOnError` is set —
+   * `refetchQueries` resolves on a failed network by default. The mocked test
+   * for error propagation passed while the real refresh could not report a
+   * failure at all, which is precisely the silent-success this work set out to
+   * remove.
+   */
+  it("rejects on a real failing refetch, not just against the mock", async () => {
+    const client = new RealQueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const queryFn = vi.fn().mockResolvedValue("ok");
+    const observer = new RealQueryObserver(client, {
+      queryKey: ["probe"],
+      queryFn,
+    });
+    const unsubscribe = observer.subscribe(() => {});
+    // Wait for the data to LAND, not merely for queryFn to have been called:
+    // while the first fetch is still in flight the refetch below joins it and
+    // resolves with that success, which hides the very behaviour under test.
+    await vi.waitFor(() => expect(client.getQueryData(["probe"])).toBe("ok"));
+
+    queryFn.mockRejectedValue(new Error("network"));
+
+    await expect(
+      client.refetchQueries({ type: "active" }, { throwOnError: true }),
+    ).rejects.toThrow("network");
+
+    unsubscribe();
+  });
+
+  it.each(["refreshParentView", "refreshSchoolView", "refreshOwnerView"])(
+    "%s reloads the active screen like refreshData",
+    async (name) => {
+      renderData(PARENT as any);
+      await act(async () => {
+        await (data as any)[name]();
+      });
+      expect(H.refetchQueries).toHaveBeenCalledWith(
+      { type: "active" },
+      { throwOnError: true },
+    );
+    },
+  );
 });
 
 describe("DataProvider — mutation wrappers", () => {
@@ -313,17 +357,6 @@ describe("DataProvider — mutation wrappers", () => {
     expect(H.mutateAsync).toHaveBeenCalledWith("pay-2");
   });
 
-  it("updateFee forwards class, amount and school id", async () => {
-    renderData(SCHOOL as any);
-    await act(async () => {
-      await data.updateFee("Grade 2", 1000, "sch-9");
-    });
-    expect(H.mutateAsync).toHaveBeenCalledWith({
-      className: "Grade 2",
-      feeAmount: 1000,
-      schoolId: "sch-9",
-    });
-  });
 });
 
 describe("DataProvider — context-guard hooks", () => {

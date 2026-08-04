@@ -299,16 +299,73 @@ describe("normalizeChild", () => {
     expect(out.remainingBalance).toBe(700);
   });
 
-  it("derives paidAmount from payments when the field is absent", () => {
+  it("derives paidAmount from confirmed payments when the field is absent", () => {
     const out = normalizeChild(
       baseEnrollment({
         payments: [
-          payment({ amount: 100 }),
-          payment({ amount: undefined as any, amountPaid: 250 } as any),
+          payment({ amount: 100, isConfirmed: true } as any),
+          payment({
+            amount: undefined as any,
+            amountPaid: 250,
+            isConfirmed: true,
+          } as any),
         ],
       }),
     );
     expect(out.paidAmount).toBe(350);
+  });
+
+  /*
+   * The fallback mirrors the server's rule (confirmed payments only — see the
+   * backend's `enrollment-view.ts`). It used to sum every row whatever its
+   * status, so a submitted-but-unapproved transfer counted as paid the moment
+   * it was made, and a failed or reversed one stayed counted for good —
+   * overstating what the parent had paid and understating what they owed.
+   */
+  it("excludes pending, failed and reversed payments from the fallback", () => {
+    const out = normalizeChild(
+      baseEnrollment({
+        payments: [
+          payment({ amount: 100, status: "SUCCESS", isConfirmed: true } as any),
+          payment({ amount: 500, status: "PENDING", isConfirmed: false } as any),
+          payment({ amount: 700, status: "FAILED", isConfirmed: false } as any),
+          // A reversal flips isConfirmed back to false.
+          payment({ amount: 900, status: "REVERSED", isConfirmed: false } as any),
+        ],
+      }),
+    );
+    expect(out.paidAmount).toBe(100);
+  });
+
+  it("falls back to the status when isConfirmed is absent", () => {
+    const out = normalizeChild(
+      baseEnrollment({
+        payments: [
+          payment({ amount: 100, status: "SUCCESS" } as any),
+          payment({ amount: 250, status: "REVERSED" } as any),
+        ],
+      }),
+    );
+    expect(out.paidAmount).toBe(100);
+  });
+
+  /* A reversal must be visible on the plan card — the balance goes back up. */
+  it("flags a reversed payment on the plan", () => {
+    const out = normalizeChild(
+      baseEnrollment({
+        payments: [payment({ amount: 100, status: "REVERSED" } as any)],
+      }),
+    );
+    expect(out.hasReversedPayment).toBe(true);
+  });
+
+  it("does not flag a reversal on a plan without one", () => {
+    const out = normalizeChild(
+      baseEnrollment({
+        payments: [payment({ amount: 100, status: "SUCCESS" } as any)],
+      }),
+    );
+    expect(out.hasReversedPayment).toBe(false);
   });
 
   /*

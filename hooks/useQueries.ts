@@ -8,6 +8,12 @@ import {
   normalizeUser,
 } from "../services/adapters";
 import { School } from "../types";
+import type {
+  ApiPaymentStatus,
+  ApiTransaction,
+  Paginated,
+  Transaction,
+} from "../types";
 import type { BreakdownTab } from "../types.admin";
 import { useUIStore } from "../store/uiStore";
 import { getErrorMessage } from "../utils/errors";
@@ -52,6 +58,42 @@ export const QUERY_KEYS = {
   adminOverview: ["adminOverview"],
   adminBreakdown: ["adminBreakdown"],
   adminSchoolBreakdown: ["adminSchoolBreakdown"],
+};
+
+/** A page of normalized transactions plus the server's totals for the filter. */
+export interface TransactionPage {
+  items: Transaction[];
+  total: number;
+  page: number;
+  totalPages: number;
+}
+
+/**
+ * Normalize a history response into a page.
+ *
+ * Tolerates a bare array as well as the envelope: the three history endpoints
+ * gained pagination at different times, and a version skew should degrade to a
+ * single page rather than blanking the screen.
+ */
+const toTransactionPage = (
+  data: Paginated<ApiTransaction> | ApiTransaction[] | undefined,
+  requestedPage: number,
+): TransactionPage => {
+  if (Array.isArray(data)) {
+    return {
+      items: data.map(normalizeTransaction),
+      total: data.length,
+      page: 1,
+      totalPages: 1,
+    };
+  }
+  const items = (data?.items ?? []).map(normalizeTransaction);
+  return {
+    items,
+    total: data?.total ?? items.length,
+    page: data?.page ?? requestedPage,
+    totalPages: data?.totalPages ?? 1,
+  };
 };
 
 // --- Hooks ---
@@ -111,31 +153,55 @@ export const useParentDashboardSummary = (enabled: boolean = true) => {
   });
 };
 
-export const useTransactions = (userId?: string, enabled: boolean = true) => {
+/**
+ * The caller's own payment history — a page of it, plus the true total.
+ *
+ * `status` is a server filter, not a client one, and it is part of the key so
+ * switching tabs refetches. The list is paginated: filtering the fetched page
+ * here would search only that page and render the result as the whole history,
+ * which is exactly how a "Failed" tab comes to look empty for someone who has
+ * failed payments further back.
+ */
+export const useTransactions = (
+  userId?: string,
+  enabled: boolean = true,
+  options: { page?: number; status?: ApiPaymentStatus } = {},
+) => {
+  const { page = 1, status } = options;
   return useQuery({
-    queryKey: QUERY_KEYS.transactions,
+    queryKey: [...QUERY_KEYS.transactions, page, status ?? null],
     queryFn: async () => {
-      // Parents get history
-      const data = await BackendAPI.parent.getHistory();
-      return (Array.isArray(data) ? data : []).map(normalizeTransaction);
+      const data = await BackendAPI.parent.getHistory({
+        page,
+        ...(status ? { status } : {}),
+      });
+      return toTransactionPage(data, page);
     },
     enabled: enabled && !!userId,
+    // Keep the previous page on screen while the next one loads, so paging
+    // doesn't blank the list and bounce the scroll position.
+    placeholderData: (previous) => previous,
   });
 };
 
-export const useGlobalTransactions = (enabled: boolean = true) => {
+export const useGlobalTransactions = (
+  enabled: boolean = true,
+  options: { page?: number; status?: ApiPaymentStatus } = {},
+) => {
+  const { page = 1, status } = options;
   return useQuery({
-    queryKey: QUERY_KEYS.globalTransactions,
+    queryKey: [...QUERY_KEYS.globalTransactions, page, status ?? null],
     queryFn: async () => {
       const data = await BackendAPI.admin.getAllTransactions({
         includeReceiptSignedUrls: true,
         receiptType: "ALL",
+        page,
+        ...(status ? { status } : {}),
       });
-      // Backend now returns a paginated envelope; tolerate either shape.
-      const items = Array.isArray(data) ? data : (data?.items ?? []);
-      return items.map(normalizeTransaction);
+      return toTransactionPage(data, page);
     },
     enabled,
+    placeholderData: (previous) => previous,
   });
 };
 
@@ -190,14 +256,22 @@ export const usePendingPayments = (
   });
 };
 
-export const useSchoolTransactions = (enabled: boolean = true) => {
+export const useSchoolTransactions = (
+  enabled: boolean = true,
+  options: { page?: number; status?: ApiPaymentStatus } = {},
+) => {
+  const { page = 1, status } = options;
   return useQuery({
-    queryKey: QUERY_KEYS.schoolTransactions,
+    queryKey: [...QUERY_KEYS.schoolTransactions, page, status ?? null],
     queryFn: async () => {
-      const data = await BackendAPI.school.getTransactions();
-      return (Array.isArray(data) ? data : []).map(normalizeTransaction);
+      const data = await BackendAPI.school.getTransactions({
+        page,
+        ...(status ? { status } : {}),
+      });
+      return toTransactionPage(data, page);
     },
     enabled,
+    placeholderData: (previous) => previous,
   });
 };
 
@@ -596,33 +670,17 @@ export const useMarkAllNotificationsRead = () => {
   });
 };
 
-export const useUpdateFee = () => {
-  const queryClient = useQueryClient();
-  const { showToast } = useUIStore();
-  return useMutation({
-    mutationFn: (data: {
-      className: string;
-      feeAmount: number;
-      schoolId?: string;
-    }) =>
-      BackendAPI.school.updateFee(
-        data.className,
-        data.feeAmount,
-        data.schoolId,
-      ),
-    onSuccess: (_, variables) => {
-      if (variables.schoolId) {
-        queryClient.invalidateQueries({
-          queryKey: QUERY_KEYS.schoolFees(variables.schoolId),
-        });
-      }
-    },
-    onError: (error: unknown) => {
-      const message = getErrorMessage(error, "Failed to update fees. Please try again.");
-      showToast(message, "error");
-    },
-  });
-};
+/*
+ * `useUpdateFee` is gone. It accepted a `schoolId`, which implied a platform
+ * admin could rewrite a school's fee — they cannot. Fees are school-owned:
+ * POST /school-payments/fees is SCHOOL_OWNER-only and takes the school from the
+ * session, so the id was silently discarded server-side. Nothing rendered the
+ * hook (its only route, /admin/manage-fees, now redirects to /school/fees), and
+ * its `onSuccess` invalidated nothing at all unless a schoolId was passed —
+ * never refreshing `myClassFees`, the query the fee screen actually reads.
+ *
+ * A school publishes its own schedule with `useSetMyClassFees`.
+ */
 
 export const useConfirmPayment = () => {
   const queryClient = useQueryClient();
