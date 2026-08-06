@@ -27,6 +27,7 @@ const ConfirmPlanScreen   = lazy(() => import("./pages/ConfirmPlanScreen"));
 const HistoryScreen       = lazy(() => import("./pages/HistoryScreen"));
 const NotificationScreen  = lazy(() => import("./pages/NotificationScreen"));
 const PaymentMethodsScreen = lazy(() => import("./pages/PaymentMethodsScreen"));
+const PaymentStatusScreen = lazy(() => import("./pages/PaymentStatusScreen"));
 const ProfileScreen       = lazy(() => import("./pages/ProfileScreen"));
 const OwnerDashboard      = lazy(() => import("./pages/OwnerDashboard"));
 const SchoolOwnerDashboard = lazy(() => import("./pages/SchoolOwnerDashboard"));
@@ -399,6 +400,20 @@ const AppRoutes = () => {
           element={
             <ProtectedRoute allowedRoles={["parent"]}>
               <ConfirmPlanScreen />
+            </ProtectedRoute>
+          }
+        />
+        {/*
+          The post-payment screen, for both rails. Not parent-only: a school
+          owner paying their own child's fees walks the identical flow, and
+          locking this to `parent` would drop them on a 403 immediately after
+          being charged.
+        */}
+        <Route
+          path="/payment-status"
+          element={
+            <ProtectedRoute>
+              <PaymentStatusScreen />
             </ProtectedRoute>
           }
         />

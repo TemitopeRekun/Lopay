@@ -34,6 +34,11 @@ const SERVER_DERIVED_KEYS = [
   QUERY_KEYS.children,
   QUERY_KEYS.transactions,
   QUERY_KEYS.parentDashboardSummary,
+  // The post-payment screen. Listed as a bare prefix so it matches whichever
+  // reference/paymentId the parent is currently looking at: an installment sits
+  // on "awaiting school confirmation" for as long as the school takes, and this
+  // is what flips it to confirmed the moment they act, without a refresh.
+  ["paymentOutcome"],
   // School owner
   QUERY_KEYS.pendingPayments,
   QUERY_KEYS.schoolStats,

@@ -4,6 +4,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import PaymentMethodsScreen from "./PaymentMethodsScreen";
+import { BackendAPI } from "../services/backend";
 import type { Child } from "../types";
 
 const navigate = vi.fn();
@@ -212,6 +213,108 @@ describe("PaymentMethodsScreen — arriving without an enrollment", () => {
 });
 
 describe("PaymentMethodsScreen — submitting", () => {
+  /**
+   * Drive the real upload path with a PDF.
+   *
+   * A PDF is uploaded as-is, so it skips the FileReader → Image → canvas
+   * compression an image goes through — none of which jsdom implements. That
+   * makes it the only way to exercise submit end-to-end here, and it covers the
+   * PDF support itself: bank apps export PDF receipts, the bucket and the API
+   * have always accepted them, and only this screen used to refuse them.
+   */
+  const attachPdfReceipt = async (user: ReturnType<typeof userEvent.setup>) => {
+    const input = document.querySelector(
+      'input[type="file"]',
+    ) as HTMLInputElement;
+    await user.upload(
+      input,
+      new File(["%PDF-1.4"], "statement.pdf", { type: "application/pdf" }),
+    );
+  };
+
+  it("uploads the receipt and hands the new payment to the result screen", async () => {
+    const user = userEvent.setup();
+    (
+      BackendAPI.documents.receipts.createUploadUrl as ReturnType<typeof vi.fn>
+    ).mockResolvedValue({
+      path: "receipts/u1/abc_statement.pdf",
+      signedUrl: "https://storage.test/upload?token=t",
+      maxUploadBytes: 10 * 1024 * 1024,
+    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, status: 200, text: async () => "" });
+    vi.stubGlobal("fetch", fetchMock);
+    submitPayment.mockResolvedValue({ id: "pay-9" });
+
+    renderScreen(INSTALLMENT_STATE);
+    await attachPdfReceipt(user);
+    await user.click(
+      screen.getByRole("button", { name: /I have made this transfer/i }),
+    );
+
+    await waitFor(() => expect(submitPayment).toHaveBeenCalled());
+
+    // The PDF is sent with its own content type, not forced to image/jpeg.
+    expect(
+      BackendAPI.documents.receipts.createUploadUrl,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({ contentType: "application/pdf" }),
+    );
+    expect(submitPayment).toHaveBeenCalledWith(
+      "enr-1",
+      25_000,
+      "receipts/u1/abc_statement.pdf",
+      expect.any(String),
+    );
+    // `replace` so back cannot return to a submitted form, whose idempotency
+    // key would only replay the payment just made.
+    expect(navigate).toHaveBeenCalledWith("/payment-status", {
+      replace: true,
+      state: expect.objectContaining({
+        paymentId: "pay-9",
+        fallbackAmount: 25_000,
+      }),
+    });
+    vi.unstubAllGlobals();
+  });
+
+  /**
+   * A blocked or dropped upload must say what happened. The generic "try again"
+   * this used to show hid an upload that could never succeed — the deployed CSP
+   * omitted the storage origin, so every PUT was blocked before it left the
+   * page and no number of retries would have helped.
+   */
+  it("reports an unreachable storage host instead of a generic retry", async () => {
+    const user = userEvent.setup();
+    (
+      BackendAPI.documents.receipts.createUploadUrl as ReturnType<typeof vi.fn>
+    ).mockResolvedValue({
+      path: "receipts/u1/abc_statement.pdf",
+      signedUrl: "https://storage.test/upload?token=t",
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new TypeError("Failed to fetch")),
+    );
+
+    renderScreen(INSTALLMENT_STATE);
+    await attachPdfReceipt(user);
+    await user.click(
+      screen.getByRole("button", { name: /I have made this transfer/i }),
+    );
+
+    await waitFor(() =>
+      expect(showToast).toHaveBeenCalledWith(
+        expect.stringContaining("Couldn't reach receipt storage"),
+        "error",
+      ),
+    );
+    expect(submitPayment).not.toHaveBeenCalled();
+    expect(navigate).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
   it("refuses to submit without a receipt", async () => {
     const user = userEvent.setup();
     renderScreen(INSTALLMENT_STATE);

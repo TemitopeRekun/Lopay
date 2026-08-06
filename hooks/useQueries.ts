@@ -50,6 +50,10 @@ export const QUERY_KEYS = {
   ],
   myClassFees: ["myClassFees"],
   parentDashboardSummary: ["parentDashboardSummary"],
+  paymentOutcome: (locator: { reference?: string; paymentId?: string }) => [
+    "paymentOutcome",
+    locator.reference ?? locator.paymentId ?? "",
+  ],
   adminPendingFirstPayments: ["adminPendingFirstPayments"],
   adminPendingInstallments: ["adminPendingInstallments"],
   adminPlatformRevenue: ["adminPlatformRevenue"],
@@ -150,6 +154,44 @@ export const useParentDashboardSummary = (enabled: boolean = true) => {
     queryFn: BackendAPI.parent.getDashboardSummary,
     enabled,
     staleTime: 1000 * 30,
+  });
+};
+
+/**
+ * Resolve one payment's outcome for the post-payment screen.
+ *
+ * The server owns the verdict (`state`) and every figure on the screen — the
+ * client must not re-derive "did this work?" from a status string. It is also
+ * the reconciliation trigger for a card payment: the screen mounts the instant
+ * the Paystack popup closes, usually before the webhook lands, and this call
+ * verifies with Paystack and settles the ledger before answering.
+ *
+ * `staleTime: 0` and a retry on a `processing` verdict: an installment sits in
+ * `processing` until a school owner approves it, and a card charge can stay
+ * unsettled for a few seconds. The realtime map also invalidates this key on
+ * any money event, so an approval arriving while the parent is still on the
+ * screen flips it to `succeeded` without a refresh.
+ */
+export const usePaymentOutcome = (locator: {
+  reference?: string;
+  paymentId?: string;
+}) => {
+  const enabled = Boolean(locator.reference || locator.paymentId);
+  return useQuery({
+    queryKey: QUERY_KEYS.paymentOutcome(locator),
+    queryFn: () => BackendAPI.parent.getPaymentOutcome(locator),
+    enabled,
+    staleTime: 0,
+    // A card charge Paystack has not settled yet resolves within seconds, so
+    // poll briefly rather than leaving the parent on an indefinite "confirming".
+    // Bounded: an installment stays `processing` until a human acts, and polling
+    // for that would be a request every 5s for hours. Realtime covers it.
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      if (!data || data.state !== "processing") return false;
+      if (data.paymentType !== "FIRST_PAYMENT") return false;
+      return query.state.dataUpdateCount < 6 ? 5000 : false;
+    },
   });
 };
 

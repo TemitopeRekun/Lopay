@@ -26,6 +26,10 @@ const PaymentMethodsScreen: React.FC = () => {
   const [receiptImage, setReceiptImage] = useState<string | null>(null);
   const [receiptBlob, setReceiptBlob] = useState<Blob | null>(null);
   const [receiptFileName, setReceiptFileName] = useState<string | null>(null);
+  // Bank apps commonly export a PDF receipt, and the backend has always
+  // accepted them; only this screen refused. PDFs skip the canvas compression
+  // path (there is nothing to rasterise) and so carry no image preview.
+  const [receiptContentType, setReceiptContentType] = useState("image/jpeg");
   const [, setReceiptUrl] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [isUploading, setIsUploading] = useState(false);
@@ -105,6 +109,7 @@ const PaymentMethodsScreen: React.FC = () => {
 
   const processReceiptDataUrl = (dataUrl: string, fileName?: string) => {
     setReceiptFileName(fileName || "receipt.jpg");
+    setReceiptContentType("image/jpeg");
     setReceiptUrl(null);
     setReceiptPath(null);
     setUploadProgress(0);
@@ -155,11 +160,25 @@ const PaymentMethodsScreen: React.FC = () => {
   const handleReceiptFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) {
-      showToast("Please select a receipt image.", "warning");
+      showToast("Please select a receipt.", "warning");
       return;
     }
+
+    // A PDF is uploaded as-is: there is no image to downscale, and rasterising
+    // it in the browser would need a PDF renderer we don't ship.
+    if (file.type === "application/pdf") {
+      setReceiptFileName(file.name || "receipt.pdf");
+      setReceiptContentType("application/pdf");
+      setReceiptImage(null);
+      setReceiptBlob(file);
+      setReceiptUrl(null);
+      setReceiptPath(null);
+      setUploadProgress(0);
+      return;
+    }
+
     if (!file.type.startsWith("image/")) {
-      showToast("Receipt must be an image file.", "error");
+      showToast("Receipt must be an image or a PDF.", "error");
       return;
     }
 
@@ -211,12 +230,13 @@ const PaymentMethodsScreen: React.FC = () => {
       throw new Error("Receipt image is missing.");
     }
 
-    const safeName = (receiptFileName || "receipt.jpg")
+    const extension = receiptContentType === "application/pdf" ? ".pdf" : ".jpg";
+    const safeName = (receiptFileName || `receipt${extension}`)
       .replace(/\s+/g, "-")
       .replace(/[^a-zA-Z0-9\-_.]/g, "");
-    const normalizedFileName = safeName.endsWith(".jpg")
+    const normalizedFileName = safeName.endsWith(extension)
       ? safeName
-      : `${safeName}.jpg`;
+      : `${safeName}${extension}`;
 
     const maxAttempts = 2;
     let lastError: unknown;
@@ -226,26 +246,72 @@ const PaymentMethodsScreen: React.FC = () => {
         setIsUploading(true);
         setUploadProgress(0);
 
-        const { path, signedUrl, requiredHeaders } =
+        const { path, signedUrl, requiredHeaders, maxUploadBytes } =
           await BackendAPI.documents.receipts.createUploadUrl({
             fileName: normalizedFileName,
-            contentType: "image/jpeg",
+            contentType: receiptContentType,
           });
 
-        const uploadResponse = await fetch(signedUrl, {
-          method: "PUT",
-          body: receiptBlob,
-          headers: {
-            "Content-Type": "image/jpeg",
-            // Headers the backend bound into the signed URL (e.g. a max
-            // content-length range) must be echoed verbatim or GCS rejects it.
-            ...(requiredHeaders ?? {}),
-          },
-        });
+        // Checked here rather than after a failed PUT: storage rejects an
+        // oversized object with the same opaque failure as everything else, so
+        // without this the parent is told "try again" for a file that can never
+        // succeed no matter how many times they retry.
+        if (maxUploadBytes && receiptBlob.size > maxUploadBytes) {
+          throw new Error(
+            `Receipt is ${(receiptBlob.size / 1_048_576).toFixed(1)}MB — the limit is ${(
+              maxUploadBytes / 1_048_576
+            ).toFixed(0)}MB. Please upload a smaller image.`,
+          );
+        }
+
+        let uploadResponse: Response;
+        try {
+          uploadResponse = await fetch(signedUrl, {
+            method: "PUT",
+            body: receiptBlob,
+            headers: {
+              "Content-Type": receiptContentType,
+              // Headers the backend bound into the signed URL (e.g. a max
+              // content-length range) must be echoed verbatim or storage
+              // rejects the PUT.
+              ...(requiredHeaders ?? {}),
+            },
+          });
+        } catch (networkError) {
+          // `fetch` rejects with an indistinguishable TypeError whether the
+          // browser blocked the request (CSP `connect-src` missing the storage
+          // origin — the exact bug that made every production upload fail while
+          // dev worked) or the network genuinely dropped. Name both, and log the
+          // origin so the console says which one it is.
+          const storageOrigin = (() => {
+            try {
+              return new URL(signedUrl).origin;
+            } catch {
+              return signedUrl;
+            }
+          })();
+          console.error(
+            `Receipt upload to ${storageOrigin} could not be sent. If the console ` +
+              `also shows a Content-Security-Policy violation, that origin is ` +
+              `missing from connect-src (see build/csp.ts + VITE_SUPABASE_URL).`,
+            networkError,
+          );
+          throw new Error(
+            "Couldn't reach receipt storage. Check your connection and try again.",
+          );
+        }
 
         if (!uploadResponse.ok) {
-          showToast("Receipt upload failed. Please try again.", "error");
-          throw new Error("Receipt upload failed.");
+          const detail = await uploadResponse.text().catch(() => "");
+          console.error(
+            `Receipt upload rejected: ${uploadResponse.status} ${uploadResponse.statusText}`,
+            detail,
+          );
+          throw new Error(
+            uploadResponse.status === 413
+              ? "That receipt is too large. Please upload a smaller image."
+              : `Receipt storage rejected the upload (${uploadResponse.status}). Please try again.`,
+          );
         }
 
         setUploadProgress(100);
@@ -263,7 +329,9 @@ const PaymentMethodsScreen: React.FC = () => {
       }
     }
 
-    throw lastError || new Error("Failed to upload receipt.");
+    throw lastError instanceof Error
+      ? lastError
+      : new Error("Failed to upload receipt.");
   };
 
   const cleanupUploadedReceipt = async () => {
@@ -271,8 +339,32 @@ const PaymentMethodsScreen: React.FC = () => {
     setReceiptUrl(null);
   };
 
+  /**
+   * Discard the chosen receipt entirely.
+   *
+   * This used to clear only the preview (`setReceiptImage(null)`), leaving
+   * `receiptBlob` and — worse — an already-uploaded `receiptPath` in state. The
+   * screen then showed the empty picker while still holding the previous file,
+   * so a parent who removed the wrong receipt and submitted attached the very
+   * receipt they had just taken off, against a payment it did not evidence.
+   * Clearing the input's own value matters too: re-picking the same filename
+   * fires no change event otherwise.
+   */
+  const handleRemoveReceipt = () => {
+    setReceiptImage(null);
+    setReceiptBlob(null);
+    setReceiptFileName(null);
+    setReceiptContentType("image/jpeg");
+    setReceiptPath(null);
+    setReceiptUrl(null);
+    setUploadProgress(0);
+    if (receiptInputRef.current) receiptInputRef.current.value = "";
+  };
+
   const handlePaymentSent = async () => {
-    if (!receiptImage || !receiptBlob) {
+    // Gated on the blob, not the preview: a PDF receipt is a valid upload and
+    // has no `receiptImage` thumbnail to show.
+    if (!receiptBlob) {
       showToast("Please upload a payment receipt before submitting.", "error");
       return;
     }
@@ -280,20 +372,41 @@ const PaymentMethodsScreen: React.FC = () => {
       setIsProcessing(true);
       try {
         const { path: uploadedPath } = await uploadReceipt();
-        await submitPayment(
+        const submitted = await submitPayment(
           state.childId!,
           paymentAmount,
           uploadedPath || undefined,
           idempotencyKey,
         );
-        showToast(
-          "Payment submitted successfully! Waiting for school confirmation.",
-          "success"
-        );
-        navigate("/dashboard");
+        /*
+         * Same result screen as a card payment. An installment lands in
+         * `processing` — it is a bank transfer awaiting the school's
+         * confirmation, not money that has already moved — and the screen
+         * subscribes to realtime, so the school approving it flips this to
+         * confirmed while the parent is still looking at it.
+         *
+         * `replace: true` keeps the back button off a submitted form, whose
+         * idempotency key would only replay the payment just made.
+         */
+        navigate("/payment-status", {
+          replace: true,
+          state: {
+            paymentId: submitted?.id,
+            fallbackAmount: paymentAmount,
+            fallbackChildName: child?.name,
+          },
+        });
       } catch (error) {
         console.error(error);
-        showToast("Failed to submit payment. Please try again.", "error");
+        // Surface why it actually failed. The generic "try again" hid an
+        // upload that could never succeed (blocked origin, oversized file)
+        // behind advice to repeat it.
+        showToast(
+          error instanceof Error && error.message
+            ? error.message
+            : "Failed to submit payment. Please try again.",
+          "error",
+        );
         await cleanupUploadedReceipt();
       } finally {
         setIsProcessing(false);
@@ -396,9 +509,10 @@ const PaymentMethodsScreen: React.FC = () => {
           isUploading={isUploading}
           uploadProgress={uploadProgress}
           receiptImage={receiptImage}
+          receiptFileName={receiptBlob ? receiptFileName : null}
           receiptInputRef={receiptInputRef}
           onReceiptFileChange={handleReceiptFileChange}
-          onRemoveReceipt={() => setReceiptImage(null)}
+          onRemoveReceipt={handleRemoveReceipt}
           onPickFromPhone={handlePickFromPhone}
         />
 

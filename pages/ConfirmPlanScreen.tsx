@@ -236,44 +236,45 @@ const ConfirmPlanScreen: React.FC = () => {
         idempotencyKey,
       });
 
-      // 2. Open the Paystack popup with the access code.
+      /*
+       * 2. Open the Paystack popup, then hand every outcome to
+       * /payment-status.
+       *
+       * This used to branch here: verify inline, then pick one of four toasts
+       * and either redirect or sit still. That made a three-second toast the
+       * entire confirmation for a payment of tens of thousands of naira, and it
+       * put the "did this work?" decision in the client. The result screen owns
+       * both now — it calls the server, which reconciles with Paystack and
+       * returns the verdict plus the figures to render.
+       *
+       * `replace: true` so the device back button cannot return to a checkout
+       * screen whose transaction has already been consumed.
+       *
+       * `retryState` carries this screen's own navigation state back, so "Try
+       * again" lands on a fully-populated checkout rather than a blank one. The
+       * fresh mount also mints a new idempotency key, which is what makes the
+       * retry a real second charge.
+       */
       const outcome = await openPaystackPopup(init.accessCode);
+      const retry = { retryTo: "/confirm-plan", retryState: location.state };
+
       if (outcome === "cancelled") {
-        showToast("Payment cancelled.", "warning");
-        setIsProcessing(false);
+        navigate("/payment-status", {
+          replace: true,
+          state: { outcome: "cancelled", ...retry },
+        });
         return;
       }
 
-      // 3. Reconcile via the server — the webhook is the source of truth, so we
-      // only claim success when the server actually verifies it. A network error
-      // here doesn't mean the charge failed (it likely succeeded and the webhook
-      // will activate the enrollment), so we surface a "confirming" state rather
-      // than a false failure.
-      let verified: { status?: string } | null = null;
-      try {
-        verified = await BackendAPI.parent.verifyPaystack(init.reference);
-      } catch {
-        showToast(
-          "Payment received — we're confirming your enrollment. Check your dashboard shortly.",
-          "warning",
-        );
-        navigate("/dashboard");
-        return;
-      }
-
-      if (verified?.status === "success") {
-        showToast("Payment successful! Enrollment activated.", "success");
-        navigate("/dashboard");
-      } else if (verified?.status === "failed") {
-        showToast("Payment failed. Please try again.", "error");
-        setIsProcessing(false);
-      } else {
-        showToast(
-          "Payment is being confirmed. You'll be notified once it's complete.",
-          "warning",
-        );
-        navigate("/dashboard");
-      }
+      navigate("/payment-status", {
+        replace: true,
+        state: {
+          reference: init.reference,
+          fallbackAmount: firstPayment,
+          fallbackChildName: childName,
+          ...retry,
+        },
+      });
       return;
     } catch (err: any) {
       const backendMessage = err?.response?.data?.message;

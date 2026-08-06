@@ -54,12 +54,13 @@ interface DataContextType {
   refreshParentView: () => Promise<void>;
   refreshSchoolView: () => Promise<void>;
   refreshOwnerView: () => Promise<void>;
+  /** Resolves with the created payment — its id locates it on /payment-status. */
   submitPayment: (
     childId: string,
     amount: number,
     receiptUrl?: string,
     idempotencyKey?: string,
-  ) => Promise<void>;
+  ) => Promise<{ id?: string } | undefined>;
   markNotificationRead: (id: string) => Promise<void>;
   markAllNotificationsRead: () => Promise<void>;
 
@@ -250,13 +251,19 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({
   const refreshSchoolView = refreshData;
   const refreshOwnerView = refreshData;
 
+  /**
+   * Returns the created payment so the caller can route to /payment-status for
+   * it. It used to swallow the result, which left the post-payment screen with
+   * no way to identify the row it had just created — an installment has no
+   * Paystack reference, so its id is the only locator there is.
+   */
   const submitPayment = async (
     childId: string,
     amount: number,
     receiptUrl?: string,
     idempotencyKey?: string,
   ) => {
-    await payInstallmentMutation.mutateAsync({
+    return payInstallmentMutation.mutateAsync({
       enrollmentId: childId,
       amount,
       receiptUrl,

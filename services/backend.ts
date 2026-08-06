@@ -526,6 +526,37 @@ export const BackendAPI = {
       return response.data;
     },
     /** Reconcile a Paystack transaction on return (idempotent with the webhook). */
+    /**
+     * Everything the post-payment screen renders, for either payment rail.
+     *
+     * Pass `reference` for a Paystack first payment or `paymentId` for an
+     * installment. The reference path reconciles server-side before answering,
+     * so this replaces the separate verify-on-return call — one round trip, and
+     * the response is renderable rather than a bare status string.
+     */
+    getPaymentOutcome: async (locator: {
+      reference?: string;
+      paymentId?: string;
+    }) => {
+      const response = await apiClient.get("/enrollments/payment-outcome", {
+        params: locator,
+      });
+      return response.data as {
+        state: "succeeded" | "processing" | "failed" | "cancelled";
+        paymentType: string;
+        amount: number;
+        reference: string | null;
+        childName: string | null;
+        schoolName: string | null;
+        className: string | null;
+        reason: string | null;
+        enrollmentStatus: string | null;
+        remainingBalance: number | null;
+        nextInstallmentAmount: number | null;
+        nextDueDate: string | null;
+      };
+    },
+
     verifyPaystack: async (reference: string) => {
       const response = await apiClient.get<{ status: string; reference: string }>(
         "/payments/paystack/verify",

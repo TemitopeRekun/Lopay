@@ -23,6 +23,15 @@
   # name overrides this.
   VITE_API_URL = "https://lopay-backend.onrender.com"
 
+  # Receipt uploads do NOT pass through the API. The backend mints a Supabase
+  # signed upload URL and the browser PUTs the file straight to this origin, so
+  # it has to be in the CSP's `connect-src` or every upload dies as an opaque
+  # "Failed to fetch" that `vite dev` (which injects no CSP) cannot reproduce.
+  # Must match the backend's SUPABASE_URL. Not a secret — the project URL is
+  # public; the service-role key that grants access to it is what stays server
+  # side. The build fails if this is unset (see vite.config.ts).
+  VITE_SUPABASE_URL = "https://kmrfnbvkzauiaseslblt.supabase.co"
+
 # `production` is whatever the site's production branch is set to — `main` for
 # this repo. That branch selection lives in the Netlify UI (Site configuration →
 # Build & deploy → Continuous deployment), not here; netlify.toml has no key for
@@ -30,15 +39,18 @@
 # automatically so long as auto-publish stays enabled.
 [context.production.environment]
   VITE_API_URL = "https://lopay-backend.onrender.com"
+  VITE_SUPABASE_URL = "https://kmrfnbvkzauiaseslblt.supabase.co"
 
 # Deploy previews and branch deploys build against the same staging API. They
 # get their own blocks so pointing production at a live API later is a one-line
 # change that the previews cannot accidentally follow.
 [context.deploy-preview.environment]
   VITE_API_URL = "https://lopay-backend.onrender.com"
+  VITE_SUPABASE_URL = "https://kmrfnbvkzauiaseslblt.supabase.co"
 
 [context.branch-deploy.environment]
   VITE_API_URL = "https://lopay-backend.onrender.com"
+  VITE_SUPABASE_URL = "https://kmrfnbvkzauiaseslblt.supabase.co"
 
 # ---------------------------------------------------------------------------
 # SPA routing

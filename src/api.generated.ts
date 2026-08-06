@@ -657,6 +657,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/enrollments/payment-outcome": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Resolve a payment outcome for the result screen */
+        get: operations["EnrollmentController_getPaymentOutcome"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/enrollments/confirm-first-payment": {
         parameters: {
             query?: never;
@@ -1036,10 +1053,10 @@ export interface components {
              */
             fileName: string;
             /**
-             * @description MIME type of the file
+             * @description MIME type of the file. Must be one of: image/jpeg, image/png, image/webp, application/pdf.
              * @example image/jpeg
              */
-            contentType?: string;
+            contentType: string;
         };
         CreateReceiptDownloadDto: {
             /** @example payment-uuid */
@@ -2012,6 +2029,23 @@ export interface operations {
         };
         responses: {
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    EnrollmentController_getPaymentOutcome: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

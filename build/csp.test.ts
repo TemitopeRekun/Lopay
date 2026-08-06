@@ -2,7 +2,14 @@ import { describe, it, expect } from "vitest";
 import { buildCsp } from "./csp";
 
 describe("buildCsp (SPA CSP smoke check)", () => {
-  const csp = buildCsp("https://api.lopay.com");
+  const STORAGE = "https://project-ref.supabase.co";
+  const csp = buildCsp("https://api.lopay.com", STORAGE);
+
+  const connectSrc = (policy: string) =>
+    policy
+      .split(";")
+      .map((d) => d.trim())
+      .find((d) => d.startsWith("connect-src"))!;
 
   it("locks scripts to 'self' + Paystack — no unsafe-inline/eval", () => {
     const scriptSrc = csp
@@ -18,6 +25,25 @@ describe("buildCsp (SPA CSP smoke check)", () => {
     expect(csp).toContain("https://api.lopay.com");
     expect(csp).toContain("wss://api.lopay.com");
     expect(csp).toContain("https://api.paystack.co");
+  });
+
+  /**
+   * Receipts are PUT straight from the browser to Supabase storage, bypassing
+   * the API entirely. Dropping this origin blocks every receipt upload in the
+   * built app while `vite dev` — which injects no CSP — keeps working, so the
+   * break only ever appears in production.
+   */
+  it("allows the storage origin so receipt uploads are not blocked", () => {
+    expect(connectSrc(csp)).toContain(STORAGE);
+  });
+
+  it("omits the storage origin rather than emitting a bogus host", () => {
+    for (const bad of [undefined, "", "not-a-url"]) {
+      const directive = connectSrc(buildCsp("https://api.lopay.com", bad));
+      expect(directive).not.toContain("undefined");
+      expect(directive).not.toContain("not-a-url");
+      expect(directive).toContain("https://api.lopay.com");
+    }
   });
 
   it("forbids plugins/objects and locks base-uri/form-action", () => {
