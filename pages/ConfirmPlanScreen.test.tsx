@@ -116,8 +116,23 @@ beforeEach(() => {
     reference: "ref-1",
     accessCode: "ac-1",
   });
-  api.parent.verifyPaystack.mockResolvedValue({ status: "success" });
   popup.mockResolvedValue("success");
+});
+
+/**
+ * This screen no longer verifies. It charges and hands the reference to
+ * /payment-status, which asks the server for the verdict — so a stubbed
+ * verifyPaystack here would only describe behaviour that no longer exists.
+ */
+it("does not verify inline — the result screen owns the outcome", async () => {
+  const user = userEvent.setup();
+  renderScreen(CALCULATED_STATE);
+  await waitFor(() => expect(amountBox()).toHaveValue(27500));
+
+  await user.click(screen.getByRole("button", { name: /with Paystack/ }));
+
+  await waitFor(() => expect(navigate).toHaveBeenCalled());
+  expect(api.parent.verifyPaystack).not.toHaveBeenCalled();
 });
 
 describe("ConfirmPlanScreen — figures come from the backend", () => {
@@ -244,7 +259,14 @@ describe("ConfirmPlanScreen — amount bounds", () => {
 });
 
 describe("ConfirmPlanScreen — charging", () => {
-  it("sends the entered amount, then verifies server-side", async () => {
+  /**
+   * This screen no longer decides the outcome. It charges, then hands the
+   * reference to /payment-status, which asks the server (that call reconciles
+   * with Paystack) and renders the verdict. Verifying inline made a
+   * three-second toast the entire confirmation for a payment of tens of
+   * thousands of naira, and put the "did this work?" decision in the client.
+   */
+  it("sends the entered amount, then routes to the result screen", async () => {
     const user = userEvent.setup();
     renderScreen(CALCULATED_STATE);
     await waitFor(() => expect(amountBox()).toHaveValue(27500));
@@ -262,8 +284,15 @@ describe("ConfirmPlanScreen — charging", () => {
       ),
     );
     expect(popup).toHaveBeenCalledWith("ac-1");
-    expect(api.parent.verifyPaystack).toHaveBeenCalledWith("ref-1");
-    expect(navigate).toHaveBeenCalledWith("/dashboard");
+    // `replace` so the back button cannot return to a checkout screen whose
+    // transaction has already been consumed.
+    expect(navigate).toHaveBeenCalledWith(
+      "/payment-status",
+      expect.objectContaining({
+        replace: true,
+        state: expect.objectContaining({ reference: "ref-1" }),
+      }),
+    );
   });
 
   it("reuses one idempotency key across retries of the same intent", async () => {
@@ -286,6 +315,11 @@ describe("ConfirmPlanScreen — charging", () => {
     expect(first.idempotencyKey).toBe(second.idempotencyKey);
   });
 
+  /**
+   * A cancelled popup is the one outcome with no server-side row to read — no
+   * charge was ever attempted — so it is the only one the client labels itself,
+   * passed through as navigation state rather than fetched.
+   */
   it("does not claim success when the popup was cancelled", async () => {
     const user = userEvent.setup();
     popup.mockResolvedValue("cancelled");
@@ -295,29 +329,38 @@ describe("ConfirmPlanScreen — charging", () => {
     await user.click(screen.getByRole("button", { name: /with Paystack/ }));
 
     await waitFor(() =>
-      expect(showToast).toHaveBeenCalledWith("Payment cancelled.", "warning"),
+      expect(navigate).toHaveBeenCalledWith(
+        "/payment-status",
+        expect.objectContaining({
+          state: expect.objectContaining({ outcome: "cancelled" }),
+        }),
+      ),
     );
-    expect(api.parent.verifyPaystack).not.toHaveBeenCalled();
-    expect(navigate).not.toHaveBeenCalled();
+    // No reference is handed over, so the result screen cannot report a charge
+    // that never happened as processing.
+    const [, options] = navigate.mock.calls[0];
+    expect(options.state.reference).toBeUndefined();
   });
 
-  it("treats an unreachable verify as 'confirming', not as a failure", async () => {
-    // The charge probably succeeded and the webhook will activate it — telling the
-    // parent it failed would push them into paying twice.
+  /**
+   * "Try again" must land on a fully-populated checkout, not a blank one. The
+   * fresh mount also mints a new idempotency key, which is what makes the retry
+   * a real second charge rather than a replay of the dead one.
+   */
+  it("carries the checkout state through for a retry", async () => {
     const user = userEvent.setup();
-    api.parent.verifyPaystack.mockRejectedValue(new Error("offline"));
+    popup.mockResolvedValue("cancelled");
     renderScreen(CALCULATED_STATE);
     await waitFor(() => expect(amountBox()).toHaveValue(27500));
 
     await user.click(screen.getByRole("button", { name: /with Paystack/ }));
 
-    await waitFor(() =>
-      expect(showToast).toHaveBeenCalledWith(
-        expect.stringContaining("confirming your enrollment"),
-        "warning",
-      ),
+    await waitFor(() => expect(navigate).toHaveBeenCalled());
+    const [, options] = navigate.mock.calls[0];
+    expect(options.state.retryTo).toBe("/confirm-plan");
+    expect(options.state.retryState).toEqual(
+      expect.objectContaining({ schoolId: "school-1" }),
     );
-    expect(navigate).toHaveBeenCalledWith("/dashboard");
   });
 
   it("surfaces a server rejection verbatim", async () => {

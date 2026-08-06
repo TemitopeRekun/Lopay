@@ -4,6 +4,11 @@ interface ReceiptUploaderProps {
   isUploading: boolean;
   uploadProgress: number;
   receiptImage: string | null;
+  /**
+   * Name of the chosen file. Set for every receipt; it is the ONLY thing shown
+   * for a PDF, which has no `receiptImage` thumbnail to render.
+   */
+  receiptFileName?: string | null;
   receiptInputRef: React.RefObject<HTMLInputElement | null>;
   onReceiptFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onRemoveReceipt: () => void;
@@ -15,6 +20,7 @@ export const ReceiptUploader: React.FC<ReceiptUploaderProps> = ({
   isUploading,
   uploadProgress,
   receiptImage,
+  receiptFileName,
   receiptInputRef,
   onReceiptFileChange,
   onRemoveReceipt,
@@ -40,7 +46,7 @@ export const ReceiptUploader: React.FC<ReceiptUploaderProps> = ({
     <input
       ref={receiptInputRef}
       type="file"
-      accept="image/*"
+      accept="image/*,application/pdf"
       onChange={onReceiptFileChange}
       className="hidden"
     />
@@ -53,6 +59,21 @@ export const ReceiptUploader: React.FC<ReceiptUploaderProps> = ({
         />
         <button
           onClick={onRemoveReceipt}
+          aria-label="Remove receipt"
+          className="absolute top-2 right-2 bg-black/50 text-white rounded-full p-1"
+        >
+          <span className="material-symbols-outlined text-xs">close</span>
+        </button>
+      </div>
+    ) : receiptFileName ? (
+      <div className="relative rounded-2xl border border-gray-100 dark:border-gray-800 p-4 flex items-center gap-3">
+        <div className="size-10 shrink-0 rounded-full bg-gray-100 dark:bg-white/10 flex items-center justify-center">
+          <span className="material-symbols-outlined">description</span>
+        </div>
+        <p className="text-xs font-bold truncate pr-6">{receiptFileName}</p>
+        <button
+          onClick={onRemoveReceipt}
+          aria-label="Remove receipt"
           className="absolute top-2 right-2 bg-black/50 text-white rounded-full p-1"
         >
           <span className="material-symbols-outlined text-xs">close</span>
