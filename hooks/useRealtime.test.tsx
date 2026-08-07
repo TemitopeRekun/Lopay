@@ -178,6 +178,14 @@ describe("useRealtime", () => {
     "paymentCalculation",
     // Notifications have their own event.
     "notifications",
+    /*
+     * Paystack configuration health, not money. Each read costs one Paystack
+     * lookup PER SCHOOL, so invalidating it on every payment event would put a
+     * fan-out of external calls behind ordinary checkout traffic. It changes only
+     * when an admin repairs a payout account, and that mutation invalidates it
+     * directly.
+     */
+    "schoolsPayoutStatus",
   ];
 
   it("invalidates every server-derived query, on both event types", () => {

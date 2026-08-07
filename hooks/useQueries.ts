@@ -35,6 +35,7 @@ export const QUERY_KEYS = {
   transactions: ["transactions"],
   globalTransactions: ["globalTransactions"],
   schools: ["schools"],
+  schoolsPayoutStatus: ["schoolsPayoutStatus"], // Admin
   schoolStats: ["schoolStats"],
   schoolBankDetails: (schoolId: string) => ["schoolBankDetails", schoolId],
   pendingPayments: ["pendingPayments"],
@@ -871,6 +872,42 @@ export const useUpdateSchool = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.schools });
       queryClient.invalidateQueries({ queryKey: ["schoolBankDetails"] });
+    },
+  });
+};
+
+/**
+ * Payout readiness per school, verified against Paystack on every fetch.
+ *
+ * Deliberately NOT cached for long: each read costs a Paystack lookup per school,
+ * but a stale "this school is fine" is exactly the failure this screen exists to
+ * catch — a school looked healthy in our own database right up until a parent's
+ * card was refused.
+ */
+export const useSchoolsPayoutStatus = (enabled: boolean = true) => {
+  return useQuery({
+    queryKey: QUERY_KEYS.schoolsPayoutStatus,
+    queryFn: BackendAPI.admin.getSchoolsPayoutStatus,
+    enabled,
+    staleTime: 1000 * 15,
+  });
+};
+
+/**
+ * Create or repair a school's Paystack payout account.
+ *
+ * The endpoint is idempotent — an account still valid on the current integration
+ * is kept rather than replaced — so a double-press cannot orphan a live payout
+ * destination.
+ */
+export const useRetrySchoolPayoutSetup = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: BackendAPI.admin.createSubaccount,
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.schoolsPayoutStatus,
+      });
     },
   });
 };

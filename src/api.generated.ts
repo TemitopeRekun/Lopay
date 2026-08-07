@@ -776,6 +776,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/schools/payout-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Per-school payout readiness, verified against Paystack */
+        get: operations["AdminController_getSchoolsPayoutStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/schools/{schoolId}/paystack-subaccount": {
         parameters: {
             query?: never;
@@ -785,7 +802,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Create a Paystack subaccount for a school missing one */
+        /** Create or repair a school’s Paystack subaccount (idempotent: keeps an existing one that is still valid on this integration) */
         post: operations["AdminController_createSubaccount"];
         delete?: never;
         options?: never;
@@ -2160,6 +2177,23 @@ export interface operations {
         requestBody?: never;
         responses: {
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminController_getSchoolsPayoutStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

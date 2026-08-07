@@ -11,9 +11,25 @@ export type PaystackOutcome = "success" | "cancelled";
  * still call verify() on success to reconcile immediately.
  */
 export const openPaystackPopup = (
-  accessCode: string,
+  accessCode: string | null | undefined,
 ): Promise<PaystackOutcome> =>
   new Promise((resolve, reject) => {
+    /*
+     * A transaction Paystack never accepted has no access code, and the backend
+     * used to hand that null straight through here. The popup opened on nothing
+     * and rendered Paystack's catch-all "we could not start this transaction —
+     * enter a valid key", which sent us hunting for a key problem that did not
+     * exist. Refuse to open at all and say what actually happened.
+     */
+    if (!accessCode) {
+      reject(
+        new Error(
+          "This payment could not be started with Paystack. Please try again — if it keeps failing, your school's payout account may need attention.",
+        ),
+      );
+      return;
+    }
+
     try {
       const popup = new PaystackPop();
       popup.resumeTransaction(accessCode, {

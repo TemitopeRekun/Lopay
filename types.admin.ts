@@ -76,3 +76,29 @@ export interface ApiAdminOverview {
   recentTransactions: import("./types").ApiTransaction[];
   revenueSeries: ApiAdminOverviewSeriesPoint[];
 }
+
+/**
+ * Whether a school can actually be paid right now, as verified against Paystack.
+ *
+ * `ACTIVE` and `NOT_ON_INTEGRATION` are verdicts FROM Paystack; `UNKNOWN` means
+ * we could not ask. The distinction matters in the UI: rendering an outage as
+ * "broken" would push an admin to re-provision a healthy school and orphan its
+ * real payout account.
+ */
+export type SchoolPayoutState =
+  | "ACTIVE"
+  | "MISSING"
+  | "NOT_ON_INTEGRATION"
+  | "UNKNOWN";
+
+export interface SchoolPayoutStatus {
+  schoolId: string;
+  schoolName: string;
+  subaccountCode: string | null;
+  /** What the backend's own column claims — surfaced to expose disagreement. */
+  storedActive: boolean;
+  /** False when no settlement bank is on file, so retrying cannot help. */
+  canRetry: boolean;
+  state: SchoolPayoutState;
+  detail: string;
+}

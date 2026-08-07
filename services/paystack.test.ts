@@ -42,6 +42,22 @@ describe("openPaystackPopup", () => {
     );
   });
 
+  /*
+   * A transaction Paystack never accepted has no access code. Opening the popup
+   * on one made the checkout answer with its catch-all "enter a valid key",
+   * which reads as a credentials problem and sends you looking for a key that
+   * was never wrong. Refuse to open, and say something true instead.
+   */
+  it.each([null, undefined, ""])(
+    "refuses to open on a missing access code (%p)",
+    async (code) => {
+      await expect(openPaystackPopup(code as never)).rejects.toThrow(
+        /could not be started with Paystack/,
+      );
+      expect(P.resumeTransaction).not.toHaveBeenCalled();
+    },
+  );
+
   it("rejects when opening the popup throws synchronously", async () => {
     P.resumeTransaction.mockImplementation(() => {
       throw new Error("popup broke");
