@@ -3,14 +3,94 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/Layout';
 import { Header } from '../../components/Header';
-import { useSchools, useDeleteSchool, useDeleteAllSchools } from '../../hooks/useQueries';
+import {
+  useSchools,
+  useDeleteSchool,
+  useDeleteAllSchools,
+  useSchoolsPayoutStatus,
+  useRetrySchoolPayoutSetup,
+} from '../../hooks/useQueries';
+import { useUIStore } from '../../store/uiStore';
+import type { SchoolPayoutState, SchoolPayoutStatus } from '../../types.admin';
+
+/**
+ * How each payout verdict renders.
+ *
+ * ACTIVE is deliberately quiet — a green tick on every row trains admins to stop
+ * reading the column. Only the states that need a human get visual weight, and
+ * UNKNOWN (Paystack unreachable) is styled as a caution rather than a failure so
+ * an outage doesn't provoke a re-provision of a healthy school.
+ */
+const PAYOUT_BADGE: Record<
+  SchoolPayoutState,
+  { label: string; icon: string; className: string } | null
+> = {
+  ACTIVE: null,
+  MISSING: {
+    label: 'Payouts not set up',
+    icon: 'error',
+    className: 'bg-danger/10 text-danger border-danger/20',
+  },
+  NOT_ON_INTEGRATION: {
+    label: 'Payout account invalid',
+    icon: 'error',
+    className: 'bg-danger/10 text-danger border-danger/20',
+  },
+  UNKNOWN: {
+    label: 'Payout status unknown',
+    icon: 'help',
+    className: 'bg-amber-500/10 text-amber-600 border-amber-500/20',
+  },
+};
 
 const SchoolListScreen: React.FC = () => {
   const navigate = useNavigate();
   const { data: schools = [] } = useSchools();
+  const { data: payoutStatuses = [] } = useSchoolsPayoutStatus();
   const { mutate: deleteSchool } = useDeleteSchool();
   const { mutate: deleteAllSchools } = useDeleteAllSchools();
-  
+  const { mutate: retryPayoutSetup, isPending: isRetrying, variables: retryingSchoolId } =
+    useRetrySchoolPayoutSetup();
+  const { showToast } = useUIStore();
+
+  const payoutBySchool = new Map<string, SchoolPayoutStatus>(
+    payoutStatuses.map((status) => [status.schoolId, status]),
+  );
+
+  /*
+   * Repairing a payout account moves where a school's money settles, so the
+   * confirm spells out the consequence rather than asking "are you sure?".
+   */
+  const handleRetryPayout = (status: SchoolPayoutStatus) => {
+    if (
+      !window.confirm(
+        `Set up payouts for ${status.schoolName}?\n\nThis creates the school's payout account with Paystack using the settlement bank details already on file. An account that is still valid is kept as-is.`,
+      )
+    ) {
+      return;
+    }
+    retryPayoutSetup(status.schoolId, {
+      onSuccess: (result) => {
+        showToast(
+          result.created
+            ? `Payout account created for ${status.schoolName}. Parents can now pay this school.`
+            : `${status.schoolName} already had a valid payout account — nothing was changed.`,
+          'success',
+        );
+      },
+      onError: (error: any) => {
+        const message =
+          error?.response?.data?.message ??
+          error?.message ??
+          'Could not set up payouts. Please try again.';
+        showToast(
+          `Payout setup failed: ${Array.isArray(message) ? message.join(', ') : message}`,
+          'error',
+        );
+      },
+    });
+  };
+
   const [searchQuery, setSearchQuery] = useState('');
 
   /*
@@ -126,7 +206,10 @@ const SchoolListScreen: React.FC = () => {
                     <p>No schools found.</p>
                 </div>
             ) : (
-                filteredSchools.map((school) => (
+                filteredSchools.map((school) => {
+                  const payout = payoutBySchool.get(school.id);
+                  const badge = payout ? PAYOUT_BADGE[payout.state] : null;
+                  return (
                     <div key={school.id} className="bg-white dark:bg-card-dark p-4 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm flex flex-col gap-3">
                         <div className="flex justify-between items-start">
                             <div className="flex items-center gap-3">
@@ -150,6 +233,36 @@ const SchoolListScreen: React.FC = () => {
                         </div>
                         
                         {/*
+                          Payout health, verified against Paystack rather than
+                          read from our own column. A school whose payout account
+                          was created in test mode reported itself perfectly
+                          healthy in the database until a parent's card was
+                          refused — this row is the only place that mismatch is
+                          visible before it costs someone a payment.
+                        */}
+                        {badge && payout && (
+                            <div className={`flex flex-col gap-2 p-3 rounded-lg border ${badge.className}`}>
+                                <div className="flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-base">{badge.icon}</span>
+                                    <span className="text-[10px] font-black uppercase tracking-wider">{badge.label}</span>
+                                </div>
+                                <p className="text-xs leading-snug opacity-90">{payout.detail}</p>
+                                {payout.canRetry && payout.state !== 'UNKNOWN' && (
+                                    <button
+                                        type="button"
+                                        onClick={() => handleRetryPayout(payout)}
+                                        disabled={isRetrying && retryingSchoolId === school.id}
+                                        className="self-start text-[10px] font-black uppercase bg-white/60 dark:bg-black/20 px-3 py-2 rounded-lg hover:bg-white/90 dark:hover:bg-black/40 transition-all disabled:opacity-50"
+                                    >
+                                        {isRetrying && retryingSchoolId === school.id
+                                            ? 'Setting up…'
+                                            : 'Set up payouts'}
+                                    </button>
+                                )}
+                            </div>
+                        )}
+
+                        {/*
                           Contact email and address used to render here from the
                           public directory payload, which carries neither — two
                           permanently blank fields under real-looking labels.
@@ -163,7 +276,8 @@ const SchoolListScreen: React.FC = () => {
                             </button>
                         </div>
                     </div>
-                ))
+                  );
+                })
             )}
         </div>
       </div>

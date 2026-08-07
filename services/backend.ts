@@ -27,6 +27,7 @@ import {
   ApiAdminStudentsSummary,
   ApiPlatformRevenue,
   BreakdownTab,
+  SchoolPayoutStatus,
 } from "../types.admin";
 
 export const API_URL =
@@ -295,11 +296,30 @@ export const BackendAPI = {
       }>("/admin/paystack/resolve-account", { accountNumber, bankCode });
       return response.data;
     },
-    /** (Re)create a Paystack subaccount for a school missing one. */
-    createSubaccount: async (schoolId: string) => {
-      const response = await apiClient.post<{ subaccountCode: string; active: boolean }>(
-        `/admin/schools/${schoolId}/paystack-subaccount`,
+    /**
+     * Per-school payout readiness, verified against Paystack.
+     *
+     * Not the same question as our own `paystackSubaccountActive` column, which
+     * only records that a payout account was created successfully at some point —
+     * it cannot see one that belongs to a different Paystack integration (a
+     * test-mode account left behind by the switch to live keys, say).
+     */
+    getSchoolsPayoutStatus: async () => {
+      const response = await apiClient.get<SchoolPayoutStatus[]>(
+        "/admin/schools/payout-status",
       );
+      return Array.isArray(response.data) ? response.data : [];
+    },
+    /**
+     * Create or repair a school's Paystack payout account. Idempotent: a payout
+     * account that is still valid on this integration is kept, not replaced.
+     */
+    createSubaccount: async (schoolId: string) => {
+      const response = await apiClient.post<{
+        subaccountCode: string;
+        active: boolean;
+        created: boolean;
+      }>(`/admin/schools/${schoolId}/paystack-subaccount`);
       return response.data;
     },
   },
