@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { Header } from '../components/Header';
 import { applyTheme, storeTheme, type Theme } from '../utils/theme';
+import { PushSettingsSection } from '../components/PushSettingsSection';
 
 const SettingsScreen: React.FC = () => {
   const navigate = useNavigate();
@@ -53,33 +54,16 @@ const SettingsScreen: React.FC = () => {
           </section>
 
           {/*
-            "Push Notifications" and "Biometric Login" toggles used to live here.
-            Both were local useState only: flipping them changed a switch colour and
-            nothing else — no preference was stored and no capability was enabled or
-            disabled. Push in particular reads as a working opt-out when the app has
-            never registered a device token with the backend, so no push could arrive
-            in either position.
+            The "Biometric Login" toggle that used to sit here is still gone: it
+            was local useState only, so flipping it changed a switch colour and
+            enabled nothing. It comes back when there is something behind it.
 
-            They come back when there is something behind them to turn on.
+            "Push Notifications" HAS come back, for the opposite reason — there
+            is now a device token registered with the backend behind it. See
+            PushSettingsSection, which refuses to render a switch in the states
+            where one could not work.
           */}
-
-          <section>
-              <h3 className="text-sm font-bold text-text-secondary-light uppercase tracking-wider mb-4">Notifications</h3>
-              <div className="bg-white dark:bg-card-dark rounded-xl border border-gray-100 dark:border-gray-800 overflow-hidden">
-                  <div className="flex items-start gap-3 p-4">
-                      <div className="size-8 shrink-0 rounded-full bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center">
-                          <span className="material-symbols-outlined text-primary">notifications</span>
-                      </div>
-                      <div>
-                          <p className="font-medium text-text-primary-light dark:text-text-primary-dark">In-app alerts</p>
-                          <p className="text-xs text-text-secondary-light mt-1 leading-relaxed">
-                              Payment confirmations, rejections and reminders appear under
-                              Alerts. Device push notifications aren&apos;t available yet.
-                          </p>
-                      </div>
-                  </div>
-              </div>
-          </section>
+          <PushSettingsSection />
 
           <section>
               <h3 className="text-sm font-bold text-text-secondary-light uppercase tracking-wider mb-4">About</h3>

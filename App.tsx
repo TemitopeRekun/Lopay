@@ -13,8 +13,9 @@ import { DataProvider } from "./context/DataContext";
 import { useMyClassFees } from "./hooks/useQueries";
 import { ToastHost } from "./components/ToastHost";
 import { useRealtime } from "./hooks/useRealtime";
-import { Capacitor } from "@capacitor/core";
-import { StatusBar, Style } from "@capacitor/status-bar";
+import { usePushNotifications } from "./hooks/usePushNotifications";
+import { PushNotificationPopup } from "./components/PushNotificationPopup";
+import { Capacitor, SystemBars, SystemBarsStyle } from "@capacitor/core";
 
 // Lazy-loaded route components — each chunk is fetched only when first visited.
 // The Suspense fallback (SplashScreen) shows during the brief network fetch.
@@ -221,6 +222,18 @@ const HomeRedirect = () => {
  */
 const RealtimeManager = () => {
   useRealtime();
+  return null;
+};
+
+/**
+ * Headless component: keeps the FCM device token in step with the session and
+ * routes taps on a delivered notification.
+ *
+ * Mounted INSIDE HashRouter, unlike RealtimeManager, because acting on a
+ * notification tap means navigating — `useNavigate` throws outside a router.
+ */
+const PushManager = () => {
+  usePushNotifications();
   return null;
 };
 
@@ -493,12 +506,46 @@ const AppRoutes = () => {
 };
 
 const App: React.FC = () => {
+  /**
+   * Keep the status/navigation bar icons legible against whatever the app is
+   * currently painting behind them.
+   *
+   * This replaced three `@capacitor/status-bar` calls. Two of them,
+   * `setBackgroundColor` and `setOverlaysWebView`, are documented as "not
+   * available on Android 15+": the platform now forces edge-to-edge, so the web
+   * layer draws under the bars and there is no separate bar background left to
+   * colour. They were silently doing nothing on a targetSdk 36 build. The third
+   * was actively wrong — it paired `Style.Light`, which means *dark* icons for a
+   * light background, with a near-black `#0f1115` bar, i.e. dark icons on a
+   * dark bar.
+   *
+   * Only the icon style is still ours to set, and it has to track the app's
+   * theme rather than the device's: the theme is user-switchable in Settings, so
+   * `SystemBarsStyle.Default` (which follows device appearance) would invert the
+   * icons the moment someone overrides it.
+   *
+   * The `dark` class on <html> is the single thing every theme path agrees on —
+   * both `utils/theme.ts` and `store/uiStore.ts` toggle it — so observing the
+   * class is what stays correct no matter which one performed the switch.
+   */
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
 
-    StatusBar.setStyle({ style: Style.Light }).catch(() => undefined);
-    StatusBar.setBackgroundColor({ color: "#0f1115" }).catch(() => undefined);
-    StatusBar.setOverlaysWebView({ overlay: false }).catch(() => undefined);
+    const root = document.documentElement;
+
+    const syncSystemBars = () => {
+      // SystemBarsStyle.Dark means light icons *for* a dark background.
+      const style = root.classList.contains("dark")
+        ? SystemBarsStyle.Dark
+        : SystemBarsStyle.Light;
+      SystemBars.setStyle({ style }).catch(() => undefined);
+    };
+
+    syncSystemBars();
+
+    const observer = new MutationObserver(syncSystemBars);
+    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
   }, []);
 
   return (
@@ -508,9 +555,16 @@ const App: React.FC = () => {
           <DataProvider>
             <RealtimeManager />
             <HashRouter>
+              <PushManager />
               <ErrorBoundary>
                 <AppRoutes />
               </ErrorBoundary>
+              {/*
+                Outside the ErrorBoundary on purpose: a screen that has crashed
+                into the reload fallback should still be able to surface an
+                incoming payment confirmation.
+              */}
+              <PushNotificationPopup />
             </HashRouter>
           </DataProvider>
         </AuthProvider>

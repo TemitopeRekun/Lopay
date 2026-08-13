@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "891944287716",
+    "project_id": "lopay-auth",
+    "storage_bucket": "lopay-auth.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:891944287716:android:51e874f5b6e1ff7c0e1bf1",
+        "android_client_info": {
+          "package_name": "com.lopay.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "891944287716-fdp3kt2linjdvldb7pa3ab5l3569gh3r.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAJ2lVK7z4IEBOCyi4rSKQiqmUjeuWRzL8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "891944287716-fdp3kt2linjdvldb7pa3ab5l3569gh3r.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

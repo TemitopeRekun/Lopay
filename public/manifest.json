@@ -1,22 +1,30 @@
-
 {
   "name": "LOPAY School Fees",
   "short_name": "LOPAY",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#F2F2F7",
   "theme_color": "#4A90E2",
   "description": "Simplify school fee payments with flexible installments.",
   "icons": [
     {
-      "src": "https://ui-avatars.com/api/?name=L&background=4A90E2&color=fff&size=192",
+      "src": "/icons/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
-      "src": "https://ui-avatars.com/api/?name=L&background=4A90E2&color=fff&size=512",
+      "src": "/icons/icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/notification-badge.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "monochrome"
     }
   ]
 }

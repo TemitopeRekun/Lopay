@@ -20,5 +20,10 @@
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true
-  }
+  },
+  // The messaging service worker runs in ServiceWorkerGlobalScope, not the DOM,
+  // and the two lib sets conflict (`self`, `fetch`, `location` are declared with
+  // different types in each). It gets its own config — sw/tsconfig.json — which
+  // `npm run typecheck` runs as a second pass, so it is still fully checked.
+  "exclude": ["node_modules", "dist", "android", "coverage", "sw"]
 }

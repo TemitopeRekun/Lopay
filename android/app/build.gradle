@@ -38,8 +38,25 @@ dependencies {
 
 apply from: 'capacitor.build.gradle'
 
+// google-services.json is COMMITTED to this repo on purpose (see android/.gitignore).
+// It holds no secret — the Android FCM SDK is linked and authenticated from it at
+// build time, and it ships inside every APK regardless.
 if (file('google-services.json').exists()) {
     apply plugin: 'com.google.gms.google-services'
 } else {
-    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+    // Without the file the build still succeeds — it just quietly omits the
+    // plugin, and the app then fails `registrationError` on every opt-in and
+    // receives not one push. An `info` log is invisible on a release build, so a
+    // release is failed outright instead: a total, silent outage of the feature
+    // is not something to discover from the Play Store.
+    gradle.taskGraph.whenReady { graph ->
+        if (graph.allTasks.any { it.name.endsWith('Release') }) {
+            throw new GradleException(
+                "android/app/google-services.json is missing.\n" +
+                "Push notifications cannot work in a release build without it. " +
+                "Download it from the Firebase console (project lopay-auth, Android app " +
+                "com.lopay.app) and place it at android/app/google-services.json.")
+        }
+    }
+    logger.lifecycle("WARNING: google-services.json not found — push notifications will not work in this build.")
 }

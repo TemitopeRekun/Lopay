@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Status-bar (small) icon for push notifications.
+
+    Android masks this to its alpha channel and tints it with the notification
+    accent colour, so it MUST be a flat white silhouette on transparent — any
+    colour or interior detail is discarded, and a full-colour launcher icon used
+    here renders as a solid white square.
+
+    The path is the LOPAY graduation cap from the splash screen (App.tsx),
+    re-centred in the 24dp box Android expects. The mortarboard's inner mark is
+    deliberately dropped: at 24dp it collapses into a smudge.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+
+    <group android:translateY="-2" android:scaleX="1.15" android:scaleY="1.15"
+        android:pivotX="50" android:pivotY="50">
+
+        <!-- Mortarboard + tassel post -->
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M50,20 L10,38.5 L50,57 L85,40.8 V65 H90 V38.5 L50,20 Z" />
+
+        <!-- Cap body -->
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M25,47 V65 C25,65 35,75 50,75 C65,75 75,65 75,65 V47 L50,58.5 L25,47 Z" />
+    </group>
+</vector>

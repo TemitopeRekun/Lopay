@@ -1,8 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    Consulted from API 24 up; on API 22 and 23 the `usesCleartextTraffic`
+    attribute in AndroidManifest.xml is what applies. Both say the same thing.
+-->
 <network-security-config>
-  <base-config cleartextTrafficPermitted="true">
-    <trust-anchors>
-      <certificates src="system" />
-    </trust-anchors>
-  </base-config>
+    <!--
+        Was `cleartextTrafficPermitted="true"`, which let the app send traffic
+        in the clear to any host. Nothing needs that: VITE_API_URL and
+        VITE_SUPABASE_URL are HTTPS in .env and .env.production.
+    -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <!--
+        The one exception, for `VITE_API_URL=http://localhost:3001` in
+        .env.local. Loopback and the emulator's alias for the host machine
+        cannot be intercepted by a network attacker, so allowing cleartext here
+        costs nothing, and scoping it by domain keeps release builds strict
+        without needing a separate manifest.
+
+        `includeSubdomains` is deliberately absent: these are exact hosts.
+    -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain>localhost</domain>
+        <domain>127.0.0.1</domain>
+        <domain>10.0.2.2</domain>
+    </domain-config>
 </network-security-config>

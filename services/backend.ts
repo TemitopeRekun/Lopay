@@ -671,6 +671,30 @@ export const BackendAPI = {
       return response.data;
     },
   },
+  /**
+   * FCM device tokens (`DeviceToken` on the backend).
+   *
+   * Both calls are scoped to the session server-side: `register` upserts on the
+   * token and REASSIGNS it to the caller, so a shared device follows whoever is
+   * currently signed in, and `unregister` only deletes rows the caller owns.
+   */
+  deviceTokens: {
+    register: async (data: { token: string; platform: 'web' | 'android' | 'ios' }) => {
+      const response = await apiClient.post('/device-tokens', data);
+      return response.data;
+    },
+    /**
+     * DELETE with a body — the token identifies the row and is too long to sit
+     * safely in a URL path (FCM tokens run past 160 characters and can contain
+     * `:` and `/`). Axios needs it under `data` for a DELETE.
+     */
+    unregister: async (token: string) => {
+      const response = await apiClient.delete('/device-tokens', {
+        data: { token },
+      });
+      return response.data;
+    },
+  },
   documents: {
     receipts: {
       createUploadUrl: async (data: CreateReceiptUploadDto) => {

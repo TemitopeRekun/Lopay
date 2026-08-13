@@ -62,6 +62,10 @@ captures/
 .cxx/
 
 # Google Services (e.g. APIs or Firebase)
+# app/google-services.json is deliberately TRACKED, not ignored. The Android FCM
+# SDK is authenticated from it at build time and it ships inside the APK anyway,
+# so it is not a secret — and a build without it silently produces an app that
+# receives no push notifications at all. Do not uncomment the line below.
 # google-services.json
 
 # Freeline

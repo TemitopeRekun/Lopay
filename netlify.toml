@@ -32,6 +32,46 @@
   # side. The build fails if this is unset (see vite.config.ts).
   VITE_SUPABASE_URL = "https://kmrfnbvkzauiaseslblt.supabase.co"
 
+  # ---------------------------------------------------------------------------
+  # Firebase Cloud Messaging (web push)
+  # ---------------------------------------------------------------------------
+  # Read from Firebase project `lopay-auth` (app "Lopay Web") via the Firebase
+  # management API — not transcribed by hand.
+  #
+  # Hardcoded here for the same reason VITE_API_URL is: `.env*` is gitignored, so
+  # a value that lives only in the Netlify UI is one forgotten setting away from
+  # a build that silently ships without push. Unlike the API URL these do not
+  # vary by deploy context — there is one Firebase project — so they sit in
+  # [build.environment] only and every context inherits them. A Netlify UI
+  # variable of the same name still overrides, which is the escape hatch if a
+  # second project is ever introduced.
+  #
+  # projectId MUST stay `lopay-auth`: it is the project the backend's service
+  # account belongs to, and a token minted against any other project is accepted
+  # by FCM and then never delivered.
+  #
+  # None of these is a secret — the web config is designed to ship to browsers.
+  # The credential that can SEND a push is the backend's FIREBASE_PRIVATE_KEY and
+  # must never appear here.
+  VITE_FIREBASE_API_KEY = "AIzaSyAOBO038w5ORRnBBS-mDIfG35qVvyrJ1As"
+  VITE_FIREBASE_AUTH_DOMAIN = "lopay-auth.firebaseapp.com"
+  VITE_FIREBASE_PROJECT_ID = "lopay-auth"
+  VITE_FIREBASE_MESSAGING_SENDER_ID = "891944287716"
+  VITE_FIREBASE_APP_ID = "1:891944287716:web:e79cf39ed1fcc6d60e1bf1"
+
+  # Web Push certificate (VAPID) public key, generated in the Firebase console —
+  # the one value with no API or CLI behind it. Public by design: the private
+  # half never leaves Google.
+  #
+  # Verified end-to-end on 2026-08-08: a headless Chromium against this config
+  # minted a real FCM token whose push subscription reported this exact key as
+  # its applicationServerKey, and a push sent with the backend service account
+  # was delivered to it.
+  #
+  # Do not drop it and rely on the SDK's built-in default key — the Firebase JS
+  # SDK docs state that push services including Chrome's require a non-default one.
+  VITE_FIREBASE_VAPID_KEY = "BFg2Dh6-565PwjX5FLrQHjQPvW9OMk-EXdqvIIXGsIKfe6IrBgk8YWjD4Epbr7ciw629M5BFzQ6f-JZ7XwH_wIE"
+
 # `production` is whatever the site's production branch is set to — `main` for
 # this repo. That branch selection lives in the Netlify UI (Site configuration →
 # Build & deploy → Continuous deployment), not here; netlify.toml has no key for
@@ -115,3 +155,36 @@
 
   [headers.values]
     Cache-Control = "public, max-age=0, must-revalidate"
+
+# The FCM background worker. Two rules, both load-bearing:
+#
+#   - It must NOT be cached. A stale worker keeps running for as long as the
+#     cache says it is fresh, so a Firebase config change (or a fix in the
+#     background handler) would not reach devices that already registered.
+#     Browsers cap SW script caching at 24h regardless, but relying on that
+#     leaves up to a day of drift.
+#   - Service-Worker-Allowed lets the script claim the root scope it registers
+#     with in webPush.ts. Netlify serves it from `/` already, so this is belt
+#     and braces against a future move under /assets.
+[[headers]]
+  for = "/firebase-messaging-sw.js"
+
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+    Service-Worker-Allowed = "/"
+
+# Icons and the notification chime are content-addressed by name, not hashed by
+# Vite (they live in public/ and are referenced by fixed path from the manifest,
+# the service worker and the Android channel). They change only when the brand
+# does, so a long cache with revalidation on deploy is right.
+[[headers]]
+  for = "/icons/*"
+
+  [headers.values]
+    Cache-Control = "public, max-age=604800"
+
+[[headers]]
+  for = "/sounds/*"
+
+  [headers.values]
+    Cache-Control = "public, max-age=604800"

@@ -7,6 +7,7 @@ import { useData } from "../context/DataContext";
 import { PlanCard } from "../components/PlanCard";
 import { RecentTransactionsList } from "../components/RecentTransactionsList";
 import { NotificationIconButton } from "../components/NotificationIconButton";
+import { PushPermissionPrompt } from "../components/PushPermissionPrompt";
 import { installmentCount, toPlanType } from "../utils/plan";
 
 const Dashboard: React.FC = () => {
@@ -178,6 +179,8 @@ const Dashboard: React.FC = () => {
           </button>
         </div>
       </div>
+
+      <PushPermissionPrompt />
 
       <main className="flex flex-col gap-6 p-6">
         {hasError &&

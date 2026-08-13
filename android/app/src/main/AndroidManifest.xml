@@ -1,8 +1,32 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!--
+        allowBackup: this app holds session tokens in the WebView's
+        localStorage. Auto Backup would sweep that whole data directory into the
+        user's Google Drive, so a restore onto an attacker-controlled device
+        replays a live session. Off for a payments app.
+
+        allowBackup alone is not enough on Android 12+, though: it stops Google
+        Drive backup, but device-to-device transfer is governed separately and
+        defaults to transferring everything. dataExtractionRules is what
+        actually closes the D2D path. It is ignored below API 31, where
+        allowBackup is the control that applies, so both are needed.
+
+        usesCleartextTraffic: every backend this app talks to is HTTPS (see
+        .env.production). Only .env.local points at http://localhost, which
+        network_security_config grants as a narrow exception.
+
+        The attribute is redundant now that Capacitor 8 raised minSdkVersion to
+        24: network_security_config is consulted from API 24 up, so every
+        supported device reads the file and the file's `false` is what binds.
+        It is kept only as a belt-and-braces declaration of intent, and because
+        it is the control that would apply again if minSdkVersion were ever
+        lowered below 24.
+    -->
     <application
-        android:allowBackup="true"
-        android:usesCleartextTraffic="true"
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:usesCleartextTraffic="false"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:networkSecurityConfig="@xml/network_security_config"
@@ -22,6 +46,34 @@
             </intent-filter>
         </activity>
 
+        <!--
+            FCM defaults, used for notifications Android posts itself while the
+            app is backgrounded or killed — the path where no JavaScript runs,
+            so nothing the web layer configures applies.
+
+            Without the icon override Android draws the full-colour launcher
+            icon in the status bar, which the platform renders as a featureless
+            white square from API 21 onward. `ic_stat_lopay` is the flat white
+            silhouette that shape requires.
+
+            The channel id must match ANDROID_CHANNEL_ID in
+            services/push/config.ts and the `channelId` the backend sets on the
+            android block of every send. A notification naming a channel that
+            does not exist is dropped silently on Android 8+.
+        -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_stat_lopay"
+        />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/lopay_notification_accent"
+        />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="lopay-payments"
+        />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -34,8 +86,36 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!--
+        Android 13 (API 33) made notifications a runtime permission. Without
+        this declaration `PushNotifications.requestPermissions()` returns denied
+        without ever showing a dialog, and the app silently receives nothing on
+        every modern device. Harmless below API 33, where notifications were
+        granted implicitly.
+    -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <!--
+        Superseded by READ_MEDIA_IMAGES from API 33 (Android 13) onward. Without
+        the ceiling, the app asks modern devices for broad storage access it
+        never uses, which is both a needless permission prompt and something
+        Play flags on review.
+    -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
+
+    <!-- Hardware -->
+
+    <!--
+        Google Play treats a bare CAMERA permission as an implicit
+        `android.hardware.camera` requirement with required="true" and filters
+        out every device with no back camera. Receipt capture is a convenience
+        here, not the product, so the app must stay installable on those
+        devices. @capacitor/camera does not declare this, so it has to live
+        here: its manifest contributes only a `queries` entry for
+        IMAGE_CAPTURE.
+    -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
 </manifest>

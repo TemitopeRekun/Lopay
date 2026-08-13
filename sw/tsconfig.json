@@ -1,0 +1,15 @@
+{
+  // The service worker's own compilation unit. It cannot share the app's config
+  // because `DOM` and `WebWorker` declare overlapping globals (`self`, `fetch`,
+  // `location`, `caches`) with incompatible types — loading both produces
+  // hundreds of duplicate-identifier errors, and loading DOM alone silently
+  // types `self` as `Window`, which is how a worker bug reaches production
+  // looking perfectly type-safe.
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "WebWorker"],
+    "types": ["vite/client"],
+    "noEmit": true
+  },
+  "include": ["./**/*.ts", "../services/push/config.ts"]
+}

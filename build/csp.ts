@@ -36,6 +36,27 @@ export function buildCsp(apiUrl: string, storageUrl?: string): string {
     }
   }
 
+  /**
+   * Firebase Cloud Messaging's control plane.
+   *
+   * Exactly two hosts, and both are required before a single web push can be
+   * delivered:
+   *   - `firebaseinstallations.googleapis.com` mints the Firebase Installation
+   *     ID that every FCM token is derived from.
+   *   - `fcmregistrations.googleapis.com` exchanges the browser's PushManager
+   *     subscription for the FCM registration token we send to the backend.
+   *
+   * Omitting them fails exactly like the Supabase gap above: `getToken()`
+   * rejects with an opaque `messaging/token-subscribe-failed` in the BUILT app
+   * only, because `vite dev` injects no CSP at all. Note this is the page's
+   * policy — the delivery leg runs inside the service worker over the browser's
+   * own push channel, which CSP does not govern.
+   */
+  const FCM_ORIGINS = [
+    "https://firebaseinstallations.googleapis.com",
+    "https://fcmregistrations.googleapis.com",
+  ];
+
   const directives: Record<string, string[]> = {
     "default-src": ["'self'"],
     // No 'unsafe-inline'/'unsafe-eval' for scripts. Paystack inline-js loads
@@ -51,9 +72,15 @@ export function buildCsp(apiUrl: string, storageUrl?: string): string {
       apiOrigin,
       wsOrigin,
       "https://api.paystack.co",
+      ...FCM_ORIGINS,
       ...(storageOrigin ? [storageOrigin] : []),
     ],
     "frame-src": ["https://checkout.paystack.com"],
+    // The FCM background worker (`/firebase-messaging-sw.js`). Same-origin
+    // because it is bundled locally rather than pulled from gstatic — stated
+    // explicitly rather than left to the script-src fallback, since that
+    // fallback chain is easy to break by editing an unrelated directive.
+    "worker-src": ["'self'"],
     "base-uri": ["'self'"],
     "form-action": ["'self'"],
     "object-src": ["'none'"],

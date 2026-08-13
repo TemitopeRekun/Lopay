@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Applies from API 31 (Android 12) up, and is what makes
+    `android:allowBackup="false"` actually complete: allowBackup stops Google
+    Drive backup, but Android 12 split device-to-device transfer into its own
+    channel that defaults to copying everything the app owns. A silent D2D copy
+    of this app's data directory hands over the WebView localStorage holding the
+    session token, so both channels are denied.
+
+    Exclusions rather than an empty file: with no rules at all the default is to
+    include everything, so the file has to name what to leave out. `root` is the
+    app's private data directory, which is where the WebView keeps localStorage
+    and where Capacitor's plugin preferences live; `device_root` is its
+    equivalent in device-encrypted storage; `external` covers app-scoped
+    external storage, used when a receipt is staged to a file before upload.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" path="." />
+        <exclude domain="device_root" path="." />
+        <exclude domain="external" path="." />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" path="." />
+        <exclude domain="device_root" path="." />
+        <exclude domain="external" path="." />
+    </device-transfer>
+</data-extraction-rules>

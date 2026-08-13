@@ -7,6 +7,7 @@ import { useData } from "../context/DataContext";
 import { PlanCard } from "../components/PlanCard";
 import { RecentTransactionsList } from "../components/RecentTransactionsList";
 import { NotificationIconButton } from "../components/NotificationIconButton";
+import { PushPermissionPrompt } from "../components/PushPermissionPrompt";
 import { useUIStore } from "../store/uiStore";
 import { BackendAPI } from "../services/backend";
 import { downloadCsv, monthRange, toCsv } from "../utils/csv";
@@ -276,6 +277,8 @@ const SchoolOwnerDashboard: React.FC = () => {
           variant="round"
         />
       </div>
+
+      <PushPermissionPrompt />
 
       <div className="flex flex-col gap-4 relative">
         {/* Search Bar */}

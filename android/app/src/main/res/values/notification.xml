@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Kept in its own file rather than added to a shared colors.xml: this project
+    has no colors.xml of its own (colorPrimary and friends resolve from
+    AppCompat), and creating one would shadow those. A uniquely named resource
+    cannot collide with anything Capacitor or a plugin contributes.
+-->
+<resources>
+    <!--
+        Tint Android applies to the status-bar icon and to the notification's
+        accent line. #4A90E2 is the app's `color-primary` custom property
+        (index.css) and the
+        `theme_color` in the web manifest, so a push looks like the app that
+        sent it.
+    -->
+    <color name="lopay_notification_accent">#4A90E2</color>
+</resources>

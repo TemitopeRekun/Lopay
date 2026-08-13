@@ -46,6 +46,24 @@ describe("buildCsp (SPA CSP smoke check)", () => {
     }
   });
 
+  /**
+   * Same failure mode as the storage origin: `getToken()` rejects with an
+   * opaque `messaging/token-subscribe-failed` in the built app only, because
+   * `vite dev` injects no CSP. Nobody would catch it before users do.
+   */
+  it("allows the FCM endpoints so web push token registration is not blocked", () => {
+    expect(connectSrc(csp)).toContain(
+      "https://firebaseinstallations.googleapis.com",
+    );
+    expect(connectSrc(csp)).toContain(
+      "https://fcmregistrations.googleapis.com",
+    );
+  });
+
+  it("allows the same-origin messaging service worker", () => {
+    expect(csp).toContain("worker-src 'self'");
+  });
+
   it("forbids plugins/objects and locks base-uri/form-action", () => {
     expect(csp).toContain("object-src 'none'");
     expect(csp).toContain("base-uri 'self'");
