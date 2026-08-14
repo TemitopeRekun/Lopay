@@ -50,9 +50,17 @@
   # account belongs to, and a token minted against any other project is accepted
   # by FCM and then never delivered.
   #
-  # None of these is a secret — the web config is designed to ship to browsers.
-  # The credential that can SEND a push is the backend's FIREBASE_PRIVATE_KEY and
-  # must never appear here.
+  # None of these is a secret — the web config is designed to ship to browsers,
+  # and the API key below is inlined into the JS bundle every visitor downloads
+  # regardless of where it is stored. The credential that can SEND a push is the
+  # backend's FIREBASE_PRIVATE_KEY and must never appear here.
+  #
+  # "Not a secret" is not the same as "harmless", though: an API key that carries
+  # no RESTRICTION is usable against every API enabled in project 891944287716,
+  # which includes Identity Toolkit. GitHub secret scanning flags this line
+  # (alert #1, open since 2026-02-07) and it is right to. What makes the key safe
+  # is an application + API restriction in Google Cloud Console, not secrecy —
+  # see §2.5 of lopay-backend/docs/push-notifications.md before touching this.
   VITE_FIREBASE_API_KEY = "AIzaSyAOBO038w5ORRnBBS-mDIfG35qVvyrJ1As"
   VITE_FIREBASE_AUTH_DOMAIN = "lopay-auth.firebaseapp.com"
   VITE_FIREBASE_PROJECT_ID = "lopay-auth"
