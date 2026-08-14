@@ -13,6 +13,30 @@
   # Match the CI + local toolchain (see .github/workflows/ci.yml).
   NODE_VERSION = "22"
 
+  # ---------------------------------------------------------------------------
+  # Netlify secrets scanning
+  # ---------------------------------------------------------------------------
+  # Netlify fails the deploy if the VALUE of any declared environment variable
+  # turns up in repo code or build output. Every var below is a `VITE_*` var,
+  # which means Vite inlines it into the JS bundle at build time — so each one is
+  # guaranteed to appear in `dist/` on every single build. That makes the scan
+  # unsatisfiable by hiding the values: moving them into the Netlify UI changes
+  # nothing, because the bundle is what gets scanned.
+  #
+  # This is safe only because none of these is a secret (see the notes on each
+  # one below). The list is deliberately explicit rather than
+  # SECRETS_SCAN_ENABLED=false: a real leak — the backend's FIREBASE_PRIVATE_KEY,
+  # a Supabase service-role key, a live Paystack secret — must still fail the
+  # build. Do NOT add a key here to make a build go green; if a value must not
+  # reach a browser, it must not be a VITE_* var in the first place.
+  #
+  # Two of these are also low-entropy substrings that match far more than their
+  # own assignment: VITE_FIREBASE_PROJECT_ID is the bare word "lopay-auth", so
+  # the scanner flags it in prose comments, `android/app/google-services.json`
+  # and the push unit tests. That is another reason a per-key omission is the
+  # right instrument here and a per-path one is not.
+  SECRETS_SCAN_OMIT_KEYS = "VITE_API_URL,VITE_SUPABASE_URL,VITE_FIREBASE_API_KEY,VITE_FIREBASE_AUTH_DOMAIN,VITE_FIREBASE_PROJECT_ID,VITE_FIREBASE_MESSAGING_SENDER_ID,VITE_FIREBASE_APP_ID,VITE_FIREBASE_VAPID_KEY"
+
   # VITE_* vars are read at BUILD time and baked into the bundle — changing one
   # in the Netlify UI requires a redeploy, not just a restart.
   #
