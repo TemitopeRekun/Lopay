@@ -53,9 +53,16 @@ captures/
 .idea/navEditor.xml
 
 # Keystore files
-# Uncomment the following lines if you do not want to check your keystore files in.
-#*.jks
-#*.keystore
+# Unlike google-services.json below, these ARE secret. The release keystore lives
+# outside this repo entirely (see keystore.properties.example); these patterns are
+# a second line of defence in case one is ever copied in here by hand.
+*.jks
+*.keystore
+
+# Signing credentials. keystore.properties holds the keystore path and both
+# passwords in plaintext, so it must never be committed. The .example file next to
+# it is the tracked template and holds no real values.
+keystore.properties
 
 # External native build folder generated in Android Studio 2.2 and later
 .externalNativeBuild
