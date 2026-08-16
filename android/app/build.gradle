@@ -1,5 +1,26 @@
 apply plugin: 'com.android.application'
 
+// Release signing credentials, in precedence order: android/keystore.properties
+// (gitignored, for local builds) then LOPAY_* environment variables (for CI).
+// See keystore.properties.example. Neither the keystore nor its passwords are in
+// this repo, so a clone alone cannot produce a signed build.
+def keystorePropertiesFile = rootProject.file("keystore.properties")
+def keystoreProperties = new Properties()
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
+}
+def signingValue = { String key, String envVar ->
+    def value = keystoreProperties.getProperty(key) ?: System.getenv(envVar)
+    return value?.trim() ? value : null
+}
+def storeFilePath = signingValue('storeFile', 'LOPAY_STORE_FILE')
+// Signing is configured only when the credentials are actually resolvable AND the
+// keystore is really there. A signingConfig pointing at a missing file fails the
+// build late and cryptically; without one the build instead succeeds and produces
+// app-release-unsigned.apk, which is the honest outcome for a machine that has no
+// signing material. The check below makes that case loud rather than silent.
+def canSignRelease = storeFilePath != null && file(storeFilePath).exists()
+
 android {
     namespace = "com.lopay.app"
     compileSdk rootProject.ext.compileSdkVersion
@@ -16,10 +37,38 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        if (canSignRelease) {
+            release {
+                storeFile = file(storeFilePath)
+                storePassword = signingValue('storePassword', 'LOPAY_STORE_PASSWORD')
+                keyAlias = signingValue('keyAlias', 'LOPAY_KEY_ALIAS')
+                keyPassword = signingValue('keyPassword', 'LOPAY_KEY_PASSWORD')
+            }
+        }
+    }
     buildTypes {
         release {
+            if (canSignRelease) {
+                signingConfig = signingConfigs.release
+            }
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+// An unsigned apk cannot be installed or uploaded, and the only difference between
+// it and a real one is a file that is deliberately absent from this repo. Say so at
+// build time rather than leaving it to be discovered from the output filename.
+if (!canSignRelease) {
+    gradle.taskGraph.whenReady { graph ->
+        if (graph.allTasks.any { it.name.endsWith('Release') }) {
+            def reason = storeFilePath == null
+                ? "no android/keystore.properties and no LOPAY_STORE_FILE in the environment"
+                : "storeFile points at ${storeFilePath}, which does not exist"
+            logger.lifecycle("WARNING: release builds will be UNSIGNED — ${reason}. " +
+                "See android/keystore.properties.example.")
         }
     }
 }
