@@ -4,6 +4,7 @@ import { useUIStore } from "../store/uiStore";
 import { useRealtimeStore } from "../store/realtimeStore";
 import { useAuth } from "../context/AuthContext";
 import { NativeBridge } from "../services/native";
+import { reconnectSocket } from "../services/socket";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -29,6 +30,9 @@ export const Layout: React.FC<LayoutProps> = ({
   // down backend all read as "online" — the banner stayed hidden during exactly
   // the outage it exists to report. See the reachability note below.
   const socketStatus = useRealtimeStore((s) => s.status);
+  // The socket's second opinion: an HTTP probe of the API, owned by
+  // hooks/useRealtime. `null` until one has actually run.
+  const serverReachable = useRealtimeStore((s) => s.serverReachable);
   const [hasInterface, setHasInterface] = useState(() =>
     typeof navigator !== "undefined" ? navigator.onLine : true,
   );
@@ -39,17 +43,31 @@ export const Layout: React.FC<LayoutProps> = ({
   const pullContainerRef = useRef<HTMLDivElement | null>(null);
 
   /**
-   * Offline = no interface, or (while signed in) a socket that is down.
+   * Offline = no interface, or (while signed in) a socket that is down AND an
+   * API that will not answer an HTTP probe.
    *
    * The socket is only a reachability signal when it is meant to be up. Signed
    * out it is deliberately disconnected, and "connecting" is its state during
    * every normal startup and reconnect — treating either as offline would flash
    * the banner on each launch. So the socket can only ever report offline via a
-   * settled `disconnected` while authenticated; the interface check carries the
-   * rest.
+   * settled `disconnected` while authenticated.
+   *
+   * Even then it does not decide alone. A down socket is not a down network:
+   * socket.io never retries a server-initiated close, the free-tier backend
+   * drops idle connections, and a handshake refused over a stale token closes
+   * one while every HTTP call still succeeds. Each of those showed "Offline" to
+   * a user whose network was fine, with no way to clear it short of a reload. So
+   * the word is now spent only on a probe that actually failed: `serverReachable
+   * === false`, never on `null` (no verdict yet) and never on a socket that is
+   * merely reconnecting.
    */
   const isOnline =
-    hasInterface && !(isAuthenticated && socketStatus === "disconnected");
+    hasInterface &&
+    !(
+      isAuthenticated &&
+      socketStatus === "disconnected" &&
+      serverReachable === false
+    );
 
   React.useEffect(() => {
     if (typeof window === "undefined") return;
@@ -180,6 +198,19 @@ export const Layout: React.FC<LayoutProps> = ({
       // they're back was the single path that refused to find out. A stale
       // offline flag could not be cleared by pulling, no matter how many times.
       await checkNetworkStatus().catch(() => undefined);
+      // Pulling is the gesture of someone who expects fresh data, so it is also
+      // the moment to revive a socket socket.io has given up on — otherwise
+      // realtime stays dead for the rest of the session even though every pull
+      // succeeds. A no-op when the socket is healthy or absent.
+      //
+      // Swallowed separately, and deliberately: refreshing the data is what the
+      // user asked for, so a socket that refuses to reopen must not skip the
+      // refetch and report "couldn't refresh" over a request never made.
+      try {
+        reconnectSocket();
+      } catch {
+        // Realtime stays down; the refresh below is unaffected.
+      }
 
       await refreshData();
     } catch {

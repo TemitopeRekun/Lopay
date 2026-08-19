@@ -56,6 +56,30 @@ export const connectSocket = (): Socket => {
   return socket;
 };
 
+/**
+ * Nudge an existing socket back up, without creating one.
+ *
+ * `reconnectionAttempts: Infinity` above does NOT cover every close. When the
+ * server ends the connection itself — `client.disconnect(true)` in the gateway,
+ * which is how a handshake it cannot validate is refused — socket.io reports
+ * `io server disconnect` and deliberately stops retrying, forever. Nothing else
+ * in the app reopens it: `connectSocket` is only reached when the useRealtime
+ * effect re-runs, i.e. on a sign-in change or a full reload. So a socket killed
+ * that way stayed dead for the rest of the session while every HTTP call kept
+ * working.
+ *
+ * This is the recovery path for that state, driven by the two moments a user
+ * makes their intent plain (pull-to-refresh, and returning to the app).
+ * Deliberately a no-op when no socket exists: signed out it is meant to be
+ * down, and reviving it here would connect ahead of the auth gate.
+ */
+export const reconnectSocket = (): void => {
+  // `socket.connect()` is idempotent: it returns early when already connected
+  // and leaves an in-flight reconnect alone, so this cannot stack attempts.
+  if (!socket || socket.connected) return;
+  socket.connect();
+};
+
 /** Tear down the shared socket (call on logout). */
 export const disconnectSocket = (): void => {
   if (socket) {

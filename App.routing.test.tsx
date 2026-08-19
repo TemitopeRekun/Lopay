@@ -13,6 +13,9 @@ import { BackendAPI } from "./services/backend";
 
 vi.mock("./services/backend", () => ({
   BackendAPI: { school: { getMyFees: vi.fn() } },
+  // Reached through RealtimeManager → useRealtime → services/reachability, which
+  // builds its /health probe URL from this.
+  API_URL: "http://api.test",
 }));
 
 const authState = { userRole: "school_owner" as string | null };

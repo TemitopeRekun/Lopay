@@ -21,6 +21,7 @@ const H = vi.hoisted(() => ({
   isNative: false,
   getNetworkStatus: vi.fn(),
   watchNetworkStatus: vi.fn(),
+  reconnectSocket: vi.fn(),
 }));
 
 vi.mock("../context/DataContext", () => ({
@@ -39,6 +40,9 @@ vi.mock("../services/native", () => ({
     watchNetworkStatus: H.watchNetworkStatus,
   },
 }));
+vi.mock("../services/socket", () => ({
+  reconnectSocket: H.reconnectSocket,
+}));
 
 const renderLayout = () =>
   render(
@@ -53,6 +57,20 @@ const pulled = () => screen.getByText("screen content").parentElement!;
 const surface = () => pulled().parentElement!;
 
 const touch = (y: number) => ({ touches: [{ clientY: y }] });
+
+/**
+ * The genuinely-offline state: socket down AND an HTTP probe that failed.
+ *
+ * A dead socket alone no longer raises the banner — that was the bug. socket.io
+ * refuses to retry a server-initiated close, the free-tier backend drops idle
+ * sockets, and a rejected handshake closes one while every HTTP call keeps
+ * working, so the socket by itself accused a perfectly good network.
+ */
+const offline = () =>
+  useRealtimeStore.setState({
+    status: "disconnected",
+    serverReachable: false,
+  });
 
 /** Drag from `from` to `to` and release, as a finger would. */
 const pull = async (from: number, to: number) => {
@@ -88,7 +106,12 @@ beforeEach(() => {
     connectionType: "wifi",
   });
   H.watchNetworkStatus.mockReset().mockResolvedValue(() => {});
-  useRealtimeStore.setState({ status: "connected", lastEventAt: null });
+  H.reconnectSocket.mockReset();
+  useRealtimeStore.setState({
+    status: "connected",
+    lastEventAt: null,
+    serverReachable: null,
+  });
   Object.defineProperty(navigator, "onLine", {
     configurable: true,
     value: true,
@@ -125,7 +148,7 @@ describe("Layout — fixed-position containment", () => {
   });
 
   it("keeps the offline banner outside the transformed wrapper", () => {
-    useRealtimeStore.setState({ status: "disconnected" });
+    offline();
     renderLayout();
     const banner = screen.getByText("Offline").closest("[role='status']")!;
     expect(pulled().contains(banner)).toBe(false);
@@ -194,7 +217,7 @@ describe("Layout — pull to refresh", () => {
     // The old code returned early here, so a stale offline flag could never be
     // cleared by the very gesture a user makes to recover.
     H.isNative = true;
-    useRealtimeStore.setState({ status: "disconnected" });
+    offline();
     renderLayout();
     H.getNetworkStatus.mockClear();
 
@@ -202,6 +225,38 @@ describe("Layout — pull to refresh", () => {
 
     expect(H.getNetworkStatus).toHaveBeenCalled();
     expect(H.refreshData).toHaveBeenCalled();
+  });
+
+  it("revives a socket socket.io has given up on", async () => {
+    // Pulling is the gesture of someone who expects fresh data, and it is the
+    // only user-reachable way out of `io server disconnect` short of a reload.
+    offline();
+    renderLayout();
+
+    await pull(0, 100);
+
+    expect(H.reconnectSocket).toHaveBeenCalled();
+  });
+
+  it("does not reconnect on a drag short of the threshold", async () => {
+    renderLayout();
+    await pull(0, 20);
+    expect(H.reconnectSocket).not.toHaveBeenCalled();
+  });
+
+  it("still refreshes when the socket refuses to reopen", async () => {
+    // Refreshing the data is what the pull was for. A throwing socket layer must
+    // not skip the refetch and then report "couldn't refresh" over a request
+    // that was never made.
+    H.reconnectSocket.mockImplementation(() => {
+      throw new Error("socket is beyond saving");
+    });
+    renderLayout();
+
+    await pull(0, 100);
+
+    expect(H.refreshData).toHaveBeenCalledTimes(1);
+    expect(H.showToast).not.toHaveBeenCalled();
   });
 });
 
@@ -212,13 +267,13 @@ describe("Layout — offline banner", () => {
   });
 
   it("shows when the socket reports the server unreachable", () => {
-    useRealtimeStore.setState({ status: "disconnected" });
+    offline();
     renderLayout();
     expect(screen.getByText("Offline")).toBeInTheDocument();
   });
 
   it("closes as soon as the socket reconnects", async () => {
-    useRealtimeStore.setState({ status: "disconnected" });
+    offline();
     renderLayout();
     expect(screen.getByText("Offline")).toBeInTheDocument();
 
@@ -245,7 +300,7 @@ describe("Layout — offline banner", () => {
   it("ignores a disconnected socket when signed out", () => {
     // Signed out the socket is deliberately down; that is not an outage.
     H.isAuthenticated = false;
-    useRealtimeStore.setState({ status: "disconnected" });
+    offline();
     renderLayout();
     expect(screen.queryByText("Offline")).not.toBeInTheDocument();
   });
@@ -256,8 +311,58 @@ describe("Layout — offline banner", () => {
     expect(screen.queryByText("Offline")).not.toBeInTheDocument();
   });
 
+  it("stays hidden on a dead socket the API can still be reached behind", () => {
+    // The stuck-socket state: socket.io has given up (`io server disconnect`,
+    // which it never retries) but the backend answers every HTTP call. The old
+    // condition called this "Offline" for the rest of the session.
+    useRealtimeStore.setState({
+      status: "disconnected",
+      serverReachable: true,
+    });
+    renderLayout();
+    expect(screen.queryByText("Offline")).not.toBeInTheDocument();
+  });
+
+  it("stays hidden while no probe has returned a verdict yet", () => {
+    useRealtimeStore.setState({
+      status: "disconnected",
+      serverReachable: null,
+    });
+    renderLayout();
+    // `null` is "not asked yet", not "offline". Claiming an outage on an
+    // unproven suspicion is what made the banner flash on every launch.
+    expect(screen.queryByText("Offline")).not.toBeInTheDocument();
+  });
+
+  it("closes when a later probe reaches the API again", async () => {
+    offline();
+    renderLayout();
+    expect(screen.getByText("Offline")).toBeInTheDocument();
+
+    // The re-probe succeeds while the socket is still down; the banner must not
+    // wait for the socket to come back.
+    await act(async () => {
+      useRealtimeStore.setState({ serverReachable: true });
+    });
+    expect(screen.queryByText("Offline")).not.toBeInTheDocument();
+  });
+
+  it("still shows when the device itself has no interface", () => {
+    // No network at all needs no probe: `navigator.onLine` is conclusive here.
+    Object.defineProperty(navigator, "onLine", {
+      configurable: true,
+      value: false,
+    });
+    useRealtimeStore.setState({
+      status: "connected",
+      serverReachable: true,
+    });
+    renderLayout();
+    expect(screen.getByText("Offline")).toBeInTheDocument();
+  });
+
   it("is announced to screen readers", () => {
-    useRealtimeStore.setState({ status: "disconnected" });
+    offline();
     renderLayout();
     const banner = screen.getByText("Offline").closest("[role='status']")!;
     expect(banner).toHaveAttribute("aria-live", "polite");

@@ -23,7 +23,12 @@ vi.mock("socket.io-client", () => ({ io: (...a: unknown[]) => S.io(...a) }));
 vi.mock("./backend", () => ({ API_URL: "http://api.test" }));
 vi.mock("./platform", () => ({ getAuthMode: () => S.getAuthMode() }));
 
-import { connectSocket, disconnectSocket, getSocket } from "./socket";
+import {
+  connectSocket,
+  disconnectSocket,
+  getSocket,
+  reconnectSocket,
+} from "./socket";
 
 const lastSocket = () => S.created[S.created.length - 1];
 
@@ -93,6 +98,41 @@ describe("socket wrapper", () => {
     expect(second).toBe(first);
     expect(S.io).toHaveBeenCalledTimes(1);
     expect(first.connect).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * `reconnectionAttempts: Infinity` does not cover a server-initiated close:
+   * socket.io reports `io server disconnect` and stops retrying forever, which
+   * is exactly what the gateway does to a handshake it cannot validate. This is
+   * the only path back from that state short of a reload.
+   */
+  it("reopens a socket socket.io has given up on", () => {
+    const socket = connectSocket();
+    lastSocket().connected = false;
+
+    reconnectSocket();
+
+    expect(socket.connect).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves a healthy socket alone", () => {
+    const socket = connectSocket();
+    lastSocket().connected = true;
+
+    reconnectSocket();
+
+    expect(socket.connect).not.toHaveBeenCalled();
+  });
+
+  it("does not create a socket when there is none", () => {
+    // Signed out the socket is deliberately absent, and reviving it here would
+    // connect ahead of the auth gate.
+    expect(getSocket()).toBeNull();
+
+    reconnectSocket();
+
+    expect(S.io).not.toHaveBeenCalled();
+    expect(getSocket()).toBeNull();
   });
 
   it("tears down the socket on disconnect", () => {
