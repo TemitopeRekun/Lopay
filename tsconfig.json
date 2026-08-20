@@ -8,6 +8,10 @@
     "skipLibCheck": true,
     "types": ["node", "vite/client"],
     "moduleResolution": "bundler",
+    // utils/version.ts imports version.json, the single source of truth for the
+    // app version (see VERSIONING.md), so the version cannot drift from a
+    // hand-copied literal.
+    "resolveJsonModule": true,
     "isolatedModules": true,
     "moduleDetection": "force",
     "allowJs": true,

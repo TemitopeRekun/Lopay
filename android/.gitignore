@@ -16,8 +16,11 @@
 bin/
 gen/
 out/
-#  Uncomment the following line in case you need and you don't have the release build type files in your app
-# release/
+# Release build outputs. `app/release/` holds output-metadata.json and the
+# generated baseline profiles — build products, not sources. It was tracked,
+# so every release build left a stale versionCode/versionName in the repo
+# contradicting version.json (see VERSIONING.md).
+release/
 
 # Gradle files
 .gradle/

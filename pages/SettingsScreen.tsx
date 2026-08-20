@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { Header } from '../components/Header';
 import { applyTheme, storeTheme, type Theme } from '../utils/theme';
+import { APP_VERSION_LABEL } from '../utils/version';
 import { PushSettingsSection } from '../components/PushSettingsSection';
 
 const SettingsScreen: React.FC = () => {
@@ -70,7 +71,7 @@ const SettingsScreen: React.FC = () => {
               <div className="bg-white dark:bg-card-dark rounded-xl border border-gray-100 dark:border-gray-800 overflow-hidden">
                    <div className="p-4 flex justify-between items-center border-b border-gray-100 dark:border-gray-800">
                        <span className="text-text-primary-light dark:text-text-primary-dark">Version</span>
-                       <span className="text-text-secondary-light">1.0.2 (Build 45)</span>
+                       <span className="text-text-secondary-light">{APP_VERSION_LABEL}</span>
                    </div>
                    <div 
                     onClick={handleTerms}

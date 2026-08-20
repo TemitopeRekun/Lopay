@@ -1,4 +1,5 @@
 import React from "react";
+import { APP_BUILD_LABEL } from "@/utils/version";
 
 interface ProfileFooterProps {
   onLogout: () => void;
@@ -28,7 +29,7 @@ export const ProfileFooter: React.FC<ProfileFooterProps> = ({
         User ID: {userId}
         <br />
         System Role: {userRole} (Raw: {rawRole})<br />
-        v1.0.2
+        v{APP_BUILD_LABEL}
       </p>
     </div>
   </>

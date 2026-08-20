@@ -53,6 +53,10 @@ export default defineConfig(({ mode }) => {
   // No localhost fallback: an unset value must fail the build (see cspPlugin),
   // not quietly produce a policy that blocks the receipt upload.
   const storageUrl = env.VITE_SUPABASE_URL;
+  // Netlify sets COMMIT_REF, GitHub Actions sets GITHUB_SHA; neither is
+  // VITE_-prefixed, so neither reaches the client on its own. A local build has
+  // no commit to name and gets "".
+  const commitRef = process.env.COMMIT_REF ?? process.env.GITHUB_SHA ?? "";
   return {
     server: {
       port: 3000,
@@ -61,9 +65,18 @@ export default defineConfig(({ mode }) => {
         host: "0.0.0.0",
       },
     },
-    // NOTE: no `define` block. The previous build inlined an AI provider API key
-    // into the client bundle (a leaked secret); the app does not use it, so the
-    // key injection is gone. Rotate the old key (see docs/runbook).
+    // The ONLY thing injected into the bundle is the commit being deployed, so
+    // a live build can be identified (see utils/version.ts). The version itself
+    // is not injected — it is imported from version.json.
+    //
+    // NOTE: nothing secret goes in here, ever. The previous build inlined an AI
+    // provider API key into the client bundle (a leaked secret); the app does
+    // not use it, so the key injection is gone. Rotate the old key (see
+    // docs/runbook). A value that must not reach a browser must not be defined
+    // here and must not be a VITE_* var.
+    define: {
+      "import.meta.env.VITE_COMMIT_REF": JSON.stringify(commitRef),
+    },
     plugins: [react(), cspPlugin(apiUrl, storageUrl)],
     resolve: {
       alias: {

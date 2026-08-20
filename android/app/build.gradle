@@ -1,5 +1,12 @@
 apply plugin: 'com.android.application'
 
+// The app version comes from version.json at the repo root — the single source
+// of truth shared with the web build (see VERSIONING.md). It is NOT duplicated
+// here: a literal versionCode in this file is how the Play listing and the web
+// app came to disagree, and `npm run version:check` fails the build if one
+// reappears. Bump with `npm run version:bump`.
+def appVersion = new groovy.json.JsonSlurper().parse(rootProject.file('../version.json'))
+
 // Release signing credentials, in precedence order: android/keystore.properties
 // (gitignored, for local builds) then LOPAY_* environment variables (for CI).
 // See keystore.properties.example. Neither the keystore nor its passwords are in
@@ -28,8 +35,8 @@ android {
         applicationId "com.lopay.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 3
-        versionName "1.0.2"
+        versionCode appVersion.code
+        versionName appVersion.name
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
