@@ -114,7 +114,22 @@ npm run android:open         # open in Android Studio
 npm test                     # vitest (unit + the OpenAPI contract test)
 npm run generate:types       # regenerate src/api.generated.ts from ./openapi.json
 npm run build                # production build
+npm run version:print        # current app version
+npm run version:bump         # patch bump (also: minor, major)
+npm run version:check        # fail on any version drift (CI runs this)
 ```
+
+## Versioning
+
+The app version lives in one file, [`version.json`](./version.json)
+(`npm run version:print`). `android/app/build.gradle` parses it,
+`utils/version.ts` imports it, `package.json` is synced from it, and nothing else
+may hardcode it.
+
+Every merge to `main` deploys, so **every PR that changes shipped code bumps the
+version** (`npm run version:bump`); CI fails one that doesn't. Each merge is then
+tagged `v<name>+<code>` on GitHub, so the Releases page says what is live. Full
+rules: [VERSIONING.md](./VERSIONING.md).
 
 ## Deployment (Netlify)
 

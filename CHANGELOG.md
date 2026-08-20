@@ -4,6 +4,28 @@ All notable changes to the LoPay frontend. Format based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project is
 pre-1.0; entries are grouped by the roadmap milestone that shipped them.
 
+## [1.0.3] — versionCode 4 — 2026-08-20
+
+### Added
+- `version.json`: a single source of truth for the app version, parsed by
+  `android/app/build.gradle` and imported by `utils/version.ts`. `npm run
+  version:bump` / `:sync` / `:check` / `:print` (`scripts/version.mjs`).
+- CI gates: the version must be consistent everywhere, and any PR that changes
+  shipped code must raise `versionCode`.
+- `.github/workflows/release-tag.yml` tags every merge to `main` as
+  `v<name>+<code>` and publishes a GitHub release, so the shipped version is
+  visible without a checkout.
+- The deploying commit is injected into the bundle (`APP_COMMIT`) and shown in
+  the profile footer, distinguishing two deploys of the same version.
+- `VERSIONING.md`, `CLAUDE.md`, and a README section covering when and how to
+  bump.
+
+### Fixed
+- The version no longer disagrees with itself. It was hand-copied into five
+  places: `build.gradle` said 1.0.2 / code 3, `package.json` said 1.0.0, the
+  profile footer said v1.0.2, and the Settings screen said "1.0.2 (Build 45)" —
+  a build number that never existed.
+
 ## [Unreleased] — Milestone 5: contract, docs & observability
 
 ### Added

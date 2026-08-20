@@ -1,7 +1,7 @@
 {
   "name": "lopay",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.3",
   "type": "module",
   "engines": {
     "node": "22.x"
@@ -17,7 +17,11 @@
     "test": "vitest run",
     "test:cov": "vitest run --coverage",
     "test:watch": "vitest",
-    "generate:types": "openapi-typescript ./openapi.json -o src/api.generated.ts"
+    "generate:types": "openapi-typescript ./openapi.json -o src/api.generated.ts",
+    "version:print": "node scripts/version.mjs print",
+    "version:bump": "node scripts/version.mjs bump",
+    "version:sync": "node scripts/version.mjs sync",
+    "version:check": "node scripts/version.mjs check"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.0",

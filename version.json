@@ -1,0 +1,5 @@
+{
+  "//": "SINGLE SOURCE OF TRUTH for the app version. Nothing else hardcodes it: android/app/build.gradle parses this file, the web app imports it via utils/version.ts, and package.json is kept in step by scripts/version.mjs. Do not hand-edit — run `npm run version:bump` (patch|minor|major). Rules, and when to bump, are in VERSIONING.md.",
+  "name": "1.0.3",
+  "code": 4
+}

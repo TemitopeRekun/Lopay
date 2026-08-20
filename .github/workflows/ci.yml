@@ -25,6 +25,10 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Full history so the version gate below can read version.json as it
+          # stands on the PR's base commit. A depth-1 checkout cannot.
+          fetch-depth: 0
       - uses: actions/setup-node@v7
         with:
           # Matches "engines": { "node": "22.x" } in package.json.
@@ -32,6 +36,49 @@ jobs:
           cache: 'npm'
       - name: Install
         run: npm ci
+      - name: Version is consistent across the repo
+        # version.json is the single source of truth for the app version
+        # (VERSIONING.md). This fails if package.json has drifted from it, if
+        # android/app/build.gradle has gone back to a hardcoded versionCode, or
+        # if any screen spells a version out as a literal — all four of which
+        # were true before this gate existed, with four different answers.
+        run: npm run version:check
+
+      - name: Version was bumped for this change
+        if: github.event_name == 'pull_request'
+        # Every merge to main is deployed by Netlify, so every merge to main is
+        # a release and needs its own versionCode — Play rejects a re-used one,
+        # and a bug report citing "1.0.3" has to mean exactly one build. Docs,
+        # CI and store-listing changes ship no bundle, so they are exempt.
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          changed=$(git diff --name-only "$BASE_SHA"...HEAD)
+          if [ -z "$changed" ]; then
+            echo "No files changed against the base — nothing to version."
+            exit 0
+          fi
+          # Exempt if EVERY changed path is docs/CI/store-listing, i.e. grep -v
+          # finds nothing outside that set.
+          if ! echo "$changed" | grep -qvE '^([.]github/.*|play-store/.*|.*[.]md)$'; then
+            echo "Only docs/CI/store-listing files changed — no new build, no bump needed."
+            exit 0
+          fi
+          # Absent on the base commit only for the PR that introduces it.
+          if git cat-file -e "$BASE_SHA:version.json" 2>/dev/null; then
+            git show "$BASE_SHA:version.json" > /tmp/base-version.json
+            base_code=$(node -p "require('/tmp/base-version.json').code")
+          else
+            base_code=0
+          fi
+          head_code=$(node -p "require('./version.json').code")
+          echo "versionCode: base=$base_code  head=$head_code"
+          if [ "$head_code" -le "$base_code" ]; then
+            echo "::error file=version.json::This PR changes the app but leaves versionCode at $head_code. Run 'npm run version:bump' (patch|minor|major) and commit version.json + package.json. See VERSIONING.md."
+            exit 1
+          fi
+          echo "Bumped to $(npm run --silent version:print)."
+
       - name: Generated API client is committed & up to date
         # Mirrors the backend's openapi.json guard. src/api.generated.ts is a
         # committed build product of openapi.json, so it can silently drift from

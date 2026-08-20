@@ -1,0 +1,74 @@
+name: Tag release
+
+# Every merge to main is deployed by Netlify, so every merge to main is a
+# release. This records which version that was, on GitHub, where both a human
+# and an agent can read it without a checkout: the Releases page is the answer
+# to "what is live right now, and what is the next versionCode to use?".
+#
+# It reads version.json — it never writes one. Bumping stays a deliberate act in
+# a PR (`npm run version:bump`, gated by the "Version was bumped" check in
+# ci.yml); a bot that auto-incremented on merge would make the number in the
+# repo lag the number that shipped.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Tags and releases are writes; nothing else here needs any access.
+permissions:
+  contents: write
+
+# Never two taggers at once — both would race on the same tag name.
+concurrency:
+  group: tag-release
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Read version.json
+        id: version
+        run: |
+          name=$(node -p "require('./version.json').name")
+          code=$(node -p "require('./version.json').code")
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          # Semver build metadata: 1.0.3+4 is version 1.0.3, Android
+          # versionCode 4. Both parts matter — Play orders uploads by the code.
+          echo "tag=v$name+$code" >> "$GITHUB_OUTPUT"
+
+      - name: Tag and release, unless this version is already tagged
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+          NAME: ${{ steps.version.outputs.name }}
+          CODE: ${{ steps.version.outputs.code }}
+        run: |
+          # Idempotent: a merge that changed no version (a docs-only merge, or a
+          # re-run of this workflow) must not fail and must not re-tag.
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "$TAG already exists — nothing to record."
+            echo "Already released: **$TAG**" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          # printf, not a heredoc: a heredoc terminator inside a YAML block
+          # scalar is indented, so it would never close.
+          printf '%s\n\n%s\n\n%s\n' \
+            "Web: deployed to https://lopay.netlify.app from \`$GITHUB_SHA\`." \
+            "Android: \`versionName $NAME\`, \`versionCode $CODE\` — the next Play upload must use a versionCode above $CODE." \
+            "The version lives in \`version.json\`; bump it with \`npm run version:bump\`. See VERSIONING.md." \
+            > /tmp/notes.md
+          # --target pins the tag to the commit this run checked out. Without
+          # it gh tags whatever main's tip is when the API call lands, so two
+          # merges in quick succession produce a tag on the wrong commit and no
+          # tag at all for the earlier one.
+          gh release create "$TAG" \
+            --target "$GITHUB_SHA" \
+            --title "$NAME (build $CODE)" \
+            --latest \
+            --notes-file /tmp/notes.md
+          echo "Released **$TAG** from \`$GITHUB_SHA\`" >> "$GITHUB_STEP_SUMMARY"
