@@ -7,7 +7,6 @@ const N = vi.hoisted(() => ({
   isNativePlatform: vi.fn(),
   requestPermissions: vi.fn(),
   getPhoto: vi.fn(),
-  fsRequestPermissions: vi.fn(),
   getStatus: vi.fn(),
   addListener: vi.fn(),
 }));
@@ -23,11 +22,6 @@ vi.mock("@capacitor/camera", () => ({
   CameraResultType: { DataUrl: "dataUrl", Uri: "uri", Base64: "base64" },
   CameraSource: { Camera: "CAMERA", Photos: "PHOTOS", Prompt: "PROMPT" },
 }));
-vi.mock("@capacitor/filesystem", () => ({
-  Filesystem: {
-    requestPermissions: (...a: unknown[]) => N.fsRequestPermissions(...a),
-  },
-}));
 vi.mock("@capacitor/network", () => ({
   Network: {
     getStatus: (...a: unknown[]) => N.getStatus(...a),
@@ -35,7 +29,7 @@ vi.mock("@capacitor/network", () => ({
   },
 }));
 
-import { NativeBridge } from "./native";
+import { NativeBridge, isPickerCancellation } from "./native";
 
 describe("NativeBridge", () => {
   beforeEach(() => {
@@ -49,14 +43,17 @@ describe("NativeBridge", () => {
     expect(NativeBridge.isNative()).toBe(false);
   });
 
-  it("requestCameraPermissions asks for camera + photos and returns the status", async () => {
+  // `photos` is deliberately absent: picking goes through the system photo
+  // picker, which needs no permission, so asking for it only ever produced a
+  // camera prompt in front of a flow that never opens the camera.
+  it("requestCameraPermissions asks for the camera alone and returns the status", async () => {
     N.requestPermissions.mockResolvedValue({
       camera: "granted",
       photos: "granted",
     });
     const status = await NativeBridge.requestCameraPermissions();
     expect(N.requestPermissions).toHaveBeenCalledWith({
-      permissions: ["camera", "photos"],
+      permissions: ["camera"],
     });
     expect(status).toEqual({ camera: "granted", photos: "granted" });
   });
@@ -65,21 +62,6 @@ describe("NativeBridge", () => {
     N.requestPermissions.mockRejectedValue(new Error("no perm dialog"));
     const status = await NativeBridge.requestCameraPermissions();
     expect(status).toEqual({ camera: "denied", photos: "denied" });
-  });
-
-  it("requestFilesystemPermissions calls through when the plugin supports it", async () => {
-    N.fsRequestPermissions.mockResolvedValue(undefined);
-    await expect(
-      NativeBridge.requestFilesystemPermissions(),
-    ).resolves.toBeUndefined();
-    expect(N.fsRequestPermissions).toHaveBeenCalled();
-  });
-
-  it("requestFilesystemPermissions swallows plugin errors", async () => {
-    N.fsRequestPermissions.mockRejectedValue(new Error("denied"));
-    await expect(
-      NativeBridge.requestFilesystemPermissions(),
-    ).resolves.toBeUndefined();
   });
 
   it("takePhoto captures from the camera as a data URL", async () => {
@@ -94,6 +76,8 @@ describe("NativeBridge", () => {
     expect(photo).toEqual({ dataUrl: "data:image/png;base64,AAA" });
   });
 
+  // No permission request precedes this call any more: the system photo picker
+  // grants access to the chosen item by itself, so the bridge must not gate it.
   it("pickPhoto selects from the photo library", async () => {
     N.getPhoto.mockResolvedValue({ dataUrl: "data:image/png;base64,BBB" });
     await NativeBridge.pickPhoto();
@@ -135,5 +119,24 @@ describe("NativeBridge", () => {
 
     unsubscribe();
     expect(remove).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("isPickerCancellation", () => {
+  it("recognises the plugin's cancel rejection", () => {
+    expect(isPickerCancellation(new Error("User cancelled photos app"))).toBe(
+      true,
+    );
+  });
+
+  it("does not swallow a real failure", () => {
+    expect(
+      isPickerCancellation(new Error("Unable to resolve photo activity")),
+    ).toBe(false);
+  });
+
+  it("tolerates a rejection that is not an Error at all", () => {
+    expect(isPickerCancellation("User cancelled photos app")).toBe(false);
+    expect(isPickerCancellation(undefined)).toBe(false);
   });
 });

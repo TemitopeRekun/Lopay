@@ -4,6 +4,32 @@ All notable changes to the LoPay frontend. Format based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project is
 pre-1.0; entries are grouped by the roadmap milestone that shipped them.
 
+## [1.0.4] — versionCode 5 — 2026-09-11
+
+### Fixed
+- Receipt selection no longer asks for any media, storage or camera permission.
+  Google Play flagged `READ_MEDIA_IMAGES` on a build that never needed it:
+  picking goes through `Camera.getPhoto({ source: Photos })`, which has used the
+  system photo picker since `@capacitor/camera` 6, and the picker grants access
+  to the one item the user chose. `READ_MEDIA_IMAGES`,
+  `READ_EXTERNAL_STORAGE` and `WRITE_EXTERNAL_STORAGE` are gone from the
+  manifest (they are required only for `saveToGallery: true`, which this app
+  never passes), and the screen no longer calls `Camera.requestPermissions` or
+  `Filesystem.requestPermissions` first — two dialogs that guarded access the
+  app does not use, one of them for a camera this flow never opens.
+- Backing out of the photo picker no longer shows "Failed to open photos". A
+  cancel rejects exactly as a failure does; `isPickerCancellation` tells them
+  apart.
+
+### Added
+- The `ModuleDependencies` manifest entry that asks Google Play services to
+  install the backported photo picker, so devices on API 24–32 get the real
+  picker instead of a document chooser.
+
+### Removed
+- `NativeBridge.requestFilesystemPermissions()` — it requested storage
+  permissions for a filesystem this app never reads or writes.
+
 ## [1.0.3] — versionCode 4 — 2026-08-20
 
 ### Added

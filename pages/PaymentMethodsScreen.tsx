@@ -6,7 +6,7 @@ import { useData } from "../context/DataContext";
 import { useUIStore } from "../store/uiStore";
 import { useSchoolBankDetails } from "../hooks/useQueries";
 import { BackendAPI } from "../services/backend";
-import { NativeBridge } from "../services/native";
+import { NativeBridge, isPickerCancellation } from "../services/native";
 import { newIdempotencyKey } from "../utils/idempotency";
 import { PaymentInstitutionHeader } from "../components/payment-methods/PaymentInstitutionHeader";
 import { TransferAmountCard } from "../components/payment-methods/TransferAmountCard";
@@ -196,20 +196,18 @@ const PaymentMethodsScreen: React.FC = () => {
     reader.readAsDataURL(file);
   };
 
+  // Nothing is requested before the picker opens, on purpose. The system photo
+  // picker returns the one item the user chose and needs no permission to do
+  // it, so this used to prompt for the camera (a flow that is never reached
+  // from here) and, on Android 12 and below, for storage as well — two dialogs
+  // guarding access the app does not use. See services/native.ts.
   const handlePickFromPhone = async () => {
     if (!NativeBridge.isNative()) {
       handleSelectReceipt();
       return;
     }
 
-    const permission = await NativeBridge.requestCameraPermissions();
-    if (permission.photos !== "granted") {
-      showToast("Photo access is required to select a receipt.", "warning");
-      return;
-    }
-
     try {
-      await NativeBridge.requestFilesystemPermissions();
       const photo = await NativeBridge.pickPhoto();
       if (!photo.dataUrl) {
         showToast("No photo selected. Please try again.", "error");
@@ -217,6 +215,13 @@ const PaymentMethodsScreen: React.FC = () => {
       }
       processReceiptDataUrl(photo.dataUrl, "receipt.jpg");
     } catch (error) {
+      // Backing out of the picker rejects the same way a real failure does.
+      // With no permission gate left in front of it, a cancel is now the
+      // ordinary reason to land here, and telling the user their deliberate
+      // choice "failed" would be nonsense.
+      if (isPickerCancellation(error)) {
+        return;
+      }
       console.error(error);
       showToast("Failed to open photos. Please try again.", "error");
     }
