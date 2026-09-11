@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <!--
         allowBackup: this app holds session tokens in the WebView's
         localStorage. Auto Backup would sweep that whole data directory into the
@@ -74,6 +75,31 @@
             android:value="lopay-payments"
         />
 
+        <!--
+            The system photo picker is native from Android 13 (API 33) up. Below
+            that it ships as a Google Play services module, and Play services
+            only downloads that module for apps that ask for it — which is all
+            this entry is. Without it, devices on API 24–32 (minSdkVersion here
+            is 24) fall back to a plain document chooser instead of the picker:
+            a worse experience for the same receipt.
+
+            android:enabled="false" is correct and deliberate. The service is
+            never started; it exists purely as a marker Play services reads, so
+            declaring it costs nothing at runtime. The class it names lives in
+            Play services rather than in this APK, hence the lint suppression.
+        -->
+        <!--suppress AndroidDomInspection -->
+        <service
+            android:name="com.google.android.gms.metadata.ModuleDependencies"
+            android:enabled="false"
+            android:exported="false"
+            tools:ignore="MissingClass">
+            <intent-filter>
+                <action android:name="com.google.android.gms.metadata.MODULE_DEPENDENCIES" />
+            </intent-filter>
+            <meta-data android:name="photopicker_activity:0:required" android:value="" />
+        </service>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -95,15 +121,30 @@
     -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.CAMERA" />
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+
     <!--
-        Superseded by READ_MEDIA_IMAGES from API 33 (Android 13) onward. Without
-        the ceiling, the app asks modern devices for broad storage access it
-        never uses, which is both a needless permission prompt and something
-        Play flags on review.
+        There are deliberately NO media or storage permissions here
+        (READ_MEDIA_IMAGES, READ_MEDIA_VIDEO, READ/WRITE_EXTERNAL_STORAGE), and
+        none should be added back.
+
+        Receipt selection goes through Camera.getPhoto({ source: Photos }),
+        which since @capacitor/camera 6 is implemented with
+        ActivityResultContracts.PickVisualMedia — the system photo picker. The
+        picker runs in its own process, shows the user their whole library, and
+        hands this app a read grant for the single item they chose. Nothing in
+        this app ever reads the media store, so there is no access to hold a
+        permission for.
+
+        The plugin agrees: its `photos` permission alias declares an empty
+        permission set, and getPermissionStates() reports `photos` as granted
+        unconditionally. The three permissions this file used to declare are
+        needed only for `saveToGallery: true`, which this app never passes.
+
+        Declaring them anyway was not free. Google Play flags READ_MEDIA_IMAGES
+        on an app that could use the photo picker instead, and on API 32 and
+        below the storage pair turned a "choose a receipt" tap into a
+        storage-access dialog for access the app then never used.
     -->
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
 
     <!-- Hardware -->
 
