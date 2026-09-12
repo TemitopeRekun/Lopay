@@ -4,6 +4,12 @@ All notable changes to the LoPay frontend. Format based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project is
 pre-1.0; entries are grouped by the roadmap milestone that shipped them.
 
+## [1.0.5] — versionCode 6 — 2026-09-12
+
+No code change. `versionCode` counts uploads rather than features
+(VERSIONING.md), and Play rejects a code it has already seen, so this releases
+a fresh one for the next store upload of the 1.0.4 photo-picker fix.
+
 ## [1.0.4] — versionCode 5 — 2026-09-11
 
 ### Fixed
