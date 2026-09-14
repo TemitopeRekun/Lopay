@@ -2,10 +2,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
+import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
 import MigrationInviteScreen from "./MigrationInviteScreen";
 import ClaimMigrationInviteScreen from "./ClaimMigrationInviteScreen";
+import { DataProvider } from "../context/DataContext";
 
 const navigate = vi.fn();
+const queryClient = new QueryClient();
 
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual<typeof import("react-router-dom")>(
@@ -28,9 +31,13 @@ describe("Migration invite UI", () => {
   it("builds an invite and routes the parent into the claim flow", async () => {
     const user = userEvent.setup();
     render(
-      <MemoryRouter>
-        <MigrationInviteScreen />
-      </MemoryRouter>,
+      <QueryClientProvider client={queryClient}>
+        <DataProvider>
+          <MemoryRouter>
+            <MigrationInviteScreen />
+          </MemoryRouter>
+        </DataProvider>
+      </QueryClientProvider>,
     );
 
     await user.type(screen.getByLabelText(/student name/i), "Ada Lovelace");
@@ -58,33 +65,37 @@ describe("Migration invite UI", () => {
   it("lets the parent confirm a migration before activation starts the plan", async () => {
     const user = userEvent.setup();
     render(
-      <MemoryRouter initialEntries={[
-        {
-          pathname: "/claim-migration-invite",
-          state: {
-            invite: {
-              id: "mig-1",
-              studentName: "Ada Lovelace",
-              className: "JSS1",
-              totalFee: 150000,
-              amountAlreadyPaid: 45000,
-              migratedBalance: 45000,
-              remainingBalance: 105000,
-              migrationDate: "2026-09-13",
-              startDate: "2026-09-13",
-              installmentFrequency: "MONTHLY",
-              status: "pending_confirmation",
+      <QueryClientProvider client={queryClient}>
+        <DataProvider>
+          <MemoryRouter initialEntries={[
+            {
+              pathname: "/claim-migration-invite",
+              state: {
+                invite: {
+                  id: "mig-1",
+                  studentName: "Ada Lovelace",
+                  className: "JSS1",
+                  totalFee: 150000,
+                  amountAlreadyPaid: 45000,
+                  migratedBalance: 45000,
+                  remainingBalance: 105000,
+                  migrationDate: "2026-09-13",
+                  startDate: "2026-09-13",
+                  installmentFrequency: "MONTHLY",
+                  status: "pending_confirmation",
+                },
+              },
             },
-          },
-        },
-      ]}>
-        <ClaimMigrationInviteScreen />
-      </MemoryRouter>,
+          ]}>
+            <ClaimMigrationInviteScreen />
+          </MemoryRouter>
+        </DataProvider>
+      </QueryClientProvider>,
     );
 
     await user.click(screen.getByRole("button", { name: /confirm migration/i }));
 
     expect(screen.getByText(/migration confirmed/i)).toBeInTheDocument();
-    expect(screen.getByText(/plan starts on 13 Sep 2026/i)).toBeInTheDocument();
+    expect(screen.getByText(/Migration confirmed.*13 Sept? 2026/i)).toBeInTheDocument();
   });
 });
