@@ -389,6 +389,25 @@ const SchoolOwnerDashboard: React.FC = () => {
               </p>
             </div>
           </button>
+
+          <button
+            onClick={() => navigate("/migration-invite")}
+            className="flex flex-col items-start justify-between p-5 bg-accent/5 border-2 border-accent/20 rounded-[28px] hover:bg-accent/10 transition-all group min-h-[140px]"
+          >
+            <div className="size-10 rounded-xl bg-accent flex items-center justify-center text-white shadow-lg shadow-accent/20 mb-3">
+              <span className="material-symbols-outlined text-xl filled">
+                link
+              </span>
+            </div>
+            <div>
+              <p className="text-sm font-black text-accent uppercase tracking-widest">
+                Migration Invite
+              </p>
+              <p className="text-[11px] text-accent/70 font-bold uppercase mt-1">
+                Existing payer flow
+              </p>
+            </div>
+          </button>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
