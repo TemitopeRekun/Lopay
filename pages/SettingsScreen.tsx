@@ -46,9 +46,9 @@ const SettingsScreen: React.FC = () => {
                       </div>
                       <button 
                         onClick={toggleDarkMode}
-                        className={`w-12 h-7 rounded-full transition-colors relative ${darkMode ? 'bg-primary' : 'bg-gray-200 dark:bg-gray-700'}`}
+                        className={`relative h-7 w-12 rounded-full transition-colors duration-100 ease-out ${darkMode ? 'bg-primary' : 'bg-gray-200 dark:bg-gray-700'}`}
                       >
-                          <div className={`size-5 bg-white rounded-full absolute top-1 transition-transform ${darkMode ? 'left-6' : 'left-1'}`}></div>
+                          <div className={`absolute top-1 left-1 size-5 rounded-full bg-white transition-transform duration-100 ease-out ${darkMode ? 'translate-x-5' : 'translate-x-0'}`}></div>
                       </button>
                   </div>
               </div>
