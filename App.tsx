@@ -25,8 +25,6 @@ const Dashboard           = lazy(() => import("./pages/Dashboard"));
 const AddChildScreen      = lazy(() => import("./pages/AddChildScreen"));
 const CalculatorScreen    = lazy(() => import("./pages/CalculatorScreen"));
 const ConfirmPlanScreen   = lazy(() => import("./pages/ConfirmPlanScreen"));
-const MigrationInviteScreen = lazy(() => import("./pages/MigrationInviteScreen"));
-const ClaimMigrationInviteScreen = lazy(() => import("./pages/ClaimMigrationInviteScreen"));
 const HistoryScreen       = lazy(() => import("./pages/HistoryScreen"));
 const NotificationScreen  = lazy(() => import("./pages/NotificationScreen"));
 const PaymentMethodsScreen = lazy(() => import("./pages/PaymentMethodsScreen"));
@@ -415,22 +413,6 @@ const AppRoutes = () => {
           element={
             <ProtectedRoute allowedRoles={["parent"]}>
               <ConfirmPlanScreen />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/migration-invite"
-          element={
-            <ProtectedRoute allowedRoles={["school_owner"]}>
-              <MigrationInviteScreen />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/claim-migration-invite"
-          element={
-            <ProtectedRoute allowedRoles={["parent"]}>
-              <ClaimMigrationInviteScreen />
             </ProtectedRoute>
           }
         />
