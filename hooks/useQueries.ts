@@ -63,6 +63,12 @@ export const QUERY_KEYS = {
   adminOverview: ["adminOverview"],
   adminBreakdown: ["adminBreakdown"],
   adminSchoolBreakdown: ["adminSchoolBreakdown"],
+  /**
+   * The school owner's enrollment invites. A bare prefix rather than a factory
+   * so every status filter and page invalidates together — a claim changes one
+   * row's status, and which page it is on is not knowable from the event.
+   */
+  enrollmentInvites: ["enrollmentInvites"],
 };
 
 /** A page of normalized transactions plus the server's totals for the filter. */

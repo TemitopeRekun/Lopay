@@ -173,11 +173,16 @@ const HistoryScreen: React.FC = () => {
     }
   };
 
-  /** "First payment" / "Installment" — which leg of the plan this row is. */
+  /** Which leg of the plan this row is. */
   const getTypeLabel = (type: string | undefined) => {
     const upper = (type || '').toUpperCase();
     if (upper === 'FIRST_PAYMENT') return 'First payment';
     if (upper === 'INSTALLMENT') return 'Installment';
+    // Fees paid to the school before it adopted Lopay, credited when the parent
+    // claimed an enrollment invite. Labelled explicitly because it is the one
+    // row a parent did NOT pay through this app — leaving it blank made the
+    // single most surprising entry in their history the only unexplained one.
+    if (upper === 'MIGRATED_PAYMENT') return 'Paid before Lopay';
     return null;
   };
 

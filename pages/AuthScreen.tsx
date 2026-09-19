@@ -19,6 +19,8 @@ import {
 import { mapServerError } from '../utils/validation/serverErrors';
 import { sanitizeEmail, sanitizeName } from '../utils/validation/sanitize';
 import { CLIENT_EVENTS, logger } from '../utils/logger';
+import { peekPendingInvite, pendingInvitePath } from '../utils/pendingInvite';
+import { homePathForRole } from '../utils/homePath';
 
 /**
  * Sign-up / sign-in.
@@ -69,10 +71,24 @@ const AuthScreen: React.FC = () => {
   const navigate = useNavigate();
 
   if (isAuthenticated) {
-    if (userRole === 'owner') return <Navigate to="/owner-dashboard" replace />;
-    if (userRole === 'school_owner')
-      return <Navigate to="/school-owner-dashboard" replace />;
-    return <Navigate to="/dashboard" replace />;
+    // A parent who arrived from an enrollment-invite link signed up in order to
+    // claim it. Send them back to the invite rather than to a dashboard that
+    // says nothing about why they are here — this screen has no other way to
+    // return a user to where they came from.
+    //
+    // PEEK, never consume. This runs in the render body, and a render must be
+    // pure. Under `React.StrictMode` (see index.tsx) React deliberately
+    // double-invokes component bodies in development: a consuming read would
+    // give the token to the first, discarded render and nothing to the second,
+    // which is the one React keeps — so the parent would land on a dashboard
+    // instead of their invite, in dev only, which is a miserable thing to
+    // track down. `ClaimInviteScreen` clears the token on arrival, which is
+    // the moment it has actually been used.
+    const pendingInvite = peekPendingInvite();
+    if (pendingInvite) {
+      return <Navigate to={pendingInvitePath(pendingInvite)} replace />;
+    }
+    return <Navigate to={homePathForRole(userRole)} replace />;
   }
 
   /** Update a field and drop any error on it — they are fixing it. */

@@ -10,6 +10,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./services/queryClient";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { DataProvider } from "./context/DataContext";
+import { homePathForRole } from "./utils/homePath";
 import { useMyClassFees } from "./hooks/useQueries";
 import { ToastHost } from "./components/ToastHost";
 import { useRealtime } from "./hooks/useRealtime";
@@ -32,6 +33,9 @@ const PaymentStatusScreen = lazy(() => import("./pages/PaymentStatusScreen"));
 const ProfileScreen       = lazy(() => import("./pages/ProfileScreen"));
 const OwnerDashboard      = lazy(() => import("./pages/OwnerDashboard"));
 const SchoolOwnerDashboard = lazy(() => import("./pages/SchoolOwnerDashboard"));
+const EnrollmentInvitesScreen = lazy(() => import("./pages/EnrollmentInvitesScreen"));
+const CreateEnrollmentInviteScreen = lazy(() => import("./pages/CreateEnrollmentInviteScreen"));
+const ClaimInviteScreen   = lazy(() => import("./pages/ClaimInviteScreen"));
 const AddSchoolScreen     = lazy(() => import("./pages/admin/AddSchoolScreen"));
 const BroadcastScreen     = lazy(() => import("./pages/admin/BroadcastScreen"));
 const DefaultersScreen    = lazy(() => import("./pages/admin/DefaultersScreen"));
@@ -204,16 +208,7 @@ const HomeRedirect = () => {
 
   if (!isAuthenticated) return <Navigate to="/welcome" replace />;
 
-  switch (userRole) {
-    case "owner":
-      return <Navigate to="/owner-dashboard" replace />;
-    case "school_owner":
-      return <Navigate to="/school-owner-dashboard" replace />;
-    case "parent":
-      return <Navigate to="/dashboard" replace />;
-    default:
-      return <Navigate to="/dashboard" replace />;
-  }
+  return <Navigate to={homePathForRole(userRole)} replace />;
 };
 
 /**
@@ -259,6 +254,19 @@ const AppRoutes = () => {
         <Route path="/terms" element={<TermsOfService />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
 
+        {/*
+          Enrollment-invite claim. PUBLIC on purpose.
+
+          A parent reaches this from a WhatsApp link and usually has no account
+          yet. Gating it would ask them to sign up for a proposition they have
+          not been allowed to read — and `AuthScreen` redirects to a role-based
+          home rather than back here, so the token would be lost on the way.
+          The screen reads the invite from the public preview endpoint and only
+          offers to confirm once signed in; the server still requires a phone
+          match, so nothing is authorised by reaching this route.
+        */}
+        <Route path="/claim-invite" element={<ClaimInviteScreen />} />
+
         <Route
           path="/dashboard"
           element={
@@ -293,6 +301,34 @@ const AppRoutes = () => {
             <ProtectedRoute allowedRoles={["school_owner"]}>
               <SchoolSetupGate>
                 <SchoolOwnerDashboard />
+              </SchoolSetupGate>
+            </ProtectedRoute>
+          }
+        />
+
+        {/*
+          Enrollment invites — the school owner's side. Behind `SchoolSetupGate`
+          like the dashboard: an invite reads the school's published ClassFee, so
+          a school that has not set its fees yet has nothing to issue an invite
+          against and should be sent to finish setup rather than shown a form
+          whose class list is empty.
+        */}
+        <Route
+          path="/school/invites"
+          element={
+            <ProtectedRoute allowedRoles={["school_owner"]}>
+              <SchoolSetupGate>
+                <EnrollmentInvitesScreen />
+              </SchoolSetupGate>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/school/invites/new"
+          element={
+            <ProtectedRoute allowedRoles={["school_owner"]}>
+              <SchoolSetupGate>
+                <CreateEnrollmentInviteScreen />
               </SchoolSetupGate>
             </ProtectedRoute>
           }

@@ -6,7 +6,18 @@ import { Header } from "../../components/Header";
 import { BackendAPI, AuditLogEntry } from "../../services/backend";
 import { useAuth } from "../../context/AuthContext";
 
-const ACTION_LABELS: Record<string, string> = {
+/**
+ * Human labels for `AuditAction`.
+ *
+ * Every value the backend enum can hold belongs here. An unmapped action falls
+ * through to the raw `SCREAMING_SNAKE_CASE` in neutral grey, which reads as
+ * "unrecognised" — so a new action that nobody adds here is displayed to the
+ * platform operator as though it were noise. That is how the five
+ * enrollment-invite actions first landed: `MIGRATED_PAYMENT_AMENDED` is a school
+ * restating money on a live plan after the fact, which is among the most
+ * consequential lines in this log, and it rendered in the unknown style.
+ */
+export const ACTION_LABELS: Record<string, string> = {
   PAYMENT_CONFIRMED: "Confirmed",
   PAYMENT_REJECTED: "Rejected",
   PAYMENT_REVERSED: "Reversed",
@@ -16,9 +27,16 @@ const ACTION_LABELS: Record<string, string> = {
   FIRST_PAYMENT_PAID: "First Paid",
   ENROLLMENT_DEFAULTED: "Defaulted",
   PAYMENT_DISPUTED: "Disputed",
+  // Enrollment invites — onboarding parents who paid before the school joined.
+  ENROLLMENT_INVITE_CREATED: "Invite Issued",
+  ENROLLMENT_INVITE_REVOKED: "Invite Cancelled",
+  ENROLLMENT_INVITE_DISPUTED: "Invite Disputed",
+  ENROLLMENT_INVITE_CLAIMED: "Migrated In",
+  ENROLLMENT_INVITE_RELEASED: "Migration Removed",
+  MIGRATED_PAYMENT_AMENDED: "Migrated Amount Corrected",
 };
 
-const ACTION_COLORS: Record<string, string> = {
+export const ACTION_COLORS: Record<string, string> = {
   PAYMENT_CONFIRMED: "text-success bg-success/10",
   PAYMENT_REJECTED: "text-danger bg-danger/10",
   PAYMENT_REVERSED: "text-warning bg-warning/10",
@@ -28,6 +46,18 @@ const ACTION_COLORS: Record<string, string> = {
   FIRST_PAYMENT_PAID: "text-success bg-success/10",
   ENROLLMENT_DEFAULTED: "text-danger bg-danger/10",
   PAYMENT_DISPUTED: "text-warning bg-warning/10",
+  // Issuing and claiming are ordinary progress; a dispute or a cancellation is
+  // something going wrong. A CORRECTION is the one an operator should notice
+  // unprompted — it moves money on a plan a family is already paying against,
+  // on nothing but the school's say-so — so it is warned rather than muted.
+  ENROLLMENT_INVITE_CREATED: "text-primary bg-primary/10",
+  ENROLLMENT_INVITE_CLAIMED: "text-success bg-success/10",
+  ENROLLMENT_INVITE_REVOKED: "text-warning bg-warning/10",
+  ENROLLMENT_INVITE_DISPUTED: "text-danger bg-danger/10",
+  // Deleting a live plan, its payment rows and a Child record. The audit row is
+  // the only surviving trace of any of them, so it is never muted.
+  ENROLLMENT_INVITE_RELEASED: "text-danger bg-danger/10",
+  MIGRATED_PAYMENT_AMENDED: "text-warning bg-warning/10",
 };
 
 const AuditLogsScreen: React.FC = () => {
@@ -86,6 +116,13 @@ const AuditLogsScreen: React.FC = () => {
               <option value="">All Types</option>
               <option value="Payment">Payment</option>
               <option value="Enrollment">Enrollment</option>
+              {/*
+                The invite lifecycle writes `EnrollmentInvite` rows for issue,
+                cancellation and dispute; the claim and the correction are
+                written against `Payment`, because that is the entity whose
+                money moved. Both halves are reachable from this filter.
+              */}
+              <option value="EnrollmentInvite">Enrollment Invite</option>
             </select>
             <input
               type="text"

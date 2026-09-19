@@ -46,6 +46,10 @@ const SERVER_DERIVED_KEYS = [
   QUERY_KEYS.schoolStats,
   QUERY_KEYS.schoolTransactions,
   QUERY_KEYS.schoolStudents,
+  // A parent claiming an invite flips its row to CLAIMED and creates the plan
+  // behind it, so an owner watching the invite list sees it settle without a
+  // refresh — the same reason pendingPayments is here.
+  QUERY_KEYS.enrollmentInvites,
   // Platform admin
   QUERY_KEYS.globalTransactions,
   QUERY_KEYS.adminPendingFirstPayments,
