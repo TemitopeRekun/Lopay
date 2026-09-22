@@ -17,3 +17,10 @@ type Schemas = components["schemas"];
 export type CreateReceiptUploadDto = Schemas["CreateReceiptUploadDto"];
 export type CreateReceiptDownloadDto = Schemas["CreateReceiptDownloadDto"];
 export type ReversePaymentDto = Schemas["ReversePaymentDto"];
+
+// Enrollment invites — onboarding parents who paid the school before Lopay.
+export type CreateEnrollmentInviteDto = Schemas["CreateEnrollmentInviteDto"];
+export type ClaimEnrollmentInviteDto = Schemas["ClaimEnrollmentInviteDto"];
+export type DisputeEnrollmentInviteDto = Schemas["DisputeEnrollmentInviteDto"];
+export type RevokeEnrollmentInviteDto = Schemas["RevokeEnrollmentInviteDto"];
+export type AmendMigratedPaymentDto = Schemas["AmendMigratedPaymentDto"];

@@ -389,6 +389,31 @@ const SchoolOwnerDashboard: React.FC = () => {
               </p>
             </div>
           </button>
+
+          {/*
+            Onboarding parents who were already paying before the school joined
+            Lopay. Spans both columns because it is a setup-time task rather than
+            a daily one — it belongs with the other operations, but a school runs
+            it in a batch when they arrive and rarely afterwards.
+          */}
+          <button
+            onClick={() => navigate("/school/invites")}
+            className="col-span-2 flex items-center gap-4 p-5 bg-accent/5 border-2 border-accent/20 rounded-[28px] hover:bg-accent/10 transition-all text-left"
+          >
+            <div className="size-10 shrink-0 rounded-xl bg-accent flex items-center justify-center text-white shadow-lg shadow-accent/20">
+              <span className="material-symbols-outlined text-xl filled">
+                person_add
+              </span>
+            </div>
+            <div>
+              <p className="text-sm font-black text-accent uppercase tracking-widest">
+                Migration Invites
+              </p>
+              <p className="text-[11px] text-accent/70 font-bold uppercase mt-1">
+                Parents who already paid you
+              </p>
+            </div>
+          </button>
         </div>
 
         <div className="grid grid-cols-2 gap-4">

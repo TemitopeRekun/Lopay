@@ -572,6 +572,126 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/enrollment-invites/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Preview an enrollment invite before signing in */
+        get: operations["EnrollmentInvitesController_preview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/enrollment-invites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List this school's enrollment invites */
+        get: operations["EnrollmentInvitesController_list"];
+        put?: never;
+        /** Invite a parent who already paid the school before Lopay */
+        post: operations["EnrollmentInvitesController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/enrollment-invites/{id}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel a live invite so it can be re-issued */
+        post: operations["EnrollmentInvitesController_revoke"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/enrollment-invites/{id}/amend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Correct the amount recorded on a claimed invite */
+        post: operations["EnrollmentInvitesController_amend"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/enrollment-invites/{id}/release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Remove a plan claimed by the wrong person */
+        post: operations["EnrollmentInvitesController_release"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/enrollment-invites/claim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Claim an enrollment invite and activate the plan */
+        post: operations["EnrollmentInvitesController_claim"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/enrollment-invites/dispute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Contest the amount recorded on an invite */
+        post: operations["EnrollmentInvitesController_dispute"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/enrollments/my-children": {
         parameters: {
             query?: never;
@@ -1078,6 +1198,73 @@ export interface components {
         CreateReceiptDownloadDto: {
             /** @example payment-uuid */
             paymentId: string;
+        };
+        CreateEnrollmentInviteDto: {
+            /** @example Ada Lovelace */
+            studentName: string;
+            /**
+             * @description Must match an active ClassFee for the school.
+             * @example Basic 1
+             */
+            className: string;
+            /**
+             * @description Naira the parent has already paid the school directly. May be 0. Cannot exceed the class fee.
+             * @example 27500
+             */
+            amountAlreadyPaid: number;
+            /**
+             * @description The parent's WhatsApp number. Becomes the second factor on the claim: only an account whose own verified number matches may claim the invite.
+             * @example +2348012345678
+             */
+            parentPhone: string;
+            /**
+             * @example MONTHLY
+             * @enum {string}
+             */
+            installmentFrequency: "WEEKLY" | "MONTHLY";
+            /**
+             * Format: date-time
+             * @description When the new plan starts collecting. Anchors the installment schedule and, with the cadence, determines when the plan ends — so it must not be back-dated into a term that has already run, which would open the plan in arrears.
+             * @example 2026-09-19T00:00:00.000Z
+             */
+            planStartDate: string;
+            /**
+             * @description How long the claim link stays valid. Defaults to 14 days. Clamped server-side — the token is a bearer credential sitting in a chat thread, so it is not left open-ended.
+             * @example 14
+             */
+            expiresInDays?: number;
+        };
+        RevokeEnrollmentInviteDto: {
+            /**
+             * @description Recorded on the audit trail.
+             * @example Wrong phone number
+             */
+            reason?: string;
+        };
+        AmendMigratedPaymentDto: {
+            /**
+             * @description The corrected naira figure the parent had already paid.
+             * @example 35000
+             */
+            amountAlreadyPaid: number;
+            /**
+             * @description Recorded on the audit trail and shown to the parent.
+             * @example Bank statement showed a second transfer on 3 September.
+             */
+            reason?: string;
+        };
+        ClaimEnrollmentInviteDto: {
+            /** @description The raw claim token from the invite link. */
+            token: string;
+        };
+        DisputeEnrollmentInviteDto: {
+            /** @description The raw claim token from the invite link. */
+            token: string;
+            /**
+             * @description Shown verbatim to the school owner, so it is length-bounded and stored as given. React escapes it on render.
+             * @example The school has ₦25,000 but I paid ₦35,000 on 3 September.
+             */
+            reason: string;
         };
         CreateEnrollmentDto: {
             /**
@@ -1951,6 +2138,180 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    EnrollmentInvitesController_preview: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The raw claim token from the invite link. */
+                "x-invite-token": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    EnrollmentInvitesController_list: {
+        parameters: {
+            query?: {
+                status?: "PENDING" | "DISPUTED" | "CLAIMED" | "REVOKED" | "EXPIRED";
+                page?: number;
+                /** @description Clamped server-side by `parsePagination`. */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    EnrollmentInvitesController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateEnrollmentInviteDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    EnrollmentInvitesController_revoke: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RevokeEnrollmentInviteDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    EnrollmentInvitesController_amend: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AmendMigratedPaymentDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    EnrollmentInvitesController_release: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RevokeEnrollmentInviteDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    EnrollmentInvitesController_claim: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClaimEnrollmentInviteDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    EnrollmentInvitesController_dispute: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DisputeEnrollmentInviteDto"];
+            };
+        };
+        responses: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
