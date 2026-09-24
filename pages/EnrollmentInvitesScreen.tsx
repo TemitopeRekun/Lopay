@@ -63,6 +63,9 @@ const EnrollmentInvitesScreen: React.FC = () => {
     status: filter === "ALL" ? undefined : filter,
     page,
   });
+  // Named `window` locally would shadow the global; this is the school's
+  // migration window, and it arrives with the list rather than on its own call.
+  const migrationWindow = data?.migrationWindow;
   const revoke = useRevokeEnrollmentInvite();
   const release = useReleaseEnrollmentInvite();
 
@@ -75,10 +78,49 @@ const EnrollmentInvitesScreen: React.FC = () => {
     <Layout>
       <Header title="Migration invites" />
       <main className="flex flex-col gap-5 p-6 pb-32">
+        {/*
+          The window, stated before the button rather than after a refusal.
+
+          Migration is free and bounded per school — it is a one-time onboarding
+          step, redeemed when those families enrol normally next term. A school
+          that only learns this by filling in a form and being told "no" has
+          been failed by the screen, so the state is shown up front and the
+          button reflects it.
+        */}
+        {migrationWindow && !migrationWindow.isOpen && (
+          <section className="rounded-[28px] bg-gray-100 dark:bg-gray-800 p-5 text-sm">
+            <p className="text-[10px] font-black uppercase tracking-widest text-text-secondary-light">
+              Migration window closed
+            </p>
+            <p className="mt-2 text-text-primary-light dark:text-text-primary-dark">
+              Migrating families you were already collecting from is a one-time,
+              free step, and it closed on {formatDate(migrationWindow.closesAt)}. Enrol
+              new students normally from here — contact Lopay if you still have
+              families to migrate.
+            </p>
+          </section>
+        )}
+
+        {migrationWindow?.isOpen && migrationWindow.daysRemaining <= 14 && (
+          <section className="rounded-[28px] bg-warning/10 border border-warning/20 p-4 text-sm text-text-primary-light dark:text-text-primary-dark">
+            {/*
+              One string, not a count spliced between JSX expressions. Split
+              across text nodes it reads as "1", "day", "left" to a screen
+              reader and cannot be matched as a phrase by anything else either.
+            */}
+            <strong>{`${migrationWindow.daysRemaining} day${
+              migrationWindow.daysRemaining === 1 ? "" : "s"
+            } left`}</strong>{" "}
+            to migrate families who were already paying you. After{" "}
+            {formatDate(migrationWindow.closesAt)} they will need to enrol normally.
+          </section>
+        )}
+
         <button
           type="button"
           onClick={() => navigate("/school/invites/new")}
-          className="h-14 rounded-xl bg-primary text-white font-bold flex items-center justify-center gap-2"
+          disabled={migrationWindow ? !migrationWindow.isOpen : false}
+          className="h-14 rounded-xl bg-primary text-white font-bold flex items-center justify-center gap-2 disabled:opacity-40"
         >
           <span className="material-symbols-outlined filled">person_add</span>
           Invite an existing payer

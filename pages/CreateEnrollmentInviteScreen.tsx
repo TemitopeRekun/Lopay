@@ -3,7 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { Layout } from "../components/Layout";
 import { Header } from "../components/Header";
 import { useMyClassFees } from "../hooks/useQueries";
-import { useCreateEnrollmentInvite } from "../hooks/useEnrollmentInvites";
+import {
+  useCreateEnrollmentInvite,
+  useEnrollmentInvites,
+} from "../hooks/useEnrollmentInvites";
 import { formatNaira } from "../utils/currency";
 import { formatDate } from "../utils/date";
 import {
@@ -33,6 +36,11 @@ import { InviteSharePanel } from "../components/invites/InviteSharePanel";
 const CreateEnrollmentInviteScreen: React.FC = () => {
   const navigate = useNavigate();
   const { data: classFees = [], isLoading: feesLoading } = useMyClassFees();
+  // The window comes with the invite list. Read here too, because a school can
+  // reach this route directly — from a bookmark, a push notification, or the
+  // back button — without passing the list screen that would have told them.
+  const { data: invitePage } = useEnrollmentInvites({ status: undefined });
+  const migrationWindow = invitePage?.migrationWindow;
   const createInvite = useCreateEnrollmentInvite();
 
   const [studentName, setStudentName] = useState("");
@@ -115,6 +123,38 @@ const CreateEnrollmentInviteScreen: React.FC = () => {
       // for diagnosing real ones.
     }
   };
+
+  // Refused up front rather than on submit. The server enforces this regardless
+  // — see `isMigrationWindowOpen` — but letting an owner fill in a student's
+  // name, fee and phone number only to be told the whole route is closed wastes
+  // their work and reads as a bug rather than a rule.
+  if (migrationWindow && !migrationWindow.isOpen) {
+    return (
+      <Layout>
+        <Header title="Migration window closed" />
+        <main className="flex flex-col gap-6 p-6 pb-32">
+          <section className="rounded-[28px] bg-gray-100 dark:bg-gray-800 p-5 text-sm text-text-primary-light dark:text-text-primary-dark">
+            <p>
+              Migrating families who were already paying you is a one-time, free
+              step when a school joins Lopay, and yours closed on{" "}
+              {formatDate(migrationWindow.closesAt)}.
+            </p>
+            <p className="mt-3">
+              Enrol new students the normal way. If you still have families to
+              migrate, contact Lopay and we can reopen it for your school.
+            </p>
+          </section>
+          <button
+            type="button"
+            onClick={() => navigate("/school/invites")}
+            className="h-14 rounded-xl bg-primary text-white font-bold"
+          >
+            Back to invites
+          </button>
+        </main>
+      </Layout>
+    );
+  }
 
   if (created) {
     return (
