@@ -22,10 +22,22 @@ import type { SchoolInvite } from "../services/enrollmentInvites";
 const revokeMutate = vi.fn();
 const releaseMutate = vi.fn();
 let invites: SchoolInvite[];
+let migrationWindow: {
+  closesAt: string;
+  daysRemaining: number;
+  isOpen: boolean;
+};
 
 vi.mock("../hooks/useEnrollmentInvites", () => ({
   useEnrollmentInvites: () => ({
-    data: { items: invites, total: invites.length, page: 1, limit: 25, totalPages: 1 },
+    data: {
+      items: invites,
+      total: invites.length,
+      page: 1,
+      limit: 25,
+      totalPages: 1,
+      migrationWindow,
+    },
     isLoading: false,
     isError: false,
   }),
@@ -90,6 +102,11 @@ describe("EnrollmentInvitesScreen — a claim that may have gone astray", () => 
   beforeEach(() => {
     vi.clearAllMocks();
     invites = [claimedInvite()];
+    migrationWindow = {
+      closesAt: "2026-11-21T00:00:00.000Z",
+      daysRemaining: 60,
+      isOpen: true,
+    };
   });
 
   it("names who claimed, so the school can check it was the right family", () => {
@@ -217,5 +234,82 @@ describe("EnrollmentInvitesScreen — a claim that may have gone astray", () => 
     expect(
       screen.getByRole("button", { name: /cancel invite/i }),
     ).toBeInTheDocument();
+  });
+
+  /**
+   * The migration window, stated before the owner does any work.
+   *
+   * Migration is free and one-time per school — it is redeemed when those
+   * families enrol normally next term. A rule the screen only reveals by
+   * refusing a filled-in form reads as a bug rather than a policy, so the state
+   * is shown up front and the entry point reflects it.
+   */
+  describe("the migration window", () => {
+    it("stays quiet while there is plenty of time left", () => {
+      renderScreen();
+
+      expect(screen.queryByText(/migration window closed/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/left to migrate/i)).not.toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /invite an existing payer/i }),
+      ).toBeEnabled();
+    });
+
+    it("warns as the window runs down", () => {
+      migrationWindow = {
+        closesAt: "2026-09-29T00:00:00.000Z",
+        daysRemaining: 7,
+        isOpen: true,
+      };
+      renderScreen();
+
+      expect(screen.getByText("7 days left")).toBeInTheDocument();
+      // Still usable — a warning is not a refusal.
+      expect(
+        screen.getByRole("button", { name: /invite an existing payer/i }),
+      ).toBeEnabled();
+    });
+
+    it("gets the singular right on the last day", () => {
+      migrationWindow = {
+        closesAt: "2026-09-23T00:00:00.000Z",
+        daysRemaining: 1,
+        isOpen: true,
+      };
+      renderScreen();
+
+      expect(screen.getByText("1 day left")).toBeInTheDocument();
+      expect(screen.queryByText("1 days left")).not.toBeInTheDocument();
+    });
+
+    it("explains a closed window and disables the entry point", () => {
+      migrationWindow = {
+        closesAt: "2026-09-01T00:00:00.000Z",
+        daysRemaining: 0,
+        isOpen: false,
+      };
+      renderScreen();
+
+      expect(screen.getByText(/migration window closed/i)).toBeInTheDocument();
+      // Names the ordinary path and the exception, not just "no".
+      expect(screen.getByText(/enrol new students normally/i)).toBeInTheDocument();
+      expect(screen.getByText(/contact lopay/i)).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /invite an existing payer/i }),
+      ).toBeDisabled();
+    });
+
+    it("does not disable the entry point merely because the window is unknown", () => {
+      // An older cached page, or a response from before this field existed.
+      // Failing open here is right: the server enforces the rule regardless, so
+      // the worst case is one refused request — where failing closed would lock
+      // a school out of a feature that is actually available to them.
+      migrationWindow = undefined as never;
+      renderScreen();
+
+      expect(
+        screen.getByRole("button", { name: /invite an existing payer/i }),
+      ).toBeEnabled();
+    });
   });
 });

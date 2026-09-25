@@ -109,12 +109,30 @@ export interface ClaimResult {
   planStartDate: string;
 }
 
+/**
+ * How long this school may still ISSUE invites.
+ *
+ * Migration is free, priced as one-time acquisition — the family's next term is
+ * a normal paid enrollment — so issuing is bounded per school. It rides on the
+ * list response rather than needing its own call, because the screen has to
+ * state it BEFORE the owner fills in a form: a rule the UI only reveals by
+ * being refused is a rule the UI has failed to explain.
+ *
+ * It bounds ISSUING only. A parent can still claim a link sent before it closed.
+ */
+export interface MigrationWindow {
+  closesAt: string;
+  daysRemaining: number;
+  isOpen: boolean;
+}
+
 export interface InvitePage {
   items: SchoolInvite[];
   total: number;
   page: number;
   limit: number;
   totalPages: number;
+  migrationWindow: MigrationWindow;
 }
 
 export const EnrollmentInvitesAPI = {
