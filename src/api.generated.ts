@@ -930,6 +930,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/migration-windows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Per-school free-migration deadlines and usage */
+        get: operations["AdminController_getMigrationWindows"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/schools/{schoolId}/migration-window": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Move a school’s free-migration deadline (extend or stop) */
+        patch: operations["AdminController_setMigrationWindow"];
+        trace?: never;
+    };
     "/api/v1/admin/pending-first-payments": {
         parameters: {
             query?: never;
@@ -1332,6 +1366,16 @@ export interface components {
             idempotencyKey?: string;
         };
         ConfirmEnrollmentDto: Record<string, never>;
+        SetMigrationWindowDto: {
+            /**
+             * Format: date-time
+             * @description When this school stops being able to ISSUE migration invites. Must be within a year from now, and no earlier than yesterday — a date in the past closes migration immediately, which is allowed on purpose so a school can be stopped as well as extended.
+             * @example 2026-11-30T00:00:00.000Z
+             */
+            closesAt: string;
+            /** @example Still migrating 120 families; agreed a further month on 23 Sep. */
+            reason: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -2574,6 +2618,46 @@ export interface operations {
         requestBody?: never;
         responses: {
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminController_getMigrationWindows: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminController_setMigrationWindow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                schoolId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetMigrationWindowDto"];
+            };
+        };
+        responses: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

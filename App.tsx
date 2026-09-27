@@ -49,6 +49,7 @@ const PrivacyPolicy       = lazy(() => import("./pages/PrivacyPolicy"));
 const PaymentApprovalsScreen = lazy(() => import("./pages/admin/PaymentApprovalsScreen"));
 const SchoolSetupScreen   = lazy(() => import("./pages/SchoolSetupScreen"));
 const AuditLogsScreen     = lazy(() => import("./pages/admin/AuditLogsScreen"));
+const MigrationWindowsScreen = lazy(() => import("./pages/admin/MigrationWindowsScreen"));
 const CollectionsBreakdownScreen = lazy(() => import("./pages/admin/CollectionsBreakdownScreen"));
 
 type ErrorBoundaryProps = {
@@ -416,6 +417,20 @@ const AppRoutes = () => {
           element={
             <ProtectedRoute allowedRoles={["owner"]}>
               <AuditLogsScreen />
+            </ProtectedRoute>
+          }
+        />
+        {/*
+          Who can still migrate families for free, and for how long. The rule is
+          enforced server-side either way; without this screen it is enforced
+          and invisible, so a school finds out by being refused and the platform
+          finds out when they telephone.
+        */}
+        <Route
+          path="/admin/migration-windows"
+          element={
+            <ProtectedRoute allowedRoles={["owner"]}>
+              <MigrationWindowsScreen />
             </ProtectedRoute>
           }
         />

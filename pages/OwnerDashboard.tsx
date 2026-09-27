@@ -250,6 +250,7 @@ const OwnerDashboard: React.FC = () => {
           onUsers={() => navigate("/admin/users")}
           onBroadcast={() => navigate("/admin/broadcast")}
           onAuditLogs={() => navigate("/admin/audit-logs")}
+          onMigrationWindows={() => navigate("/admin/migration-windows")}
         />
       </main>
 
