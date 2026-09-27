@@ -8,9 +8,10 @@ interface QuickOperationsProps {
   onUsers: () => void;
   onBroadcast: () => void;
   onAuditLogs: () => void;
+  onMigrationWindows: () => void;
 }
 
-/** Admin quick-action grid: approvals, new school, schools, users, broadcast, audit log. */
+/** Admin quick-action grid: approvals, new school, schools, users, broadcast, audit log, migration periods. */
 export const QuickOperations: React.FC<QuickOperationsProps> = ({
   pendingApprovalsCount,
   onApprovals,
@@ -19,6 +20,7 @@ export const QuickOperations: React.FC<QuickOperationsProps> = ({
   onUsers,
   onBroadcast,
   onAuditLogs,
+  onMigrationWindows,
 }) => (
   <div className="grid grid-cols-2 gap-3">
     <button
@@ -102,6 +104,23 @@ export const QuickOperations: React.FC<QuickOperationsProps> = ({
       </div>
       <span className="text-[10px] font-black text-text-primary-light dark:text-text-primary-dark uppercase tracking-widest">
         Audit Log
+      </span>
+    </button>
+
+    {/*
+      Free migration is bounded per school and the bound is otherwise
+      invisible from this side — a school finds out its period is closing by
+      being refused, and the platform finds out when they telephone.
+    */}
+    <button
+      onClick={onMigrationWindows}
+      className="col-span-2 flex flex-col items-center justify-center gap-2 p-5 bg-white dark:bg-card-dark border-2 border-gray-100 dark:border-gray-800 rounded-[28px] hover:border-primary/40 transition-all group"
+    >
+      <div className="size-10 rounded-full bg-gray-50 dark:bg-white/5 flex items-center justify-center text-text-secondary-light group-hover:text-primary transition-colors">
+        <span className="material-symbols-outlined">hourglass_top</span>
+      </div>
+      <span className="text-[10px] font-black text-text-primary-light dark:text-text-primary-dark uppercase tracking-widest">
+        Migration Periods
       </span>
     </button>
   </div>

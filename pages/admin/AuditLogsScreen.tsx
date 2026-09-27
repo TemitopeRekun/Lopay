@@ -34,6 +34,7 @@ export const ACTION_LABELS: Record<string, string> = {
   ENROLLMENT_INVITE_CLAIMED: "Migrated In",
   ENROLLMENT_INVITE_RELEASED: "Migration Removed",
   MIGRATED_PAYMENT_AMENDED: "Migrated Amount Corrected",
+  MIGRATION_WINDOW_CHANGED: "Migration Period Changed",
 };
 
 export const ACTION_COLORS: Record<string, string> = {
@@ -58,6 +59,9 @@ export const ACTION_COLORS: Record<string, string> = {
   // the only surviving trace of any of them, so it is never muted.
   ENROLLMENT_INVITE_RELEASED: "text-danger bg-danger/10",
   MIGRATED_PAYMENT_AMENDED: "text-warning bg-warning/10",
+  // A commercial decision about what one school gets free, not a
+  // configuration tweak — warned so it reads as something to notice.
+  MIGRATION_WINDOW_CHANGED: "text-warning bg-warning/10",
 };
 
 const AuditLogsScreen: React.FC = () => {

@@ -72,6 +72,28 @@ apiClient.interceptors.response.use(
   },
 );
 
+/** One school's free-migration window, as the admin screen renders it. */
+export interface MigrationWindow {
+  schoolId: string;
+  schoolName: string;
+  joinedAt: string;
+  closesAt: string;
+  isOpen: boolean;
+  daysRemaining: number;
+  /** How many students this school has actually migrated. */
+  migratedStudents: number;
+}
+
+/** The result of moving a window, reporting both sides of the change. */
+export interface MigrationWindowChange {
+  schoolId: string;
+  schoolName: string;
+  previousClosesAt: string;
+  closesAt: string;
+  isOpen: boolean;
+  daysRemaining: number;
+}
+
 export interface AuditLogEntry {
   id: string;
   action: string;
@@ -266,6 +288,39 @@ export const BackendAPI = {
       );
       return response.data;
     },
+    /**
+     * Per-school free-migration deadlines, with how much of each is used.
+     *
+     * Its own call rather than a field on the payout-status list: that one makes
+     * a Paystack request per school, and this screen should not inherit
+     * Paystack's latency or its outages to show two local columns.
+     */
+    getMigrationWindows: async (): Promise<MigrationWindow[]> => {
+      const response = await apiClient.get<MigrationWindow[]>(
+        "/admin/migration-windows",
+      );
+      return response.data;
+    },
+
+    /**
+     * Move one school's free-migration deadline — extend it, or stop it.
+     *
+     * `closesAt` is the resulting date, not an amount of time: "+7 days" on a
+     * window that lapsed a fortnight ago lands in the past and silently changes
+     * nothing. The server bounds it to within a year and requires a reason.
+     */
+    setMigrationWindow: async (
+      schoolId: string,
+      closesAt: string,
+      reason: string,
+    ) => {
+      const response = await apiClient.patch<MigrationWindowChange>(
+        `/admin/schools/${schoolId}/migration-window`,
+        { closesAt, reason },
+      );
+      return response.data;
+    },
+
     getAuditLogs: async (params?: {
       entityType?: string;
       entityId?: string;
