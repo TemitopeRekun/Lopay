@@ -59,6 +59,32 @@ export const useCreateEnrollmentInvite = () => {
   });
 };
 
+/**
+ * Send a new link for an existing invite.
+ *
+ * Deliberately does NOT toast on success, for the same reason
+ * `useCreateEnrollmentInvite` does not: the caller has to put the returned
+ * `claimUrl` on screen, because the raw token is never retrievable again. A
+ * toast would say "done" at the exact moment the school still has to copy
+ * something.
+ */
+export const useReissueEnrollmentInvite = () => {
+  const queryClient = useQueryClient();
+  const showToast = useUIStore((state) => state.showToast);
+
+  return useMutation({
+    mutationFn: (id: string) => EnrollmentInvitesAPI.reissue(id),
+    onSuccess: () => {
+      // The row's status and expiry both moved (an EXPIRED invite is PENDING
+      // again), so the list is stale even though nothing was created.
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.enrollmentInvites,
+      });
+    },
+    onError: (error) => showToast(getErrorMessage(error), "error"),
+  });
+};
+
 export const useRevokeEnrollmentInvite = () => {
   const queryClient = useQueryClient();
   const showToast = useUIStore((state) => state.showToast);

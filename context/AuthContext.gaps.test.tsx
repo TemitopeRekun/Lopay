@@ -177,21 +177,47 @@ describe("AuthProvider — login / register / logout", () => {
     });
   });
 
-  it("starts the Google redirect flow with a home callback", async () => {
-    renderAuth();
-    await waitFor(() => expect(M.getSession).toHaveBeenCalled());
-
-    await act(async () => {
-      await auth.loginWithGoogle();
+  it("starts the Google flow by leaving the app, not by calling the API", async () => {
+    // It used to call `signIn.social`, a cross-origin fetch — which is where the
+    // OAuth state cookie was set, and therefore where it became a third-party
+    // cookie the callback could never read back. A top-level navigation keeps it
+    // first-party on the API's origin. See AuthContext.google.test.tsx for the
+    // full behaviour and the browser-by-browser reasoning.
+    const navigations: string[] = [];
+    const originalLocation = window.location;
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      writable: true,
+      value: {
+        origin: "https://app.lopay.test",
+        hash: "",
+        set href(url: string) {
+          navigations.push(url);
+        },
+        get href() {
+          return navigations[navigations.length - 1] ?? "";
+        },
+      },
     });
 
-    expect(M.signInSocial).toHaveBeenCalledWith({
-      provider: "google",
-      callbackURL: expect.stringContaining("/#/home"),
-      // Post-redirect failures must land back in the SPA, not on the API's own
-      // error page — see AuthContext.google.test.tsx for the full behaviour.
-      errorCallbackURL: expect.stringContaining("/#/auth"),
-    });
+    try {
+      renderAuth();
+      await waitFor(() => expect(M.getSession).toHaveBeenCalled());
+
+      await act(async () => {
+        await auth.loginWithGoogle();
+      });
+
+      expect(navigations).toHaveLength(1);
+      expect(navigations[0]).toContain("/api/v1/auth/google/start");
+      expect(M.signInSocial).not.toHaveBeenCalled();
+    } finally {
+      Object.defineProperty(window, "location", {
+        configurable: true,
+        writable: true,
+        value: originalLocation,
+      });
+    }
   });
 
   it("registers a parent, defaulting the role server-side", async () => {
