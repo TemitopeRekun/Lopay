@@ -94,20 +94,97 @@ body {
   padding-left: var(--safe-area-left);
 }
 
-.material-symbols-outlined {
-  font-variation-settings:
-    "FILL" 0,
-    "wght" 400,
-    "GRAD" 0,
-    "opsz" 24;
+/**
+ * Material Symbols, self-hosted and subsetted to the ~76 ligatures we actually
+ * render (see build/icon-names.mjs; regenerate with `npm run build:icon-font`).
+ *
+ * Google's hosted stylesheet used to supply both this @font-face AND the
+ * `.material-symbols-outlined` helper class below — which is why that class is
+ * spelled out in full here rather than just carrying font-variation-settings.
+ * Dropping the <link> without restoring these properties would leave every icon
+ * as unstyled ligature text.
+ *
+ * `font-display: block` matters more here than for a text face. These icons are
+ * ligatures, so the fallback rendering is the icon's own NAME in words —
+ * `potted_plant` at 280px across the welcome hero. `block` tells the browser to
+ * leave the glyph invisible rather than spell it out. Google's default for this
+ * URL was `auto` (= block 3s, then swap to the fallback), so on any connection
+ * where the font took over 3s the words appeared and were later replaced. With
+ * a 79 KB same-origin file the block period is never reached anyway.
+ */
+@font-face {
+  font-family: "Material Symbols Outlined";
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: block;
+  src: url("/fonts/material-symbols-subset.woff2") format("woff2");
 }
 
-.material-symbols-outlined.filled {
-  font-variation-settings:
-    "FILL" 1,
-    "wght" 400,
-    "GRAD" 0,
-    "opsz" 24;
+/**
+ * In `base` so that Tailwind's `utilities` layer still wins: icons are sized
+ * with `text-4xl` / `text-[280px]` at the call site, and an unlayered rule here
+ * would outrank those and pin every icon to 24px.
+ */
+@layer base {
+  .material-symbols-outlined {
+    font-family: "Material Symbols Outlined";
+    font-weight: normal;
+    font-style: normal;
+    font-size: 24px;
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    display: inline-block;
+    white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+    font-feature-settings: "liga";
+    -webkit-font-smoothing: antialiased;
+    font-variation-settings:
+      "FILL" 0,
+      "wght" 400,
+      "GRAD" 0,
+      "opsz" 24;
+  }
+
+  .material-symbols-outlined.filled {
+    font-variation-settings:
+      "FILL" 1,
+      "wght" 400,
+      "GRAD" 0,
+      "opsz" 24;
+  }
+}
+
+/**
+ * Welcome-screen artwork. Two rules that Tailwind utilities cannot express.
+ *
+ * The plant is a ligature GLYPH, so its size is font-size — it cannot scale to
+ * its parent the way an SVG would, and a fixed size makes the panel grow to
+ * contain it. That is what pushed the welcome column past the viewport, and
+ * "Get Started" below the fold, on any phone under ~850px tall.
+ *
+ * `container-type: size` makes the panel a query container whose own height is
+ * settled by flex alone, independent of its contents; the glyph then sizes off
+ * that height. The panel absorbs the leftover space, the glyph follows it, and
+ * the column can no longer overflow no matter how short the screen.
+ *
+ * The duplicate `font-size` is deliberate: the first is a viewport-based
+ * fallback for anything without container-query units, the second wins wherever
+ * they are supported. `cqw` is in the `min()` so the glyph stays square-ish on a
+ * narrow panel rather than overflowing sideways, and the rem term caps it on a
+ * desktop-width panel. 72% roughly reproduces the original art's 280-in-360
+ * proportion — at 62% the plant read as marooned in the middle of the panel.
+ */
+@layer components {
+  .welcome-art-panel {
+    container-type: size;
+  }
+
+  .welcome-art-glyph {
+    font-size: clamp(3.5rem, 26vh, 18rem);
+    font-size: min(72cqh, 72cqw, 18rem);
+  }
 }
 
 .no-scrollbar::-webkit-scrollbar {

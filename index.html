@@ -20,9 +20,22 @@
       href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
+    <!--
+      Material Symbols is self-hosted and subsetted (public/fonts/, built from
+      build/icon-names.mjs) rather than linked from fonts.googleapis.com, which
+      served the full 4 MB variable font with every icon Google ships.
+
+      Preloaded because a webfont is otherwise not requested until an element
+      actually uses it — and the first icons live inside lazily-imported routes
+      (WelcomeScreen / AuthScreen), so the download only began after those chunks
+      mounted. Starting it here overlaps the font with the JS bundle instead.
+    -->
     <link
-      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
-      rel="stylesheet"
+      rel="preload"
+      href="/fonts/material-symbols-subset.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
     />
     <!--
       No third-party CDN import map. react / react-dom / react-router-dom are

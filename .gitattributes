@@ -3,3 +3,9 @@
 # regardless of each machine's core.autocrlf setting.
 openapi.json text eol=lf
 src/api.generated.ts text eol=lf
+
+# The subsetted icon font (public/fonts/) is binary. Git's auto-detection is
+# usually right, but a single CRLF substitution corrupts a .woff2 into a font
+# the browser silently refuses — which renders every icon as its own name in
+# words. Stated explicitly so no core.autocrlf setting can get near it.
+*.woff2 binary
