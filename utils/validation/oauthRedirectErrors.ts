@@ -51,8 +51,26 @@ const REDIRECT_ERROR_MAP: Record<string, FieldErrorCode> = {
   // was dropped. All the user can usefully do is start again.
   state_mismatch: FIELD_ERROR_CODES.GOOGLE_RETRY,
   state_not_found: FIELD_ERROR_CODES.GOOGLE_RETRY,
+  state_invalid: FIELD_ERROR_CODES.GOOGLE_RETRY,
   no_code: FIELD_ERROR_CODES.GOOGLE_RETRY,
+  invalid_code: FIELD_ERROR_CODES.GOOGLE_RETRY,
   invalid_callback_request: FIELD_ERROR_CODES.GOOGLE_RETRY,
+
+  // Codes this app's own handoff routes emit (backend `auth/oauth-handoff.ts`),
+  // as distinct from Better Auth's. They exist because the sign-in is carried
+  // across two sites by redirect, and each leg can fail on its own:
+  //
+  //   - `session_not_found` — the callback completed but signed nobody in, so
+  //     there was no session to mint a handoff token from;
+  //   - `handoff_failed` — the token came back but would not exchange, which is
+  //     almost always a second use of an already-spent one (a refresh, or a
+  //     back button onto the callback URL);
+  //   - `google_unavailable` — the provider could not be reached or is not
+  //     configured, which is the one case where naming the alternative way in
+  //     is more use than apologising.
+  session_not_found: FIELD_ERROR_CODES.GOOGLE_RETRY,
+  handoff_failed: FIELD_ERROR_CODES.GOOGLE_RETRY,
+  google_unavailable: FIELD_ERROR_CODES.GOOGLE_UNAVAILABLE,
   // Google's own OAuth error responses.
   access_denied: FIELD_ERROR_CODES.GOOGLE_CANCELLED,
   invalid_client: FIELD_ERROR_CODES.GOOGLE_UNAVAILABLE,

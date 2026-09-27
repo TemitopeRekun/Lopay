@@ -157,6 +157,23 @@ export const EnrollmentInvitesAPI = {
     return response.data;
   },
 
+  /**
+   * Mint a fresh claim link for an invite whose link the school no longer has.
+   *
+   * Returns the same shape as `create`, raw token and all, because that is what
+   * it is: the previous `tokenHash` is overwritten server-side, so the old link
+   * is dead the moment this resolves and this response is again the only copy.
+   * The UI must therefore put it in front of the owner immediately — the share
+   * panel is reused unchanged for exactly that reason.
+   */
+  reissue: async (id: string): Promise<CreatedInvite> => {
+    const response = await apiClient.post<CreatedInvite>(
+      `/enrollment-invites/${id}/reissue`,
+      {},
+    );
+    return response.data;
+  },
+
   revoke: async (id: string, reason?: string) => {
     const response = await apiClient.post<{
       id: string;

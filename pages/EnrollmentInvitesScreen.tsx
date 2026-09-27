@@ -6,12 +6,15 @@ import { Pagination } from "../components/Pagination";
 import {
   useEnrollmentInvites,
   useReleaseEnrollmentInvite,
+  useReissueEnrollmentInvite,
   useRevokeEnrollmentInvite,
 } from "../hooks/useEnrollmentInvites";
 import { formatNaira } from "../utils/currency";
 import { formatDate } from "../utils/date";
 import { AmendInviteForm } from "../components/invites/AmendInviteForm";
+import { InviteSharePanel } from "../components/invites/InviteSharePanel";
 import type {
+  CreatedInvite,
   EnrollmentInviteStatus,
   SchoolInvite,
 } from "../services/enrollmentInvites";
@@ -68,6 +71,12 @@ const EnrollmentInvitesScreen: React.FC = () => {
   const migrationWindow = data?.migrationWindow;
   const revoke = useRevokeEnrollmentInvite();
   const release = useReleaseEnrollmentInvite();
+  const reissue = useReissueEnrollmentInvite();
+  // The re-issued link, held here rather than in the row, because it is the
+  // ONLY copy: the server overwrites the token hash, so the previous link is
+  // already dead and this response can never be produced again. It is shown
+  // in the same share panel a fresh invite uses.
+  const [reissued, setReissued] = useState<CreatedInvite | null>(null);
 
   const changeFilter = (next: EnrollmentInviteStatus | "ALL") => {
     setFilter(next);
@@ -78,6 +87,25 @@ const EnrollmentInvitesScreen: React.FC = () => {
     <Layout>
       <Header title="Migration invites" />
       <main className="flex flex-col gap-5 p-6 pb-32">
+        {/*
+          A freshly re-issued link, shown ALONE and above everything.
+
+          The raw token is in this response and nowhere else — the server has
+          already overwritten the stored hash, so the previous link is dead and
+          this one cannot be produced again. Rendering it inside the list, where
+          it could be scrolled past or lost to a refresh, would recreate the
+          problem re-issuing exists to solve. The same panel a new invite uses,
+          because it is the same job: get the link into the school's clipboard
+          before they navigate away.
+        */}
+        {reissued && (
+          <InviteSharePanel
+            invite={reissued}
+            onDone={() => setReissued(null)}
+            onAnother={() => setReissued(null)}
+          />
+        )}
+
         {/*
           The window, stated before the button rather than after a refusal.
 
@@ -185,6 +213,12 @@ const EnrollmentInvitesScreen: React.FC = () => {
             onRelease={(reason) =>
               release.mutate({ id: invite.id, reason: reason || undefined })
             }
+            onReissue={() =>
+              reissue.mutate(invite.id, { onSuccess: setReissued })
+            }
+            reissuing={
+              reissue.isPending && reissue.variables === invite.id
+            }
             releasing={release.isPending && release.variables?.id === invite.id}
           />
         ))}
@@ -207,7 +241,17 @@ const InviteCard: React.FC<{
   revoking: boolean;
   onRelease: (reason: string) => void;
   releasing: boolean;
-}> = ({ invite, onRevoke, revoking, onRelease, releasing }) => {
+  onReissue: () => void;
+  reissuing: boolean;
+}> = ({
+  invite,
+  onRevoke,
+  revoking,
+  onRelease,
+  releasing,
+  onReissue,
+  reissuing,
+}) => {
   const [confirming, setConfirming] = useState(false);
   const [amending, setAmending] = useState(false);
   const [releaseConfirming, setReleaseConfirming] = useState(false);
@@ -224,8 +268,25 @@ const InviteCard: React.FC<{
   // Claiming needs only the link, so a link that reached the wrong person is a
   // foreseeable outcome — and without this it was a permanent one.
   const canRelease = invite.status === "CLAIMED";
-  // A signal, not a verdict. `null` means not claimed; `false` means the person
-  // who claimed signed up with a different number than the school addressed.
+  /**
+   * The two states that mean "send it again".
+   *
+   * PENDING covers the school that closed the tab — the raw token is shown once
+   * and cannot be reproduced, so before this the only route back was cancelling
+   * and re-typing every field, which is where the already-paid figure gets
+   * mistyped. EXPIRED covers the family that simply did not get round to it,
+   * which is what the expiry notification now tells the school about.
+   *
+   * CLAIMED, DISPUTED and REVOKED are deliberately absent; the server refuses
+   * them and says which action is right instead.
+   */
+  const canReissue = invite.status === "PENDING" || invite.status === "EXPIRED";
+
+  // A signal, not a verdict, and THREE-valued: `true` matched, `false` compared
+  // and differed, `null` nothing to compare — the claimant signed in with
+  // Google and has no number on their account, which is ordinary. Keyed off
+  // `=== false` rather than falsiness, or every Google claimant would be
+  // flagged and the warning would stop meaning anything.
   const phoneMismatch = invite.claimantPhoneMatched === false;
 
   return (
@@ -320,6 +381,21 @@ const InviteCard: React.FC<{
           className="mt-4 w-full h-11 rounded-xl border border-danger/30 text-danger font-bold text-sm"
         >
           Cancel invite
+        </button>
+      )}
+
+      {canReissue && (
+        <button
+          type="button"
+          onClick={onReissue}
+          disabled={reissuing}
+          className="mt-4 w-full h-11 rounded-xl border border-primary/30 text-primary font-bold text-sm disabled:opacity-50"
+        >
+          {reissuing
+            ? "Creating new link…"
+            : invite.status === "EXPIRED"
+              ? "Send a new link"
+              : "Lost the link? Send a new one"}
         </button>
       )}
 

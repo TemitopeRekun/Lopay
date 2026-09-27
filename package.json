@@ -1,7 +1,7 @@
 {
   "name": "lopay",
   "private": true,
-  "version": "1.3.0",
+  "version": "1.3.2",
   "type": "module",
   "engines": {
     "node": "22.x"
@@ -11,6 +11,7 @@
     "build": "vite build && vite build --config vite.sw.config.ts",
     "preview": "vite preview",
     "static-build": "npm run build && npx cap copy",
+    "build:icon-font": "node scripts/build-icon-font.mjs",
     "generate:assets": "capacitor-assets generate --android && node scripts/fix-adaptive-icons.mjs",
     "android:open": "npx cap open android",
     "typecheck": "tsc --noEmit && tsc --noEmit -p sw/tsconfig.json",

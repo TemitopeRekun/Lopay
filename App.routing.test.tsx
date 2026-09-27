@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { SchoolSetupGate } from "./App";
+import { HomeRedirect, SchoolSetupGate } from "./App";
 import { BackendAPI } from "./services/backend";
 
 /**
@@ -18,7 +18,10 @@ vi.mock("./services/backend", () => ({
   API_URL: "http://api.test",
 }));
 
-const authState = { userRole: "school_owner" as string | null };
+const authState = {
+  userRole: "school_owner" as string | null,
+  user: { id: "u1" } as { id: string } | null,
+};
 vi.mock("./context/AuthContext", () => ({
   useAuth: () => authState,
   AuthProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -123,5 +126,64 @@ describe("SchoolSetupGate", () => {
       expect(screen.getByText("SCHOOL DASHBOARD")).toBeInTheDocument(),
     );
     expect(BackendAPI.school.getMyFees).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Resuming an enrollment invite after a sign-in that did not go through
+ * `AuthScreen`.
+ *
+ * The pending-invite check lived ONLY in `AuthScreen`, which is why a Google
+ * sign-in stranded the invite: that path never renders AuthScreen at all. It
+ * returns through `/auth/callback` and lands here, so a parent who arrived from
+ * a WhatsApp link reached their dashboard with the claim token still sitting
+ * untouched in sessionStorage — and the only way back was returning to WhatsApp
+ * and tapping the link a second time.
+ *
+ * Every route that can be a post-sign-in destination has to look, which is why
+ * this is pinned on the real routed component rather than on AuthScreen alone.
+ */
+describe("HomeRedirect — resuming an enrollment invite", () => {
+  const renderHome = () =>
+    render(
+      <MemoryRouter initialEntries={["/home"]}>
+        <Routes>
+          <Route path="/home" element={<HomeRedirect />} />
+          <Route path="/dashboard" element={<div>PARENT DASHBOARD</div>} />
+          <Route path="/welcome" element={<div>WELCOME</div>} />
+          <Route path="/claim-invite" element={<div>CLAIM SCREEN</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+  beforeEach(() => {
+    window.sessionStorage.clear();
+    authState.userRole = "parent";
+    authState.user = { id: "u1" };
+  });
+
+  it("sends a parent holding a pending invite to their claim screen", () => {
+    window.sessionStorage.setItem("lopay:pendingInviteToken", "claim-token-1");
+
+    renderHome();
+
+    expect(screen.getByText("CLAIM SCREEN")).toBeInTheDocument();
+  });
+
+  it("sends a parent with no pending invite to their dashboard", () => {
+    renderHome();
+
+    expect(screen.getByText("PARENT DASHBOARD")).toBeInTheDocument();
+  });
+
+  it("does not resume an invite for someone who is not signed in", () => {
+    // The claim screen is public, but arriving there from a signed-out redirect
+    // would show a "Sign in to continue" button the visitor just came from.
+    window.sessionStorage.setItem("lopay:pendingInviteToken", "claim-token-1");
+    authState.user = null;
+
+    renderHome();
+
+    expect(screen.getByText("WELCOME")).toBeInTheDocument();
   });
 });

@@ -1,4 +1,5 @@
 import { createAuthClient } from "better-auth/client";
+import { oneTimeTokenClient } from "better-auth/client/plugins";
 import { API_URL } from "./backend";
 import { getAuthMode } from "./platform";
 
@@ -20,6 +21,23 @@ const authMode = getAuthMode();
 
 export const authClient = createAuthClient({
   baseURL: API_URL,
+
+  /**
+   * How a Google sign-in gets its session across the origin boundary.
+   *
+   * The API is on a different SITE to this app, so a session cookie it sets is
+   * third-party here and Safari, Firefox and any Chrome incognito window will
+   * not send it back. The OAuth redirect therefore returns a one-time token in
+   * the URL fragment instead, and `AuthContext.completeOAuthHandoff` trades it
+   * at `/one-time-token/verify` — an ordinary CORS request that needs no cookie
+   * at all. The server sets a session cookie on ITS own origin in that
+   * response, which is what makes the `bearer` plugin emit `set-auth-token`,
+   * which `onSuccess` below then persists exactly like any other sign-in.
+   *
+   * See the backend's `auth/oauth-handoff.ts` for the full hop-by-hop walk.
+   */
+  plugins: [oneTimeTokenClient()],
+
   fetchOptions:
     authMode === "cookie"
       ? {

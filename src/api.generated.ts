@@ -624,6 +624,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/enrollment-invites/{id}/reissue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send a new claim link for an existing invite */
+        post: operations["EnrollmentInvitesController_reissue"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/enrollment-invites/{id}/amend": {
         parameters: {
             query?: never;
@@ -1247,7 +1264,7 @@ export interface components {
              */
             amountAlreadyPaid: number;
             /**
-             * @description The parent's WhatsApp number. Becomes the second factor on the claim: only an account whose own verified number matches may claim the invite.
+             * @description The parent's WhatsApp number — who the invite is addressed to, and the number the school will recognise on the claim notification. It does NOT gate the claim: holding the link is the whole authorisation (Lopay verifies no phone number anywhere, so a match proved only that someone typed it into a signup form). The claimant is compared against it and the school is told the result, so a link that reached the wrong person can be spotted and undone.
              * @example +2348012345678
              */
             parentPhone: string;
@@ -2266,6 +2283,25 @@ export interface operations {
                 "application/json": components["schemas"]["RevokeEnrollmentInviteDto"];
             };
         };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    EnrollmentInvitesController_reissue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             201: {
                 headers: {

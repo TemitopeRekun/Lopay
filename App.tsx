@@ -11,6 +11,7 @@ import { queryClient } from "./services/queryClient";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { DataProvider } from "./context/DataContext";
 import { homePathForRole } from "./utils/homePath";
+import { peekPendingInvite, pendingInvitePath } from "./utils/pendingInvite";
 import { useMyClassFees } from "./hooks/useQueries";
 import { ToastHost } from "./components/ToastHost";
 import { useRealtime } from "./hooks/useRealtime";
@@ -21,6 +22,7 @@ import { Capacitor, SystemBars, SystemBarsStyle } from "@capacitor/core";
 // Lazy-loaded route components — each chunk is fetched only when first visited.
 // The Suspense fallback (SplashScreen) shows during the brief network fetch.
 const AuthScreen          = lazy(() => import("./pages/AuthScreen"));
+const OAuthCallbackScreen = lazy(() => import("./pages/OAuthCallbackScreen"));
 const WelcomeScreen       = lazy(() => import("./pages/WelcomeScreen"));
 const Dashboard           = lazy(() => import("./pages/Dashboard"));
 const AddChildScreen      = lazy(() => import("./pages/AddChildScreen"));
@@ -203,11 +205,35 @@ export const SchoolSetupGate = ({
   return <>{children}</>;
 };
 
-const HomeRedirect = () => {
+/**
+ * Exported so `App.routing.test.tsx` can exercise the REAL component rather
+ * than a copy — a duplicated redirect body could pass in a test while the
+ * routed one is broken. Same reason `SchoolSetupGate` is exported.
+ */
+export const HomeRedirect = () => {
   const { user, userRole } = useAuth(); // Use AuthContext
   const isAuthenticated = !!user;
 
   if (!isAuthenticated) return <Navigate to="/welcome" replace />;
+
+  // A parent who arrived from a WhatsApp invite link signed in IN ORDER to
+  // claim it, so the invite beats a dashboard that says nothing about why they
+  // are here.
+  //
+  // This check lived only in `AuthScreen`, which is why a Google sign-in
+  // stranded the invite: that path never renders AuthScreen at all. It returns
+  // through `/auth/callback` and lands here, so the parent reached their
+  // dashboard with the token still sitting untouched in sessionStorage and no
+  // way back except returning to WhatsApp and tapping the link again. Every
+  // route that can be a post-sign-in destination has to look.
+  //
+  // PEEK, never consume — this runs in a render body, and under StrictMode a
+  // consuming read would hand the token to the discarded first invocation. It
+  // is cleared by `ClaimInviteScreen`, once actually used.
+  const pendingInvite = peekPendingInvite();
+  if (pendingInvite) {
+    return <Navigate to={pendingInvitePath(pendingInvite)} replace />;
+  }
 
   return <Navigate to={homePathForRole(userRole)} replace />;
 };
@@ -252,6 +278,13 @@ const AppRoutes = () => {
         <Route path="/home" element={<HomeRedirect />} />
         <Route path="/welcome" element={<WelcomeScreen />} />
         <Route path="/auth" element={<AuthScreen />} />
+        {/*
+          Where a Google sign-in returns to. PUBLIC by necessity: the visitor is
+          not signed in yet when they arrive — trading the one-time token in the
+          fragment for a session is the very thing this screen does. Declared
+          before the protected routes for the same reason the claim route is.
+        */}
+        <Route path="/auth/callback" element={<OAuthCallbackScreen />} />
         <Route path="/terms" element={<TermsOfService />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
 

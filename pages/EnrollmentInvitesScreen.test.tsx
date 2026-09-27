@@ -21,6 +21,7 @@ import type { SchoolInvite } from "../services/enrollmentInvites";
 
 const revokeMutate = vi.fn();
 const releaseMutate = vi.fn();
+const reissueMutate = vi.fn();
 let invites: SchoolInvite[];
 let migrationWindow: {
   closesAt: string;
@@ -48,6 +49,11 @@ vi.mock("../hooks/useEnrollmentInvites", () => ({
   }),
   useReleaseEnrollmentInvite: () => ({
     mutate: releaseMutate,
+    isPending: false,
+    variables: undefined,
+  }),
+  useReissueEnrollmentInvite: () => ({
+    mutate: reissueMutate,
     isPending: false,
     variables: undefined,
   }),
@@ -311,5 +317,73 @@ describe("EnrollmentInvitesScreen — a claim that may have gone astray", () => 
         screen.getByRole("button", { name: /invite an existing payer/i }),
       ).toBeEnabled();
     });
+  });
+});
+
+/**
+ * Sending the link again.
+ *
+ * The raw token is returned exactly once and stored only as a SHA-256 digest,
+ * so before this the remedy for a closed tab was cancelling the invite and
+ * re-typing every field — and re-typing is exactly where the already-paid
+ * figure gets mistyped. That figure becomes a family's opening balance, which
+ * they are then asked to confirm as their own.
+ */
+describe("EnrollmentInvitesScreen — re-issuing a link", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    migrationWindow = {
+      closesAt: "2026-11-21T00:00:00.000Z",
+      daysRemaining: 60,
+      isOpen: true,
+    };
+  });
+
+  it("offers a new link for an invite nobody has claimed yet", () => {
+    invites = [claimedInvite({ status: "PENDING" })];
+    renderScreen();
+
+    expect(
+      screen.getByRole("button", { name: /lost the link/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("offers one for an invite that lapsed, which is the point", () => {
+    // Pairs with the expiry notification the sweep now sends: the school is
+    // told a family did not confirm in time, so the thing it asks them to do
+    // has to exist.
+    invites = [claimedInvite({ status: "EXPIRED" })];
+    renderScreen();
+
+    expect(
+      screen.getByRole("button", { name: /send a new link/i }),
+    ).toBeInTheDocument();
+  });
+
+  it.each(["CLAIMED", "DISPUTED", "REVOKED"] as const)(
+    "does not offer one for a %s invite",
+    (status) => {
+      // CLAIMED has a live plan behind it (amend/release are the remedies),
+      // DISPUTED means the parent said the figure is wrong and resending the
+      // same one ignores them, and REVOKED was cancelled deliberately. The
+      // server refuses all three; a button here would imply otherwise.
+      invites = [claimedInvite({ status })];
+      renderScreen();
+
+      expect(screen.queryByRole("button", { name: /new link/i })).toBeNull();
+      expect(
+        screen.queryByRole("button", { name: /lost the link/i }),
+      ).toBeNull();
+    },
+  );
+
+  it("asks the server for a new link, naming the invite", () => {
+    invites = [claimedInvite({ status: "EXPIRED", id: "invite-9" })];
+    renderScreen();
+
+    fireEvent.click(screen.getByRole("button", { name: /send a new link/i }));
+
+    expect(reissueMutate).toHaveBeenCalledTimes(1);
+    expect(reissueMutate.mock.calls[0][0]).toBe("invite-9");
   });
 });

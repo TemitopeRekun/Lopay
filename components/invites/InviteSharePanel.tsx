@@ -21,28 +21,36 @@ import type { CreatedInvite } from "../../services/enrollmentInvites";
  *
  * The number the invite was addressed to is shown beside the copy button, not
  * because anything routes to it, but because it is the ONE field the school
- * must get right — it is what the claim is checked against, so a mistyped digit
- * sends a child's details to a stranger and locks the real parent out. Putting
- * it in front of them at the moment they copy the link is the last chance to
- * notice.
+ * must get right — and the consequence of getting it wrong is worse than it
+ * used to be, not better. The claim is no longer gated on the number: holding
+ * the link is the whole authorisation. So a mistyped digit no longer locks the
+ * real parent out; it sends a child's fee details to a stranger who can then
+ * open a plan in their own name. The comparison still happens and the school is
+ * still told the result, but that is a warning after the fact — `release` is
+ * the undo. Putting the number in front of them at the moment they copy the
+ * link is the last chance to prevent it rather than correct it.
  */
 export const InviteSharePanel: React.FC<{
   invite: CreatedInvite;
   onDone: () => void;
   onAnother: () => void;
 }> = ({ invite, onDone, onAnother }) => {
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<"message" | "link" | null>(null);
 
-  const copyLink = async () => {
+  /**
+   * Copy something to the clipboard, remembering which button did it.
+   *
+   * Clipboard access is denied in some in-app browsers and over plain http. The
+   * link is visible and selectable below, so this degrades rather than failing
+   * — an error toast here would be noise for a recoverable case.
+   */
+  const copy = (what: "message" | "link", text: string) => async () => {
     try {
-      await navigator.clipboard.writeText(invite.claimUrl);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 2_000);
+      await navigator.clipboard.writeText(text);
+      setCopied(what);
+      window.setTimeout(() => setCopied(null), 2_000);
     } catch {
-      // Clipboard access is denied in some in-app browsers and over plain http.
-      // The link is visible and selectable below, so this degrades rather than
-      // failing — an error toast here would be noise for a recoverable case.
-      setCopied(false);
+      setCopied(null);
     }
   };
 
@@ -87,21 +95,53 @@ export const InviteSharePanel: React.FC<{
         list and create a new one.
       </div>
 
+      {/*
+        The MESSAGE is the primary action, not the bare link.
+
+        The server composes one (`EnrollmentInvitesService.buildShare`) that
+        names the child, says what the link is for and says nothing has changed
+        yet — and this panel used to return it and throw it away, copying only
+        the URL. A naked link dropped into WhatsApp by a school is precisely the
+        shape parents are taught not to tap, and this one asks them to confirm
+        money. Copying the sentence costs the school nothing and is the
+        difference between a claim and a suspected scam.
+
+        The link stays available on its own, because a school that has already
+        written its own greeting only wants the URL.
+      */}
       <div className="flex flex-col gap-3">
         <button
           type="button"
-          onClick={copyLink}
+          onClick={copy("message", invite.message)}
           className="h-14 rounded-xl bg-primary text-white font-bold flex items-center justify-center gap-2"
         >
           <span className="material-symbols-outlined filled">
-            {copied ? "check" : "content_copy"}
+            {copied === "message" ? "check" : "content_copy"}
           </span>
-          {copied ? "Link copied" : "Copy link"}
+          {copied === "message" ? "Message copied" : "Copy message"}
         </button>
 
         <p className="text-xs text-text-secondary-light text-center">
-          Paste it into your message to {invite.invite.parentPhone}.
+          Paste it into your chat with {invite.invite.parentPhone}.
         </p>
+
+        <p
+          className="rounded-2xl bg-gray-50 dark:bg-gray-800/50 p-3 text-[11px] leading-relaxed text-text-secondary-light select-all"
+          data-testid="invite-share-message"
+        >
+          {invite.message}
+        </p>
+
+        <button
+          type="button"
+          onClick={copy("link", invite.claimUrl)}
+          className="h-12 rounded-xl border border-gray-200 dark:border-gray-700 font-bold flex items-center justify-center gap-2"
+        >
+          <span className="material-symbols-outlined">
+            {copied === "link" ? "check" : "link"}
+          </span>
+          {copied === "link" ? "Link copied" : "Copy link only"}
+        </button>
 
         <p
           className="text-[11px] break-all text-text-secondary-light select-all"

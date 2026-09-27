@@ -34,9 +34,11 @@ import type { ClaimResult, InvitePreview } from "../services/enrollmentInvites";
  *
  * The parent usually has no account yet — the link arrives over WhatsApp. They
  * must be able to read what is being asserted *before* signing up, or they are
- * being asked to create an account for an unknown proposition. Confirming still
- * requires an account whose phone matches the number the school addressed it to;
- * that check is the server's, and this screen simply surfaces its answer.
+ * being asked to create an account for an unknown proposition. Confirming
+ * requires only an account: holding the link is the whole authorisation, and
+ * the phone number is compared and reported to the school rather than enforced
+ * — see `EnrollmentInvitesService.claimantPhoneMatches` for why a gate there
+ * refused more real parents than impostors.
  */
 const ClaimInviteScreen: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -145,9 +147,18 @@ const ClaimInviteScreen: React.FC = () => {
 
         {invite.canClaim && !isAuthenticated && (
           <div className="flex flex-col gap-3">
+            {/*
+              Deliberately does NOT tell them which number to use. It used to,
+              and that was a rule the server stopped enforcing: the claim is
+              authorised by the link alone. Naming a number the parent may not
+              have — a second phone, their spouse's, or none at all if they sign
+              in with Google — reads as a requirement they cannot meet, and the
+              cost of that is a family who abandons the claim rather than a
+              family who is kept out.
+            */}
             <p className="text-sm text-text-secondary-light">
-              Sign in — or create your Lopay account — to confirm. Use the phone
-              number your school has on file.
+              Sign in — or create your Lopay account — to confirm. It only takes
+              a moment, and nothing is added to your account until you do.
             </p>
             <button
               type="button"
